@@ -4,12 +4,11 @@ import { AIError } from "./errors"
 
 /**
  * 接收一个 ModelConfig,返回 AI SDK 的 LanguageModel。
- * 兼容 baseUrl 末尾带或不带 /v1 两种写法。
+ * 先剥掉 baseUrl 末尾的斜杠再判断是否需要补 /v1,兼容用户粘贴带尾斜杠的写法。
  */
 export function createAIClient(modelConfig: ModelConfig) {
-  const baseURL = modelConfig.baseUrl.endsWith("/v1")
-    ? modelConfig.baseUrl
-    : `${modelConfig.baseUrl}/v1`
+  const trimmed = modelConfig.baseUrl.replace(/\/+$/, "")
+  const baseURL = trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`
   const provider = createOpenAI({ baseURL, apiKey: modelConfig.apiKey })
   return provider(modelConfig.name)
 }
