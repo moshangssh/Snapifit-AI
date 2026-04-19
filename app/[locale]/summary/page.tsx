@@ -12,7 +12,7 @@ import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useToast } from "@/hooks/use-toast"
 import type { DailyLog, UserProfile, SmartSuggestionsResponse } from "@/lib/types"
 import { format } from "date-fns"
-import { zhCN, enUS } from "date-fns/locale"
+import { zhCN } from "date-fns/locale"
 import {
   ArrowLeft,
   Utensils,
@@ -67,7 +67,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
   const resolvedParams = use(params)
 
   // 获取当前语言环境
-  const currentLocale = resolvedParams.locale === 'en' ? enUS : zhCN
+  const currentLocale = zhCN
 
   // 处理URL中的日期参数
   useEffect(() => {

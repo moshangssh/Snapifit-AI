@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef, use } from "react"
 import { format } from "date-fns"
-import { zhCN, enUS } from "date-fns/locale"
+import { zhCN } from "date-fns/locale"
 import Link from "next/link"
 import { CalendarIcon, X, ImageIcon, Brain, ClipboardPenLine, Utensils, Dumbbell, Weight, Activity, AlertCircle, CheckCircle2, Info, Settings2, UploadCloud, Trash2, Edit3, TrendingUp, TrendingDown, Sigma, Flame, BedDouble, Target, PieChart, ListChecks, Sparkles, Save, CalendarDays, UserCheck, AlertTriangle, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -53,7 +53,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const resolvedParams = use(params)
 
   // 获取当前语言环境
-  const currentLocale = resolvedParams.locale === 'en' ? enUS : zhCN
+  const currentLocale = zhCN
   const [inputText, setInputText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [activeTab, setActiveTab] = useState("food")

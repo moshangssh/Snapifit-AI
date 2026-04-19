@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { TrendingUp, Weight, Utensils, Dumbbell, Target, Calendar } from "lucide-react"
 import { format, subDays, parseISO, eachDayOfInterval } from "date-fns"
 import { zhCN } from "date-fns/locale"
@@ -426,7 +426,6 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
                           borderRadius: '8px'
                         }}
                       />
-                      <Legend />
                       <Line
                         type="monotone"
                         dataKey="caloriesIn"

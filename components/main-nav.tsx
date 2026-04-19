@@ -6,8 +6,6 @@ import { cn } from "@/lib/utils"
 import { Home, MessageSquare, Settings, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
-import { LanguageSwitcher } from "@/components/language-switcher"
-import { GitHubStar } from "@/components/github-star"
 import { useTranslation } from "@/hooks/use-i18n"
 import { locales, type Locale } from "@/i18n"
 import Image from "next/image"
@@ -86,7 +84,6 @@ export function MainNav() {
         </nav>
 
         <div className="ml-auto flex items-center space-x-3">
-          <LanguageSwitcher />
           <Button
             variant="ghost"
             size="icon"
@@ -97,7 +94,6 @@ export function MainNav() {
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-green-500 dark:text-green-300" />
             <span className="sr-only">切换主题</span>
           </Button>
-          <GitHubStar repo="Feather-2/SnapFit-AI" />
         </div>
       </div>
     </div>
