@@ -55,7 +55,7 @@ export function AgentAdvice({ dailyLog, userProfile, aiConfig }: AgentAdviceProp
     setAdvice("")
 
     try {
-      const response = await fetch("/api/openai/advice-stream", {
+      const response = await fetch("/api/ai/advice-stream", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
