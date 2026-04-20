@@ -17,7 +17,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useAIMemory } from "@/hooks/use-ai-memory"
 import type { AIConfig, ModelConfig } from "@/lib/types"
-import type { OpenAIModel } from "@/lib/openai-client"
+import type { OpenAIModel } from "@/lib/ai/types"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -343,7 +343,7 @@ function SettingsContent() {
       }
 
       try {
-        const response = await fetch("/api/models", {
+        const response = await fetch("/api/ai/models", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -451,7 +451,7 @@ function SettingsContent() {
       }
 
       try {
-        const response = await fetch("/api/test-model", {
+        const response = await fetch("/api/ai/test-model", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
