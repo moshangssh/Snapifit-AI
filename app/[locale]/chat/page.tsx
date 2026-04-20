@@ -477,7 +477,7 @@ export default function ChatPage() {
   })
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages } = useChat({
-    api: "/api/openai/chat",
+    api: "/api/ai/chat",
     initialMessages: [],
     headers: {
       "x-ai-config": JSON.stringify(aiConfig),

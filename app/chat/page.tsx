@@ -587,7 +587,7 @@ export default function ChatPage() {
   const currentExpert = expertRoles.find(expert => expert.id === selectedExpert) || expertRoles[0]
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages } = useChat({
-    api: "/api/openai/chat",
+    api: "/api/ai/chat",
     initialMessages: [],
     headers: {
       "x-ai-config": JSON.stringify(aiConfig),
