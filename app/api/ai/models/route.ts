@@ -8,11 +8,8 @@ export async function POST(req: Request) {
       throw new AIError("INVALID_INPUT", "Base URL and API Key are required")
     }
 
-    const normalizedBase = baseUrl.endsWith("/v1")
-      ? baseUrl.slice(0, -3)
-      : baseUrl.endsWith("/")
-      ? baseUrl.slice(0, -1)
-      : baseUrl
+    const trimmed = baseUrl.replace(/\/+$/, "")
+    const normalizedBase = trimmed.endsWith("/v1") ? trimmed.slice(0, -3) : trimmed
 
     const url = `${normalizedBase}/v1/models`
     const response = await fetch(url, {
@@ -22,9 +19,10 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error("List models upstream error:", errorText)
       throw new AIError(
         "UPSTREAM_ERROR",
-        `Failed to fetch models: ${response.status} ${response.statusText} - ${errorText}`,
+        `Failed to fetch models: ${response.status} ${response.statusText}`,
       )
     }
 
