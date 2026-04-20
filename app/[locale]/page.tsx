@@ -169,7 +169,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     if (!foodEntries.length || !checkAIConfig()) return null;
 
     try {
-      const response = await fetch("/api/openai/tef-analysis", {
+      const response = await fetch("/api/ai/tef-analysis", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -220,7 +220,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         }
       }
 
-      const response = await fetch("/api/openai/smart-suggestions", {
+      const response = await fetch("/api/ai/smart-suggestions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -578,7 +578,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           formData.append(`image${index}`, img.compressedFile || img.file)
         })
 
-        const response = await fetch("/api/openai/parse-with-images", {
+        const response = await fetch("/api/ai/parse-with-images", {
           method: "POST",
           body: formData,
         })
@@ -589,7 +589,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         }
         result = await response.json()
       } else {
-        const response = await fetch("/api/openai/parse", {
+        const response = await fetch("/api/ai/parse", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
