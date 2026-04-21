@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { v4 as uuidv4 } from "uuid"
+import { MUSCLE_KEYS, MUSCLE_KEY_SET } from "@/lib/muscle-groups"
 
 /**
  * 营养成分 schema。
@@ -48,7 +49,14 @@ export const ExerciseParseSchema = z.object({
       estimated_mets: z.number(),
       user_weight: z.number(),
       calories_burned_estimated: z.number(),
-      muscle_groups: z.array(z.string()).optional(),
+      muscle_groups: z
+        .array(z.string())
+        .optional()
+        .transform(arr =>
+          arr?.filter((s): s is typeof MUSCLE_KEYS[number] =>
+            MUSCLE_KEY_SET.has(s),
+          ),
+        ),
       is_estimated: z.boolean(),
     }),
   ),

@@ -293,6 +293,37 @@
       "distance": "公里",
       "weight": "kg",
       "muscleGroups": "锻炼部位"
+    },
+    "muscleFatigue": {
+      "title": "今日恢复状态",
+      "subtitle": "过去 3 天训练影响",
+      "empty": "暂无近期训练记录,记录运动后这里会显示肌肉恢复状态",
+      "viewFront": "前",
+      "viewBack": "后",
+      "whenToday": "今天刚练过",
+      "whenYesterday": "昨天练过",
+      "whenDayBefore": "前天练过",
+      "whenRecovered": "已恢复",
+      "legendToday": "今",
+      "legendYesterday": "昨",
+      "legendDayBefore": "前",
+      "legendRecovered": "恢复",
+      "muscleLabels": {
+        "chest": "胸部",
+        "abs": "腹肌",
+        "obliques": "腹斜肌",
+        "upper-back": "上背",
+        "lower-back": "下背",
+        "front-deltoids": "前三角肌",
+        "back-deltoids": "后三角肌",
+        "biceps": "肱二头肌",
+        "triceps": "肱三头肌",
+        "forearms": "前臂",
+        "quadriceps": "股四头肌",
+        "hamstrings": "腘绳肌",
+        "glutes": "臀肌",
+        "calves": "小腿"
+      }
     }
   },
 
