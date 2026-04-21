@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { FoodEntry, ExerciseEntry, DailyLog, AIConfig, DailyStatus } from "@/lib/types"
 import { FoodEntryCard } from "@/components/food-entry-card"
 import { ExerciseEntryCard } from "@/components/exercise-entry-card"
+import { MuscleFatigueCard } from "@/components/muscle-fatigue-card"
 import { DailySummary } from "@/components/daily-summary"
 import { ManagementCharts } from "@/components/management-charts"
 import { SmartSuggestions } from "@/components/smart-suggestions"
@@ -1039,6 +1040,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   </SelectContent>
                 </Select>
               </div>
+              <MuscleFatigueCard
+                selectedDate={selectedDate}
+                refreshTrigger={chartRefreshTrigger}
+              />
             </div>
           </div>
         </header>
