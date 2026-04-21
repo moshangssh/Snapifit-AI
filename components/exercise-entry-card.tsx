@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import type { ExerciseEntry } from "@/lib/types"
 import { useTranslation } from "@/hooks/use-i18n"
+import { MUSCLE_KEY_SET, type MuscleKey } from "@/lib/muscle-groups"
 
 interface ExerciseEntryCardProps {
   entry: ExerciseEntry
@@ -20,6 +21,12 @@ interface ExerciseEntryCardProps {
 
 export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCardProps) {
   const t = useTranslation('dashboard.exerciseCard')
+  const tFatigue = useTranslation('dashboard.muscleFatigue')
+
+  const renderMuscle = (raw: string) =>
+    MUSCLE_KEY_SET.has(raw)
+      ? tFatigue(`muscleLabels.${raw as MuscleKey}`)
+      : raw
   const [isEditing, setIsEditing] = useState(false)
   const [editedEntry, setEditedEntry] = useState<ExerciseEntry>({ ...entry })
 
@@ -167,8 +174,10 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
                 {entry.weight_kg && ` · ${entry.weight_kg}${t('weight')}`}
               </p>
               <p className="text-sm font-medium mt-1">{entry.calories_burned_estimated?.toFixed(0) || 0} {t('calories')}</p>
-              {entry.muscle_groups && (
-                <p className="text-xs text-muted-foreground">{t('muscleGroups')}: {entry.muscle_groups.join(", ")}</p>
+              {entry.muscle_groups && entry.muscle_groups.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {t('muscleGroups')}: {entry.muscle_groups.map(renderMuscle).join(", ")}
+                </p>
               )}
             </div>
             <div className="flex space-x-1">
