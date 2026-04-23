@@ -30,3 +30,6 @@ export_code_to_xml.py
 
 # superpowers brainstorm mockups
 .superpowers/
+
+# git worktrees
+.worktrees/
