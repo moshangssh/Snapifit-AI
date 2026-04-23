@@ -8,6 +8,11 @@ import {
   updateWorkoutSetValue,
   workoutSessionToExerciseEntries,
 } from "@/lib/workout/session"
+import {
+  buildWorkoutPlanContextSnapshot,
+  getEffectiveUserWeightKg,
+} from "@/lib/workout/context"
+import type { DailyLog, UserProfile } from "@/lib/types"
 import type { CreateWorkoutSessionInput } from "@/lib/workout/types"
 
 function makeInput(): CreateWorkoutSessionInput {
@@ -182,5 +187,72 @@ describe("workout session core", () => {
     expect(entries[0].weight_kg).toBe(60)
     expect(entries[0].muscle_groups).toEqual(["chest", "triceps"])
     expect(entries[0].calories_burned_estimated).toBe(86)
+  })
+})
+
+const baseProfile: UserProfile = {
+  weight: 70,
+  height: 170,
+  age: 30,
+  gender: "male",
+  activityLevel: "moderate",
+  goal: "gain_muscle",
+}
+
+const emptySummary = {
+  totalCaloriesConsumed: 0,
+  totalCaloriesBurned: 0,
+  macros: { carbs: 0, protein: 0, fat: 0 },
+  micronutrients: {},
+}
+
+describe("workout context", () => {
+  it("uses most recent logged daily weight before profile weight", () => {
+    const logs = [
+      {
+        date: "2026-04-23",
+        foodEntries: [],
+        exerciseEntries: [],
+        summary: emptySummary,
+        weight: 73,
+      },
+    ] satisfies DailyLog[]
+
+    expect(getEffectiveUserWeightKg(logs, baseProfile)).toBe(73)
+  })
+
+  it("builds fatigue snapshot from recent DailyLog exercise entries", () => {
+    const logs = [
+      {
+        date: "2026-04-23",
+        foodEntries: [],
+        exerciseEntries: [
+          {
+            log_id: "e1",
+            exercise_name: "深蹲",
+            exercise_type: "strength",
+            duration_minutes: 30,
+            sets: 3,
+            reps: 8,
+            weight_kg: 80,
+            estimated_mets: 6,
+            user_weight: 73,
+            calories_burned_estimated: 180,
+            muscle_groups: ["quadriceps"],
+            is_estimated: true,
+          },
+        ],
+        summary: emptySummary,
+      },
+    ] satisfies DailyLog[]
+
+    const context = buildWorkoutPlanContextSnapshot({
+      now: "2026-04-23T12:00:00.000Z",
+      userProfile: baseProfile,
+      recentLogsByDateDesc: logs,
+      recentCompletedSessions: [],
+    })
+
+    expect(context.fatigueSnapshot.quadriceps?.intensity).toBe(100)
   })
 })
