@@ -1,0 +1,48 @@
+{
+  "navigation": {
+    "home": "Home",
+    "workout": "Workout",
+    "chat": "Chat",
+    "settings": "Settings"
+  },
+  "workout": {
+    "eyebrow": "Smart Workout",
+    "titleCurrent": "Current Workout Plan",
+    "titleNext": "Next Workout Plan",
+    "subtitle": "AI uses your local workout history, muscle fatigue, and latest weight to generate a single-session workout you can check off set by set.",
+    "generate": "Generate {title}",
+    "generating": "Generating...",
+    "metrics": {
+      "exerciseCount": "Exercises",
+      "setCount": "Sets",
+      "completedSets": "Completed",
+      "replacedExercises": "Replaced"
+    },
+    "exercise": {
+      "replaced": "Replaced",
+      "recalculate": "Analysis updates after finish",
+      "skipped": "Skipped",
+      "muscles": "Target muscles",
+      "replace": "Replace exercise",
+      "skip": "Skip exercise",
+      "unskip": "Undo skip",
+      "replacePrompt": "Enter replacement exercise name",
+      "setLabel": "Set {index}",
+      "planned": "Planned",
+      "completed": "Done",
+      "complete": "Complete",
+      "unknown": "Unknown"
+    },
+    "finishHint": "All non-skipped sets must be completed before finishing.",
+    "finishing": "Saving workout results...",
+    "finish": "Finish Workout",
+    "finishSuccessTitle": "Workout finished",
+    "finishSuccessDesc": "The result was written to today's exercise log.",
+    "finishErrorTitle": "Failed to finish workout",
+    "finishErrorDesc": "Writing exercise log failed. Please retry.",
+    "generateErrorTitle": "Failed to generate workout plan",
+    "generateErrorDesc": "Please try again later.",
+    "aiConfigErrorTitle": "AI config is incomplete",
+    "aiConfigErrorDesc": "Configure the work model in Settings first."
+  }
+}

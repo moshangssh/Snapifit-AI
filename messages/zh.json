@@ -31,6 +31,7 @@
   },
   "navigation": {
     "home": "首页",
+    "workout": "训练",
     "chat": "智能对话",
     "settings": "设置",
     "dashboard": "仪表板",
@@ -824,5 +825,45 @@
       "failed": "截图失败",
       "failedDescription": "请稍后重试或尝试其他浏览器"
     }
+  },
+  "workout": {
+    "eyebrow": "Smart Workout",
+    "titleCurrent": "本次训练计划",
+    "titleNext": "下次训练计划",
+    "subtitle": "AI 会读取你的本地训练历史、肌肉疲劳和最近体重,生成一份可直接打卡的单次训练计划。",
+    "generate": "生成{title}",
+    "generating": "正在生成...",
+    "metrics": {
+      "exerciseCount": "动作",
+      "setCount": "总组数",
+      "completedSets": "已完成",
+      "replacedExercises": "已替换"
+    },
+    "exercise": {
+      "replaced": "已替换",
+      "recalculate": "完成后重算分析",
+      "skipped": "已跳过",
+      "muscles": "目标肌群",
+      "replace": "替换动作",
+      "skip": "跳过动作",
+      "unskip": "取消跳过",
+      "replacePrompt": "输入替换动作名称",
+      "setLabel": "第 {index} 组",
+      "planned": "计划",
+      "completed": "已完成",
+      "complete": "完成",
+      "unknown": "待识别"
+    },
+    "finishHint": "所有未跳过组完成后即可结束训练。",
+    "finishing": "正在写入训练结果...",
+    "finish": "完成训练",
+    "finishSuccessTitle": "训练已完成",
+    "finishSuccessDesc": "结果已写入今日运动记录。",
+    "finishErrorTitle": "训练完成失败",
+    "finishErrorDesc": "写入运动记录失败,请重试。",
+    "generateErrorTitle": "训练计划生成失败",
+    "generateErrorDesc": "请稍后重试。",
+    "aiConfigErrorTitle": "AI 配置不完整",
+    "aiConfigErrorDesc": "请先在设置页面配置工作模型。"
   }
 }

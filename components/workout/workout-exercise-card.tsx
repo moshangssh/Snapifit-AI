@@ -4,6 +4,7 @@ import { CheckCircle2, Circle, Pencil, SkipForward } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useTranslation } from "@/hooks/use-i18n"
 import { cn } from "@/lib/utils"
 import type { WorkoutSessionExercise } from "@/lib/workout/types"
 
@@ -27,6 +28,7 @@ export function WorkoutExerciseCard({
   onReplaceExercise,
   onToggleSkipExercise,
 }: WorkoutExerciseCardProps) {
+  const t = useTranslation("workout")
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
 
   return (
@@ -40,14 +42,19 @@ export function WorkoutExerciseCard({
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-xl font-semibold">{displayName}</h3>
-            {exercise.actualExerciseName && <Badge variant="secondary">已替换</Badge>}
-            {exercise.analysisStatus === "stale" && (
-              <Badge variant="outline">完成后重算分析</Badge>
+            {exercise.actualExerciseName && (
+              <Badge variant="secondary">{t("exercise.replaced")}</Badge>
             )}
-            {exercise.isExerciseSkipped && <Badge variant="destructive">已跳过</Badge>}
+            {exercise.analysisStatus === "stale" && (
+              <Badge variant="outline">{t("exercise.recalculate")}</Badge>
+            )}
+            {exercise.isExerciseSkipped && (
+              <Badge variant="destructive">{t("exercise.skipped")}</Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
-            目标肌群: {exercise.plannedAnalysis.muscleGroups.join(", ") || "待识别"}
+            {t("exercise.muscles")}:{" "}
+            {exercise.plannedAnalysis.muscleGroups.join(", ") || t("exercise.unknown")}
           </p>
           {exercise.notes && (
             <p className="text-sm text-muted-foreground">{exercise.notes}</p>
@@ -58,12 +65,12 @@ export function WorkoutExerciseCard({
             variant="outline"
             size="sm"
             onClick={() => {
-              const name = window.prompt("输入替换动作名称", displayName)
+              const name = window.prompt(t("exercise.replacePrompt"), displayName)
               if (name) onReplaceExercise(exercise.exerciseId, name)
             }}
           >
             <Pencil className="mr-2 h-4 w-4" />
-            替换动作
+            {t("exercise.replace")}
           </Button>
           <Button
             variant={exercise.isExerciseSkipped ? "secondary" : "outline"}
@@ -73,7 +80,9 @@ export function WorkoutExerciseCard({
             }
           >
             <SkipForward className="mr-2 h-4 w-4" />
-            {exercise.isExerciseSkipped ? "取消跳过" : "跳过动作"}
+            {exercise.isExerciseSkipped
+              ? t("exercise.unskip")
+              : t("exercise.skip")}
           </Button>
         </div>
       </div>
@@ -88,9 +97,12 @@ export function WorkoutExerciseCard({
               set.isSkipped && "bg-muted",
             )}
           >
-            <div className="col-span-2 font-medium">第 {set.setIndex} 组</div>
+            <div className="col-span-2 font-medium">
+              {t("exercise.setLabel", { index: set.setIndex })}
+            </div>
             <div className="col-span-3 text-sm text-muted-foreground">
-              计划 {set.plannedWeightKg ?? "-"} kg x {set.plannedReps ?? "-"}
+              {t("exercise.planned")} {set.plannedWeightKg ?? "-"} kg x{" "}
+              {set.plannedReps ?? "-"}
             </div>
             <div className="col-span-3">
               <Input
@@ -134,7 +146,7 @@ export function WorkoutExerciseCard({
                 ) : (
                   <Circle className="mr-2 h-4 w-4" />
                 )}
-                {set.isCompleted ? "已完成" : "完成"}
+                {set.isCompleted ? t("exercise.completed") : t("exercise.complete")}
               </Button>
             </div>
           </div>

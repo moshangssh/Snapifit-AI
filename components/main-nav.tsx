@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, MessageSquare, Settings, Moon, Sun } from "lucide-react"
+import { Dumbbell, Home, MessageSquare, Settings, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/hooks/use-i18n"
@@ -32,6 +32,11 @@ export function MainNav() {
       name: t('home'),
       href: `/${locale}`,
       icon: Home,
+    },
+    {
+      name: t('workout'),
+      href: `/${locale}/workout`,
+      icon: Dumbbell,
     },
     {
       name: t('chat'),

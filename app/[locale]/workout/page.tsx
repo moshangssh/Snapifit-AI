@@ -6,6 +6,7 @@ import { Dumbbell, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
+import { useTranslation } from "@/hooks/use-i18n"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useWorkoutSessions } from "@/hooks/use-workout-sessions"
 import type { AIConfig, DailyLog, UserProfile } from "@/lib/types"
@@ -59,6 +60,7 @@ const emptySummary = {
 
 export default function WorkoutPage() {
   const { toast } = useToast()
+  const t = useTranslation("workout")
   const [userProfile] = useLocalStorage<UserProfile>("userProfile", defaultUserProfile)
   const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", defaultAIConfig)
   const { getData: getDailyLog, saveData: saveDailyLog } = useIndexedDB("healthLogs")
@@ -77,8 +79,8 @@ export default function WorkoutPage() {
     const model = aiConfig.agentModel
     if (!model.name || !model.baseUrl || !model.apiKey) {
       toast({
-        title: "AI 配置不完整",
-        description: "请先在设置页面配置工作模型。",
+        title: t("aiConfigErrorTitle"),
+        description: t("aiConfigErrorDesc"),
         variant: "destructive",
       })
       return false
@@ -143,8 +145,8 @@ export default function WorkoutPage() {
     } catch (error) {
       console.error(error)
       toast({
-        title: "训练计划生成失败",
-        description: "请稍后重试。",
+        title: t("generateErrorTitle"),
+        description: t("generateErrorDesc"),
         variant: "destructive",
       })
     } finally {
@@ -260,12 +262,12 @@ export default function WorkoutPage() {
         status: "completed",
         completedAt,
       })
-      toast({ title: "训练已完成", description: "结果已写入今日运动记录。" })
+      toast({ title: t("finishSuccessTitle"), description: t("finishSuccessDesc") })
     } catch (error) {
       console.error(error)
       toast({
-        title: "训练完成失败",
-        description: "写入运动记录失败,请重试。",
+        title: t("finishErrorTitle"),
+        description: t("finishErrorDesc"),
         variant: "destructive",
       })
     } finally {
@@ -291,17 +293,17 @@ export default function WorkoutPage() {
   }
 
   if (!activeSession) {
-    const title = hasCompletedWorkout ? "下次训练计划" : "本次训练计划"
+    const title = hasCompletedWorkout ? t("titleNext") : t("titleCurrent")
     return (
       <div className="mx-auto max-w-4xl px-4 py-12">
         <div className="rounded-3xl border bg-gradient-to-br from-emerald-50 to-white p-10 text-center shadow-sm dark:from-emerald-950/30 dark:to-slate-950">
           <Dumbbell className="mx-auto h-12 w-12 text-emerald-600" />
           <h1 className="mt-4 text-4xl font-bold">{title}</h1>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            AI 会读取你的本地训练历史、肌肉疲劳和最近体重,生成一份可直接打卡的单次训练计划。
+            {t("subtitle")}
           </p>
           <Button className="mt-8" disabled={isGenerating} onClick={generatePlan}>
-            {isGenerating ? "正在生成..." : `生成${title}`}
+            {isGenerating ? t("generating") : t("generate", { title })}
           </Button>
         </div>
       </div>
