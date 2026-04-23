@@ -1,6 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import {
+  HEALTH_DB_NAME,
+  HEALTH_DB_STORES,
+  HEALTH_DB_VERSION,
+} from "@/lib/indexed-db"
 
 interface IndexedDBHook {
   getData: (key: string) => Promise<any>
@@ -22,7 +27,7 @@ export function useIndexedDB(storeName: string): IndexedDBHook {
   useEffect(() => {
     const initDB = async () => {
       try {
-        const request = window.indexedDB.open("healthApp", 2)
+        const request = window.indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
 
         request.onupgradeneeded = (event) => {
           const db = (event.target as IDBOpenDBRequest).result
@@ -30,8 +35,14 @@ export function useIndexedDB(storeName: string): IndexedDBHook {
             db.createObjectStore(storeName)
           }
           // 确保aiMemories存储也被创建
-          if (!db.objectStoreNames.contains("aiMemories")) {
-            db.createObjectStore("aiMemories")
+          if (!db.objectStoreNames.contains(HEALTH_DB_STORES.aiMemories)) {
+            db.createObjectStore(HEALTH_DB_STORES.aiMemories)
+          }
+          if (!db.objectStoreNames.contains(HEALTH_DB_STORES.workoutSessions)) {
+            db.createObjectStore(HEALTH_DB_STORES.workoutSessions)
+          }
+          if (!db.objectStoreNames.contains(HEALTH_DB_STORES.workoutSessionMeta)) {
+            db.createObjectStore(HEALTH_DB_STORES.workoutSessionMeta)
           }
         }
 

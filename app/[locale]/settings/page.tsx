@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useAIMemory } from "@/hooks/use-ai-memory"
+import { HEALTH_DB_NAME, HEALTH_DB_VERSION } from "@/lib/indexed-db"
 import type { AIConfig, ModelConfig } from "@/lib/types"
 import type { OpenAIModel } from "@/lib/ai/types"
 import {
@@ -485,7 +486,7 @@ function SettingsContent() {
   const handleExportData = useCallback(async () => {
     try {
       // 获取所有健康日志
-      const db = await window.indexedDB.open("healthApp", 2)
+      const db = await window.indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
       const request = new Promise((resolve, reject) => {
         db.onsuccess = (event) => {
           const database = (event.target as IDBOpenDBRequest).result
@@ -512,7 +513,7 @@ function SettingsContent() {
 
       // 获取AI记忆数据
       const aiMemoriesRequest = new Promise((resolve, reject) => {
-        const db2 = window.indexedDB.open("healthApp", 2)
+        const db2 = window.indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
         db2.onsuccess = (event) => {
           const database = (event.target as IDBOpenDBRequest).result
           if (!database.objectStoreNames.contains("aiMemories")) {
@@ -603,7 +604,7 @@ function SettingsContent() {
           }
 
           // 更新健康日志
-          const db = await window.indexedDB.open("healthApp", 2)
+          const db = await window.indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
           db.onsuccess = (event) => {
             const database = (event.target as IDBOpenDBRequest).result
             const transaction = database.transaction(["healthLogs"], "readwrite")
@@ -621,7 +622,7 @@ function SettingsContent() {
               // 导入AI记忆数据（如果存在）
               if (importedData.aiMemories && Object.keys(importedData.aiMemories).length > 0) {
                 try {
-                  const db2 = await window.indexedDB.open("healthApp", 2)
+                  const db2 = await window.indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
                   db2.onsuccess = (event2) => {
                     const database2 = (event2.target as IDBOpenDBRequest).result
 
@@ -629,7 +630,10 @@ function SettingsContent() {
                     if (!database2.objectStoreNames.contains("aiMemories")) {
                       // 如果不存在，需要升级数据库版本
                       database2.close()
-                      const upgradeRequest = window.indexedDB.open("healthApp", 2)
+                      const upgradeRequest = window.indexedDB.open(
+                        HEALTH_DB_NAME,
+                        HEALTH_DB_VERSION,
+                      )
                       upgradeRequest.onupgradeneeded = (upgradeEvent) => {
                         const upgradeDb = (upgradeEvent.target as IDBOpenDBRequest).result
                         if (!upgradeDb.objectStoreNames.contains("aiMemories")) {

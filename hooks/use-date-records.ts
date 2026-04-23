@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { format } from "date-fns"
+import { HEALTH_DB_NAME, HEALTH_DB_VERSION } from "@/lib/indexed-db"
 
 interface DateRecordsHook {
   hasRecord: (date: Date) => boolean
@@ -23,7 +24,7 @@ export function useDateRecords(): DateRecordsHook {
   const loadRecordedDates = useCallback(async () => {
     setIsLoading(true)
     try {
-      const request = indexedDB.open('healthApp', 2)
+      const request = indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
       
       request.onsuccess = (event) => {
         const db = (event.target as IDBOpenDBRequest).result
