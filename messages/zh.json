@@ -839,6 +839,7 @@
       "completedSets": "已完成",
       "replacedExercises": "已替换"
     },
+    "setsProgress": "{done} / {total} 组已完成",
     "exercise": {
       "replaced": "已替换",
       "recalculate": "完成后重算分析",

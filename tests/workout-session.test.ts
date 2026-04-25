@@ -3,6 +3,7 @@ import {
   canCompleteWorkoutSession,
   completeWorkoutSet,
   createWorkoutSessionFromPlan,
+  FALLBACK_STRENGTH_ANALYSIS,
   replaceWorkoutExercise,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
@@ -207,6 +208,88 @@ describe("workout session core", () => {
     const replaced = replaceWorkoutExercise(session, exerciseId, "  卧推  ")
 
     expect(replaced).toBe(session)
+  })
+
+  it("clears skipped state for sets when un-skipping an exercise", () => {
+    let session = createWorkoutSessionFromPlan(makeInput())
+    const exerciseId = session.exercises[0].exerciseId
+
+    session = setWorkoutExerciseSkipped(session, exerciseId, true)
+    session = setWorkoutExerciseSkipped(session, exerciseId, false)
+
+    const exercise = session.exercises.find(
+      (item) => item.exerciseId === exerciseId,
+    )
+    expect(exercise?.isExerciseSkipped).toBe(false)
+    for (const set of exercise!.sets) {
+      expect(set.isSkipped).toBe(false)
+      expect(set.isCompleted).toBe(false)
+      expect(set.completedAt).toBeUndefined()
+    }
+  })
+
+  it("uses FALLBACK_STRENGTH_ANALYSIS for fallback status and enrichedAnalysis when enriched", () => {
+    let session = createWorkoutSessionFromPlan(makeInput())
+    const fallbackId = session.exercises[0].exerciseId
+    const enrichedId = session.exercises[1].exerciseId
+
+    session = completeWorkoutSet(session, fallbackId, 1, "2026-04-23T10:00:00.000Z")
+    session = completeWorkoutSet(session, enrichedId, 1, "2026-04-23T10:02:00.000Z")
+
+    session = {
+      ...session,
+      exercises: session.exercises.map((exercise) => {
+        if (exercise.exerciseId === fallbackId) {
+          return {
+            ...exercise,
+            analysisStatus: "fallback" as const,
+            enrichedAnalysis: undefined,
+          }
+        }
+        if (exercise.exerciseId === enrichedId) {
+          return {
+            ...exercise,
+            analysisStatus: "enriched" as const,
+            enrichedAnalysis: {
+              exerciseType: "strength",
+              muscleGroups: ["biceps"],
+              estimatedMets: 7,
+              estimatedDurationMinutes: 9,
+              caloriesBurnedEstimated: 99,
+              isEstimated: true,
+            },
+          }
+        }
+        return exercise
+      }),
+    }
+
+    const entries = workoutSessionToExerciseEntries(
+      session,
+      "2026-04-23T10:05:00.000Z",
+    )
+
+    const fallbackEntry = entries.find((entry) => entry.exercise_name === "卧推")
+    const enrichedEntry = entries.find((entry) => entry.exercise_name === "划船")
+
+    expect(fallbackEntry?.calories_burned_estimated).toBe(
+      FALLBACK_STRENGTH_ANALYSIS.caloriesBurnedEstimated,
+    )
+    expect(fallbackEntry?.estimated_mets).toBe(
+      FALLBACK_STRENGTH_ANALYSIS.estimatedMets,
+    )
+    expect(fallbackEntry?.muscle_groups).toEqual(
+      FALLBACK_STRENGTH_ANALYSIS.muscleGroups,
+    )
+
+    expect(enrichedEntry?.calories_burned_estimated).toBe(99)
+    expect(enrichedEntry?.muscle_groups).toEqual(["biceps"])
+  })
+
+  it("disallows completing a session that is not active", () => {
+    const session = createWorkoutSessionFromPlan(makeInput())
+    expect(session.status).toBe("draft")
+    expect(canCompleteWorkoutSession(session)).toBe(false)
   })
 })
 

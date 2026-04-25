@@ -18,6 +18,7 @@
       "completedSets": "Completed",
       "replacedExercises": "Replaced"
     },
+    "setsProgress": "{done} / {total} sets completed",
     "exercise": {
       "replaced": "Replaced",
       "recalculate": "Analysis updates after finish",

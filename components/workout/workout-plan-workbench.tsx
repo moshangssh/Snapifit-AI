@@ -48,7 +48,10 @@ export function WorkoutPlanWorkbench({
         </p>
         <h1 className="mt-2 text-4xl font-bold">{title}</h1>
         <p className="mt-3 text-muted-foreground">
-          {session.derived.completedSetCount} / {session.derived.totalSetCount} 组已完成
+          {t("setsProgress", {
+            done: session.derived.completedSetCount,
+            total: session.derived.totalSetCount,
+          })}
         </p>
         <div className="mt-5">
           <Progress value={progress} />
