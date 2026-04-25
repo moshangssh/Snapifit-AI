@@ -188,6 +188,17 @@ describe("workout session core", () => {
     expect(entries[0].muscle_groups).toEqual(["chest", "triceps"])
     expect(entries[0].calories_burned_estimated).toBe(86)
   })
+
+  it("skips exercises that have no completed sets even when not skipped", () => {
+    const session = createWorkoutSessionFromPlan(makeInput())
+
+    const entries = workoutSessionToExerciseEntries(
+      session,
+      "2026-04-23T10:05:00.000Z",
+    )
+
+    expect(entries).toHaveLength(0)
+  })
 })
 
 const baseProfile: UserProfile = {

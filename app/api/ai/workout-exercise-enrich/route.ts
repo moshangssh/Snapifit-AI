@@ -19,7 +19,13 @@ export async function POST(req: Request) {
       userGoal,
     } = body
 
-    if (!exerciseName || !completedSets || !effectiveUserWeightKg) {
+    if (
+      !exerciseName ||
+      typeof completedSets !== "number" ||
+      completedSets <= 0 ||
+      typeof effectiveUserWeightKg !== "number" ||
+      effectiveUserWeightKg <= 0
+    ) {
       throw new AIError("INVALID_INPUT", "Invalid workout exercise input")
     }
 

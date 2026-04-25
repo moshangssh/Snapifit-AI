@@ -227,7 +227,11 @@ export function workoutSessionToExerciseEntries(
   completedAt: string,
 ): ExerciseEntry[] {
   return session.exercises
-    .filter((exercise) => !exercise.isExerciseSkipped)
+    .filter(
+      (exercise) =>
+        !exercise.isExerciseSkipped &&
+        exercise.sets.some((set) => !set.isSkipped && set.isCompleted),
+    )
     .map((exercise) => {
       const completedSets = exercise.sets.filter(
         (set) => !set.isSkipped && set.isCompleted,

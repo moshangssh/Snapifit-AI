@@ -18,7 +18,12 @@ export async function POST(req: Request) {
       fatigueSnapshot,
     } = body
 
-    if (!effectiveUserWeightKg || !userProfile || !fatigueSnapshot) {
+    if (
+      typeof effectiveUserWeightKg !== "number" ||
+      effectiveUserWeightKg <= 0 ||
+      !userProfile ||
+      !fatigueSnapshot
+    ) {
       throw new AIError("INVALID_INPUT", "Invalid workout plan input")
     }
 

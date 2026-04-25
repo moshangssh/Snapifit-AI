@@ -176,61 +176,85 @@ export default function WorkoutPage() {
     setIsFinishing(true)
     try {
       const completedAt = new Date().toISOString()
-      const exercises = await Promise.all(
-        activeSession.exercises.map(async (exercise) => {
-          if (exercise.analysisStatus !== "stale") return exercise
-          try {
-            const completedSets = exercise.sets.filter(
-              (set) => !set.isSkipped && set.isCompleted,
-            )
-            const avgWeightKg = average(
-              completedSets
-                .map((set) => set.actualWeightKg)
-                .filter((value): value is number => typeof value === "number"),
-            )
-            const avgReps = average(
-              completedSets
-                .map((set) => set.actualReps)
-                .filter((value): value is number => typeof value === "number"),
-            )
-            const response = await fetch("/api/ai/workout-exercise-enrich", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-ai-config": JSON.stringify(aiConfig),
-              },
-              body: JSON.stringify({
-                exerciseName: exercise.actualExerciseName ?? exercise.plannedExerciseName,
-                completedSets: completedSets.length,
-                avgWeightKg,
-                avgReps,
-                effectiveUserWeightKg: activeSession.effectiveUserWeightKg,
-                userGoal: userProfile.goal,
-              }),
-            })
-            if (!response.ok) throw new Error(`enrich failed: ${response.status}`)
-            const analysis = (await response.json()) as WorkoutExerciseAnalysis
-            return {
-              ...exercise,
-              analysisStatus: "enriched" as const,
-              enrichedAnalysis: analysis,
-            }
-          } catch {
-            return {
-              ...exercise,
-              analysisStatus: "fallback" as const,
-              enrichedAnalysis: FALLBACK_STRENGTH_ANALYSIS,
-            }
-          }
-        }),
-      )
+
+      // H1: enrich 阶段在重试场景下不能重复触发,因此一旦 status 已经是 finishing,
+      // 直接复用已经持久化的 enrichedAnalysis,跳过 enrich 调用,
+      // 让重试只重做 saveDailyLog + markSessionCompleted。
+      const isResumingFinish = activeSession.status === "finishing"
+
+      const exercises = isResumingFinish
+        ? activeSession.exercises
+        : await Promise.all(
+            activeSession.exercises.map(async (exercise) => {
+              if (exercise.analysisStatus !== "stale") return exercise
+              const completedSets = exercise.sets.filter(
+                (set) => !set.isSkipped && set.isCompleted,
+              )
+              // H2: 没有任何完成组时直接 fallback,不调 enrich(后端会拒绝 0 组输入)
+              if (completedSets.length === 0) {
+                return {
+                  ...exercise,
+                  analysisStatus: "fallback" as const,
+                  enrichedAnalysis: FALLBACK_STRENGTH_ANALYSIS,
+                }
+              }
+              try {
+                const avgWeightKg = average(
+                  completedSets
+                    .map((set) => set.actualWeightKg)
+                    .filter((value): value is number => typeof value === "number"),
+                )
+                const avgReps = average(
+                  completedSets
+                    .map((set) => set.actualReps)
+                    .filter((value): value is number => typeof value === "number"),
+                )
+                const response = await fetch("/api/ai/workout-exercise-enrich", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-ai-config": JSON.stringify(aiConfig),
+                  },
+                  body: JSON.stringify({
+                    exerciseName: exercise.actualExerciseName ?? exercise.plannedExerciseName,
+                    completedSets: completedSets.length,
+                    avgWeightKg,
+                    avgReps,
+                    effectiveUserWeightKg: activeSession.effectiveUserWeightKg,
+                    userGoal: userProfile.goal,
+                  }),
+                })
+                if (!response.ok) throw new Error(`enrich failed: ${response.status}`)
+                const analysis = (await response.json()) as WorkoutExerciseAnalysis
+                return {
+                  ...exercise,
+                  analysisStatus: "enriched" as const,
+                  enrichedAnalysis: analysis,
+                }
+              } catch {
+                return {
+                  ...exercise,
+                  analysisStatus: "fallback" as const,
+                  enrichedAnalysis: FALLBACK_STRENGTH_ANALYSIS,
+                }
+              }
+            }),
+          )
 
       const finishingSession: WorkoutSession = {
         ...activeSession,
         status: "finishing",
         exercises,
       }
+
+      // H1: 把 enriched 状态先持久化到 active session,即使后续 saveDailyLog/markCompleted 失败,
+      // 重试时也能从 finishing 状态直接走 idempotent 写入路径。
+      if (!isResumingFinish) {
+        await saveActiveSession(finishingSession)
+      }
+
       const entries = workoutSessionToExerciseEntries(finishingSession, completedAt)
+      // L3: 日期键采用本地时区,跨日训练归到 startedAt 的本地日期,与 useDateRecords 一致
       const dateKey = format(new Date(activeSession.startedAt ?? completedAt), "yyyy-MM-dd")
       const existingLog = ((await getDailyLog(dateKey)) as DailyLog | null) ?? {
         date: dateKey,
@@ -239,21 +263,11 @@ export default function WorkoutPage() {
         summary: emptySummary,
         activityLevel: userProfile.activityLevel,
       }
+      // M4: 不再在此处局部重算 summary。dashboard 中的 recalculateSummary 是页面级闭包,无法外部调用;
+      // 这里只追加 exerciseEntries,让 dashboard 在后续触达时按需重算 summary。
       const updatedLog: DailyLog = {
         ...existingLog,
         exerciseEntries: [...existingLog.exerciseEntries, ...entries],
-        summary: {
-          ...existingLog.summary,
-          totalCaloriesBurned:
-            existingLog.exerciseEntries.reduce(
-              (sum, entry) => sum + (entry.calories_burned_estimated || 0),
-              0,
-            ) +
-            entries.reduce(
-              (sum, entry) => sum + (entry.calories_burned_estimated || 0),
-              0,
-            ),
-        },
       }
 
       await saveDailyLog(dateKey, updatedLog)
@@ -278,7 +292,9 @@ export default function WorkoutPage() {
     aiConfig,
     getDailyLog,
     markSessionCompleted,
+    saveActiveSession,
     saveDailyLog,
+    t,
     toast,
     userProfile.activityLevel,
     userProfile.goal,
