@@ -109,14 +109,18 @@ export function WorkoutExerciseCard({
                 type="number"
                 value={set.actualWeightKg ?? ""}
                 disabled={set.isCompleted || set.isSkipped}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const raw = event.target.value
+                  if (raw === "") return
+                  const parsed = Number(raw)
+                  if (Number.isNaN(parsed)) return
                   onUpdateSetValue(
                     exercise.exerciseId,
                     set.setIndex,
                     "weight",
-                    Number(event.target.value),
+                    parsed,
                   )
-                }
+                }}
               />
             </div>
             <div className="col-span-2">
@@ -124,14 +128,18 @@ export function WorkoutExerciseCard({
                 type="number"
                 value={set.actualReps ?? ""}
                 disabled={set.isCompleted || set.isSkipped}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const raw = event.target.value
+                  if (raw === "") return
+                  const parsed = Number(raw)
+                  if (Number.isNaN(parsed)) return
                   onUpdateSetValue(
                     exercise.exerciseId,
                     set.setIndex,
                     "reps",
-                    Number(event.target.value),
+                    parsed,
                   )
-                }
+                }}
               />
             </div>
             <div className="col-span-2 flex justify-end">

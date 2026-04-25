@@ -172,6 +172,15 @@ export function replaceWorkoutExercise(
   const trimmed = actualExerciseName.trim()
   if (!trimmed) return session
 
+  const targetExercise = session.exercises.find(
+    (exercise) => exercise.exerciseId === exerciseId,
+  )
+  if (!targetExercise) return session
+
+  const currentName =
+    targetExercise.actualExerciseName ?? targetExercise.plannedExerciseName
+  if (trimmed === currentName) return session
+
   const exercises = session.exercises.map((exercise) =>
     exercise.exerciseId === exerciseId
       ? {

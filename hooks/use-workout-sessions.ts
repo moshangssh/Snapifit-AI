@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import type { WorkoutSession } from "@/lib/workout/types"
 
@@ -27,7 +27,12 @@ export function useWorkoutSessions() {
   } = useIndexedDB("workoutSessionMeta")
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null)
   const [meta, setMeta] = useState<WorkoutSessionMeta>(EMPTY_META)
+  const metaRef = useRef(meta)
   const [isReady, setIsReady] = useState(false)
+
+  useEffect(() => {
+    metaRef.current = meta
+  }, [meta])
 
   const refresh = useCallback(async () => {
     if (sessionsInitializing || metaInitializing) return
@@ -57,14 +62,14 @@ export function useWorkoutSessions() {
     async (session: WorkoutSession) => {
       await saveSessionData(session.sessionId, session)
       const nextMeta: WorkoutSessionMeta = {
-        ...meta,
+        ...metaRef.current,
         activeSessionId: session.sessionId,
       }
       await saveMetaData(META_KEY, nextMeta)
       setMeta(nextMeta)
       setActiveSession(session)
     },
-    [meta, saveMetaData, saveSessionData],
+    [saveMetaData, saveSessionData],
   )
 
   const markSessionCompleted = useCallback(
@@ -74,14 +79,16 @@ export function useWorkoutSessions() {
         activeSessionId: undefined,
         completedSessionIds: [
           session.sessionId,
-          ...meta.completedSessionIds.filter((id) => id !== session.sessionId),
+          ...metaRef.current.completedSessionIds.filter(
+            (id) => id !== session.sessionId,
+          ),
         ],
       }
       await saveMetaData(META_KEY, nextMeta)
       setMeta(nextMeta)
       setActiveSession(null)
     },
-    [meta.completedSessionIds, saveMetaData, saveSessionData],
+    [saveMetaData, saveSessionData],
   )
 
   const hasCompletedWorkout = meta.completedSessionIds.length > 0

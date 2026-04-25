@@ -35,18 +35,18 @@ const defaultUserProfile: UserProfile = {
 
 const defaultAIConfig: AIConfig = {
   agentModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
+    name: "",
+    baseUrl: "",
     apiKey: "",
   },
   chatModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
+    name: "",
+    baseUrl: "",
     apiKey: "",
   },
   visionModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
+    name: "",
+    baseUrl: "",
     apiKey: "",
   },
 }
@@ -86,7 +86,7 @@ export default function WorkoutPage() {
       return false
     }
     return true
-  }, [aiConfig.agentModel, toast])
+  }, [aiConfig.agentModel, t, toast])
 
   const loadRecentLogs = useCallback(async () => {
     const today = new Date()
@@ -159,6 +159,7 @@ export default function WorkoutPage() {
     hasCompletedWorkout,
     loadRecentLogs,
     saveActiveSession,
+    t,
     toast,
     userProfile,
   ])

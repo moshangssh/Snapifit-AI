@@ -199,6 +199,15 @@ describe("workout session core", () => {
 
     expect(entries).toHaveLength(0)
   })
+
+  it("returns the same session reference when replacing with the existing name", () => {
+    const session = createWorkoutSessionFromPlan(makeInput())
+    const exerciseId = session.exercises[0].exerciseId
+
+    const replaced = replaceWorkoutExercise(session, exerciseId, "  卧推  ")
+
+    expect(replaced).toBe(session)
+  })
 })
 
 const baseProfile: UserProfile = {
