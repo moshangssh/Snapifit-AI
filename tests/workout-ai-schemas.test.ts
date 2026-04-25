@@ -46,4 +46,17 @@ describe("workout AI schemas", () => {
     expect(parsed.estimatedDurationMinutes).toBe(1)
     expect(parsed.caloriesBurnedEstimated).toBe(0)
   })
+
+  it("filters muscleGroups outside the MuscleKey enum and trims whitespace", () => {
+    const parsed = WorkoutExerciseEnrichSchema.parse({
+      exerciseType: "strength",
+      muscleGroups: ["chest", "胸大肌", "  triceps  ", "fake_muscle", ""],
+      estimatedMets: 6,
+      estimatedDurationMinutes: 10,
+      caloriesBurnedEstimated: 60,
+      isEstimated: true,
+    })
+
+    expect(parsed.muscleGroups).toEqual(["chest", "triceps"])
+  })
 })

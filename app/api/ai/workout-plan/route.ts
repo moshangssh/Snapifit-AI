@@ -33,7 +33,11 @@ export async function POST(req: Request) {
 - 只生成单次训练计划,不要生成周计划
 - 每个动作必须包含组级计划值
 - 每个动作必须同时返回 plannedAnalysis,用于训练完成后写入运动记录
-- plannedAnalysis.muscleGroups 使用英文肌群 key,优先从既有系统使用的 key 中选择,例如 chest, triceps, quadriceps, glutes, upper-back, biceps
+- plannedAnalysis.muscleGroups 必须从以下固定英文枚举中选择(不要用中文):
+    chest, abs, obliques, upper-back, lower-back,
+    front-deltoids, back-deltoids, biceps, triceps, forearms,
+    quadriceps, hamstrings, glutes, calves
+  仅列主要肌群(1-3 个),不列次要协同肌。纯有氧返回空数组。
 - fatigueSnapshot 是软约束:高疲劳肌群应减少训练量或避开,但不是绝对禁止
 - 如果历史不足,生成保守的全身基础训练
 

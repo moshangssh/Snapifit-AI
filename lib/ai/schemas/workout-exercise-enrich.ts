@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { MUSCLE_KEY_SET, type MuscleKey } from "@/lib/muscle-groups"
 
 export const WorkoutExerciseTypeSchema = z.enum([
   "cardio",
@@ -12,7 +13,11 @@ export const WorkoutExerciseAnalysisSchema = z.object({
   muscleGroups: z
     .array(z.string())
     .default([])
-    .transform((items) => items.map((item) => item.trim()).filter(Boolean)),
+    .transform((items) =>
+      items
+        .map((item) => item.trim())
+        .filter((item): item is MuscleKey => MUSCLE_KEY_SET.has(item)),
+    ),
   estimatedMets: z.number().transform((value) => Math.max(1, value)),
   estimatedDurationMinutes: z
     .number()

@@ -1,4 +1,5 @@
 import type { ExerciseEntry } from "@/lib/types"
+import type { MuscleKey } from "@/lib/muscle-groups"
 
 export type WorkoutSessionRole = "current" | "next"
 export type WorkoutSessionStatus =
@@ -16,7 +17,7 @@ export type WorkoutExerciseAnalysisStatus =
 
 export interface WorkoutExerciseAnalysis {
   exerciseType: ExerciseEntry["exercise_type"]
-  muscleGroups: string[]
+  muscleGroups: MuscleKey[]
   estimatedMets: number
   estimatedDurationMinutes: number
   caloriesBurnedEstimated: number
