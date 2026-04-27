@@ -1,9 +1,10 @@
 "use client"
 
-import { CheckCircle2, Circle, Pencil, SkipForward } from "lucide-react"
+import { CheckCircle2, Circle, SkipForward } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { ReplaceExerciseDialog } from "@/components/workout/replace-exercise-dialog"
+import { WorkoutSetNumberInput } from "@/components/workout/workout-set-number-input"
 import { useTranslation } from "@/hooks/use-i18n"
 import { MUSCLE_LABELS_ZH } from "@/lib/muscle-groups"
 import { cn } from "@/lib/utils"
@@ -81,17 +82,10 @@ export function WorkoutExerciseCard({
           )}
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const name = window.prompt(t("exercise.replacePrompt"), displayName)
-              if (name) onReplaceExercise(exercise.exerciseId, name)
-            }}
-          >
-            <Pencil className="mr-2 h-4 w-4" />
-            {t("exercise.replace")}
-          </Button>
+          <ReplaceExerciseDialog
+            displayName={displayName}
+            onReplace={(name) => onReplaceExercise(exercise.exerciseId, name)}
+          />
           <Button
             variant={exercise.isExerciseSkipped ? "secondary" : "outline"}
             size="sm"
@@ -125,41 +119,36 @@ export function WorkoutExerciseCard({
               {set.plannedReps ?? "-"}
             </div>
             <div className="col-span-3">
-              <Input
-                type="number"
-                value={set.actualWeightKg ?? ""}
+              <WorkoutSetNumberInput
+                value={set.actualWeightKg}
                 disabled={set.isCompleted || set.isSkipped}
-                onChange={(event) => {
-                  const raw = event.target.value
-                  if (raw === "") return
-                  const parsed = Number(raw)
-                  if (Number.isNaN(parsed)) return
+                min={0}
+                step={1.25}
+                onCommit={(value) =>
                   onUpdateSetValue(
                     exercise.exerciseId,
                     set.setIndex,
                     "weight",
-                    parsed,
+                    value,
                   )
-                }}
+                }
               />
             </div>
             <div className="col-span-2">
-              <Input
-                type="number"
-                value={set.actualReps ?? ""}
+              <WorkoutSetNumberInput
+                value={set.actualReps}
                 disabled={set.isCompleted || set.isSkipped}
-                onChange={(event) => {
-                  const raw = event.target.value
-                  if (raw === "") return
-                  const parsed = Number(raw)
-                  if (Number.isNaN(parsed)) return
+                min={1}
+                step={1}
+                integerOnly
+                onCommit={(value) =>
                   onUpdateSetValue(
                     exercise.exerciseId,
                     set.setIndex,
                     "reps",
-                    parsed,
+                    value,
                   )
-                }}
+                }
               />
             </div>
             <div className="col-span-2 flex justify-end">
