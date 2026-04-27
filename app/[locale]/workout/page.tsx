@@ -73,6 +73,7 @@ export default function WorkoutPage() {
     isReady,
     saveActiveSession,
     markSessionCompleted,
+    abandonActiveSession,
   } = useWorkoutSessions()
   const [isGenerating, setIsGenerating] = useState(false)
   const [isFinishing, setIsFinishing] = useState(false)
@@ -316,6 +317,15 @@ export default function WorkoutPage() {
     userProfile.goal,
   ])
 
+  const abandonWorkout = useCallback(async () => {
+    if (!activeSession || activeSession.status === "finishing") return
+    await abandonActiveSession(activeSession)
+    toast({
+      title: t("abandon.successTitle"),
+      description: t("abandon.successDesc"),
+    })
+  }, [abandonActiveSession, activeSession, t, toast])
+
   if (!isReady) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -348,6 +358,7 @@ export default function WorkoutPage() {
       isFinishing={isFinishing}
       onGeneratePlan={generatePlan}
       onFinishWorkout={finishWorkout}
+      onAbandonWorkout={abandonWorkout}
       onUpdateSetValue={(exerciseId, setIndex, field, value) =>
         updateSession((session) =>
           updateWorkoutSetValue(session, exerciseId, setIndex, field, value),

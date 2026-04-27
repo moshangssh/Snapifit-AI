@@ -226,6 +226,17 @@ export function canCompleteWorkoutSession(session: WorkoutSession): boolean {
   )
 }
 
+export function abandonWorkoutSession(session: WorkoutSession): WorkoutSession {
+  if (session.status === "finishing" || session.status === "completed") {
+    return session
+  }
+
+  return refreshWorkoutSessionDerived({
+    ...session,
+    status: "abandoned",
+  })
+}
+
 function average(values: number[]): number | undefined {
   if (values.length === 0) return undefined
   const sum = values.reduce((acc, value) => acc + value, 0)

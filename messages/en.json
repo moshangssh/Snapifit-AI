@@ -49,6 +49,15 @@
     "generateErrorTitle": "Failed to generate workout plan",
     "generateErrorDesc": "Please try again later.",
     "aiConfigErrorTitle": "AI config is incomplete",
-    "aiConfigErrorDesc": "Configure the work model in Settings first."
+    "aiConfigErrorDesc": "Configure the work model in Settings first.",
+    "abandon": {
+      "open": "Abandon plan",
+      "title": "Abandon this workout plan?",
+      "description": "This will not write any exercise records. You can generate a new workout plan afterwards.",
+      "cancel": "Keep training",
+      "confirm": "Abandon plan",
+      "successTitle": "Workout plan abandoned",
+      "successDesc": "You can generate a new workout plan now."
+    }
   }
 }

@@ -870,6 +870,15 @@
     "generateErrorTitle": "训练计划生成失败",
     "generateErrorDesc": "请稍后重试。",
     "aiConfigErrorTitle": "AI 配置不完整",
-    "aiConfigErrorDesc": "请先在设置页面配置工作模型。"
+    "aiConfigErrorDesc": "请先在设置页面配置工作模型。",
+    "abandon": {
+      "open": "放弃计划",
+      "title": "放弃当前训练计划？",
+      "description": "放弃后不会写入运动记录，你可以重新生成一份训练计划。",
+      "cancel": "继续训练",
+      "confirm": "确认放弃",
+      "successTitle": "已放弃训练计划",
+      "successDesc": "你可以重新生成一份新的训练计划。"
+    }
   }
 }

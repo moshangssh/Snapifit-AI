@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
+import { abandonWorkoutSession } from "@/lib/workout/session"
 import type { WorkoutSession } from "@/lib/workout/types"
 
 interface WorkoutSessionMeta {
@@ -91,6 +92,21 @@ export function useWorkoutSessions() {
     [saveMetaData, saveSessionData],
   )
 
+  const abandonActiveSession = useCallback(
+    async (session: WorkoutSession) => {
+      const abandonedSession = abandonWorkoutSession(session)
+      await saveSessionData(session.sessionId, abandonedSession)
+      const nextMeta: WorkoutSessionMeta = {
+        ...metaRef.current,
+        activeSessionId: undefined,
+      }
+      await saveMetaData(META_KEY, nextMeta)
+      setMeta(nextMeta)
+      setActiveSession(null)
+    },
+    [saveMetaData, saveSessionData],
+  )
+
   const hasCompletedWorkout = meta.completedSessionIds.length > 0
 
   const getCompletedSessions = useCallback(
@@ -111,6 +127,7 @@ export function useWorkoutSessions() {
     refresh,
     saveActiveSession,
     markSessionCompleted,
+    abandonActiveSession,
     getCompletedSessions,
   }
 }

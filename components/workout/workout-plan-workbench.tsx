@@ -4,6 +4,7 @@ import type { WorkoutSession } from "@/lib/workout/types"
 import { canCompleteWorkoutSession } from "@/lib/workout/session"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
+import { AbandonWorkoutDialog } from "@/components/workout/abandon-workout-dialog"
 import { WorkoutExerciseCard } from "@/components/workout/workout-exercise-card"
 import { useTranslation } from "@/hooks/use-i18n"
 
@@ -12,6 +13,7 @@ interface WorkoutPlanWorkbenchProps {
   isFinishing: boolean
   onGeneratePlan: () => void
   onFinishWorkout: () => void
+  onAbandonWorkout: () => void
   onUpdateSetValue: (
     exerciseId: string,
     setIndex: number,
@@ -27,6 +29,7 @@ export function WorkoutPlanWorkbench({
   session,
   isFinishing,
   onFinishWorkout,
+  onAbandonWorkout,
   onUpdateSetValue,
   onCompleteSet,
   onReplaceExercise,
@@ -86,9 +89,15 @@ export function WorkoutPlanWorkbench({
           <p className="text-sm text-muted-foreground">
             {t("finishHint")}
           </p>
-          <Button disabled={!canFinish || isFinishing} onClick={onFinishWorkout}>
-            {isFinishing ? t("finishing") : t("finish")}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <AbandonWorkoutDialog
+              disabled={isFinishing || session.status === "finishing"}
+              onConfirm={onAbandonWorkout}
+            />
+            <Button disabled={!canFinish || isFinishing} onClick={onFinishWorkout}>
+              {isFinishing ? t("finishing") : t("finish")}
+            </Button>
+          </div>
         </div>
       </footer>
     </div>

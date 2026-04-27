@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  abandonWorkoutSession,
   canCompleteWorkoutSession,
   completeWorkoutSet,
   createWorkoutSessionFromPlan,
@@ -349,6 +350,18 @@ describe("workout session core", () => {
     const session = createWorkoutSessionFromPlan(makeInput())
     expect(session.status).toBe("draft")
     expect(canCompleteWorkoutSession(session)).toBe(false)
+  })
+
+  it("marks an unfinished session as abandoned without completing it", () => {
+    const session = createWorkoutSessionFromPlan(makeInput())
+
+    const abandoned = abandonWorkoutSession(session)
+
+    expect(abandoned.status).toBe("abandoned")
+    expect(abandoned.completedAt).toBeUndefined()
+    expect(
+      workoutSessionToExerciseEntries(abandoned, "2026-04-23T10:00:00.000Z"),
+    ).toEqual([])
   })
 })
 
