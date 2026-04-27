@@ -1,5 +1,8 @@
 import { z } from "zod"
-import { WorkoutExerciseAnalysisSchema } from "@/lib/ai/schemas/workout-exercise-enrich"
+import {
+  normalizeWorkoutExerciseAnalysis,
+  WorkoutExerciseAnalysisSchema,
+} from "@/lib/ai/schemas/workout-exercise-enrich"
 
 const WorkoutPlanSetSchema = z.object({
   plannedWeightKg: z.number().positive().optional(),
@@ -113,16 +116,11 @@ export function recalculateWorkoutPlanCalories(
     ...plan,
     exercises: plan.exercises.map((exercise) => ({
       ...exercise,
-      plannedAnalysis: {
-        ...exercise.plannedAnalysis,
-        caloriesBurnedEstimated: Math.round(
-          (exercise.plannedAnalysis.estimatedMets *
-            effectiveUserWeightKg *
-            exercise.plannedAnalysis.estimatedDurationMinutes) /
-            60,
-        ),
-        isEstimated: true,
-      },
+      plannedAnalysis: normalizeWorkoutExerciseAnalysis(
+        exercise.plannedAnalysis,
+        effectiveUserWeightKg,
+        exercise.plannedExerciseName,
+      ),
     })),
   }
 }

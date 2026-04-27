@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { WorkoutExerciseEnrichSchema } from "@/lib/ai/schemas/workout-exercise-enrich"
+import {
+  normalizeWorkoutExerciseAnalysis,
+  WorkoutExerciseEnrichSchema,
+} from "@/lib/ai/schemas/workout-exercise-enrich"
 import {
   recalculateWorkoutPlanCalories,
   WorkoutPlanSchema,
@@ -189,5 +192,38 @@ describe("workout AI schemas", () => {
     })
 
     expect(parsed.muscleGroups).toEqual(["chest", "triceps"])
+  })
+
+  it("normalizes analysis calories and clamps MET values", () => {
+    const parsed = WorkoutExerciseEnrichSchema.parse({
+      exerciseType: "strength",
+      muscleGroups: ["chest"],
+      estimatedMets: 12,
+      estimatedDurationMinutes: 10.4,
+      caloriesBurnedEstimated: 999,
+      isEstimated: false,
+    })
+
+    const normalized = normalizeWorkoutExerciseAnalysis(parsed, 80, "卧推")
+
+    expect(normalized.estimatedMets).toBe(8)
+    expect(normalized.estimatedDurationMinutes).toBe(10)
+    expect(normalized.caloriesBurnedEstimated).toBe(107)
+    expect(normalized.isEstimated).toBe(true)
+  })
+
+  it("infers main muscle groups for strength exercises when model output is empty", () => {
+    const parsed = WorkoutExerciseEnrichSchema.parse({
+      exerciseType: "strength",
+      muscleGroups: ["unknown-muscle"],
+      estimatedMets: 6,
+      estimatedDurationMinutes: 10,
+      caloriesBurnedEstimated: 60,
+      isEstimated: true,
+    })
+
+    const normalized = normalizeWorkoutExerciseAnalysis(parsed, 72, "杠铃划船")
+
+    expect(normalized.muscleGroups).toEqual(["upper-back", "biceps"])
   })
 })
