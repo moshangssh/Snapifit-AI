@@ -232,6 +232,27 @@ function average(values: number[]): number | undefined {
   return Math.round((sum / values.length) * 10) / 10
 }
 
+export function getWorkoutExerciseEntryLogId(
+  sessionId: string,
+  exerciseId: string,
+): string {
+  return `workout:${sessionId}:${exerciseId}`
+}
+
+export function isWorkoutSessionEntry(
+  entry: ExerciseEntry,
+  sessionId: string,
+): boolean {
+  return entry.log_id.startsWith(`workout:${sessionId}:`)
+}
+
+export function removeWorkoutSessionEntries(
+  entries: ExerciseEntry[],
+  sessionId: string,
+): ExerciseEntry[] {
+  return entries.filter((entry) => !isWorkoutSessionEntry(entry, sessionId))
+}
+
 export function workoutSessionToExerciseEntries(
   session: WorkoutSession,
   completedAt: string,
@@ -253,7 +274,10 @@ export function workoutSessionToExerciseEntries(
           : exercise.plannedAnalysis)
 
       return {
-        log_id: uuidv4(),
+        log_id: getWorkoutExerciseEntryLogId(
+          session.sessionId,
+          exercise.exerciseId,
+        ),
         exercise_name:
           exercise.actualExerciseName ?? exercise.plannedExerciseName,
         exercise_type: analysis.exerciseType,

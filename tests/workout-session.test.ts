@@ -4,6 +4,7 @@ import {
   completeWorkoutSet,
   createWorkoutSessionFromPlan,
   FALLBACK_STRENGTH_ANALYSIS,
+  removeWorkoutSessionEntries,
   replaceWorkoutExercise,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
@@ -191,6 +192,61 @@ describe("workout session core", () => {
     expect(entries[0].weight_kg).toBe(60)
     expect(entries[0].muscle_groups).toEqual(["chest", "triceps"])
     expect(entries[0].calories_burned_estimated).toBe(86)
+  })
+
+  it("uses stable workout log ids for derived exercise entries", () => {
+    let session = createWorkoutSessionFromPlan(makeInput())
+    const exerciseId = session.exercises[0].exerciseId
+    session = completeWorkoutSet(
+      session,
+      exerciseId,
+      1,
+      "2026-04-23T10:00:00.000Z",
+    )
+
+    const first = workoutSessionToExerciseEntries(
+      session,
+      "2026-04-23T10:05:00.000Z",
+    )
+    const second = workoutSessionToExerciseEntries(
+      session,
+      "2026-04-23T10:06:00.000Z",
+    )
+
+    expect(first[0].log_id).toBe(`workout:${session.sessionId}:${exerciseId}`)
+    expect(second[0].log_id).toBe(first[0].log_id)
+  })
+
+  it("removes entries derived from the same workout session", () => {
+    let session = createWorkoutSessionFromPlan(makeInput())
+    const exerciseId = session.exercises[0].exerciseId
+    session = completeWorkoutSet(
+      session,
+      exerciseId,
+      1,
+      "2026-04-23T10:00:00.000Z",
+    )
+    const entries = workoutSessionToExerciseEntries(
+      session,
+      "2026-04-23T10:05:00.000Z",
+    )
+    const existing = [
+      {
+        log_id: "manual-entry",
+        exercise_name: "散步",
+        exercise_type: "cardio" as const,
+        duration_minutes: 20,
+        estimated_mets: 3,
+        user_weight: 72,
+        calories_burned_estimated: 70,
+        is_estimated: true,
+      },
+      ...entries,
+    ]
+
+    expect(removeWorkoutSessionEntries(existing, session.sessionId)).toEqual([
+      existing[0],
+    ])
   })
 
   it("skips exercises that have no completed sets even when not skipped", () => {
