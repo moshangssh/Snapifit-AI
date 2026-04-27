@@ -9,11 +9,13 @@ import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useTranslation } from "@/hooks/use-i18n"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useWorkoutSessions } from "@/hooks/use-workout-sessions"
+import { recalculateDailySummary } from "@/lib/daily-summary"
 import type { AIConfig, DailyLog, UserProfile } from "@/lib/types"
 import {
   completeWorkoutSet,
   createWorkoutSessionFromPlan,
   FALLBACK_STRENGTH_ANALYSIS,
+  removeWorkoutSessionEntries,
   replaceWorkoutExercise,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
@@ -177,22 +179,26 @@ export default function WorkoutPage() {
     if (!activeSession) return
     setIsFinishing(true)
     try {
-      const completedAt = new Date().toISOString()
-
-      // H1: enrich 阶段在重试场景下不能重复触发,因此一旦 status 已经是 finishing,
-      // 直接复用已经持久化的 enrichedAnalysis,跳过 enrich 调用,
-      // 让重试只重做 saveDailyLog + markSessionCompleted。
+      const completedAt = activeSession.completedAt ?? new Date().toISOString()
       const isResumingFinish = activeSession.status === "finishing"
+      const baseFinishingSession: WorkoutSession = {
+        ...activeSession,
+        status: "finishing",
+        completedAt,
+      }
+
+      if (!isResumingFinish || !activeSession.completedAt) {
+        await saveActiveSession(baseFinishingSession)
+      }
 
       const exercises = isResumingFinish
-        ? activeSession.exercises
+        ? baseFinishingSession.exercises
         : await Promise.all(
-            activeSession.exercises.map(async (exercise) => {
+            baseFinishingSession.exercises.map(async (exercise) => {
               if (exercise.analysisStatus !== "stale") return exercise
               const completedSets = exercise.sets.filter(
                 (set) => !set.isSkipped && set.isCompleted,
               )
-              // H2: 没有任何完成组时直接 fallback,不调 enrich(后端会拒绝 0 组输入)
               if (completedSets.length === 0) {
                 return {
                   ...exercise,
@@ -222,7 +228,7 @@ export default function WorkoutPage() {
                     completedSets: completedSets.length,
                     avgWeightKg,
                     avgReps,
-                    effectiveUserWeightKg: activeSession.effectiveUserWeightKg,
+                    effectiveUserWeightKg: baseFinishingSession.effectiveUserWeightKg,
                     userGoal: userProfile.goal,
                   }),
                 })
@@ -244,20 +250,19 @@ export default function WorkoutPage() {
           )
 
       const finishingSession: WorkoutSession = {
-        ...activeSession,
-        status: "finishing",
+        ...baseFinishingSession,
         exercises,
       }
 
-      // H1: 把 enriched 状态先持久化到 active session,即使后续 saveDailyLog/markCompleted 失败,
-      // 重试时也能从 finishing 状态直接走 idempotent 写入路径。
       if (!isResumingFinish) {
         await saveActiveSession(finishingSession)
       }
 
       const entries = workoutSessionToExerciseEntries(finishingSession, completedAt)
-      // L3: 日期键采用本地时区,跨日训练归到 startedAt 的本地日期,与 useDateRecords 一致
-      const dateKey = format(new Date(activeSession.startedAt ?? completedAt), "yyyy-MM-dd")
+      const dateKey = format(
+        new Date(finishingSession.startedAt ?? completedAt),
+        "yyyy-MM-dd",
+      )
       const existingLog = ((await getDailyLog(dateKey)) as DailyLog | null) ?? {
         date: dateKey,
         foodEntries: [],
@@ -265,11 +270,20 @@ export default function WorkoutPage() {
         summary: emptySummary,
         activityLevel: userProfile.activityLevel,
       }
-      // M4: 不再在此处局部重算 summary。dashboard 中的 recalculateSummary 是页面级闭包,无法外部调用;
-      // 这里只追加 exerciseEntries,让 dashboard 在后续触达时按需重算 summary。
-      const updatedLog: DailyLog = {
+      const exerciseEntries = [
+        ...removeWorkoutSessionEntries(
+          existingLog.exerciseEntries,
+          finishingSession.sessionId,
+        ),
+        ...entries,
+      ]
+      const updatedLogWithoutSummary: DailyLog = {
         ...existingLog,
-        exerciseEntries: [...existingLog.exerciseEntries, ...entries],
+        exerciseEntries,
+      }
+      const updatedLog: DailyLog = {
+        ...updatedLogWithoutSummary,
+        summary: recalculateDailySummary(updatedLogWithoutSummary),
       }
 
       await saveDailyLog(dateKey, updatedLog)
