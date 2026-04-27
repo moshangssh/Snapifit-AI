@@ -55,6 +55,7 @@ export function createWorkoutSessionFromPlan(
   const exercises = input.exercises.map((exercise) => ({
     exerciseId: uuidv4(),
     plannedExerciseName: exercise.plannedExerciseName,
+    phase: exercise.phase,
     notes: exercise.notes,
     isExerciseSkipped: false,
     analysisStatus: "planned" as const,

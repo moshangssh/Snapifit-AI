@@ -123,6 +123,7 @@ export default function WorkoutPage() {
         body: JSON.stringify({
           effectiveUserWeightKg,
           userProfile,
+          generatedAt: planContext.generatedAt,
           recentWorkoutSessionSummaries: planContext.recentWorkoutSessionSummaries,
           recentExerciseEntries: planContext.recentExerciseEntries,
           fatigueSnapshot: planContext.fatigueSnapshot,

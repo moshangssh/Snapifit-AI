@@ -22,7 +22,7 @@ function makeInput(): CreateWorkoutSessionInput {
     effectiveUserWeightKg: 72,
     planContext: {
       generatedAt: "2026-04-23T00:00:00.000Z",
-      userGoal: "gain_muscle",
+      userGoal: "build_muscle",
       recentWorkoutSessionSummaries: [],
       recentExerciseEntries: [],
       fatigueSnapshot: {},
@@ -30,6 +30,7 @@ function makeInput(): CreateWorkoutSessionInput {
     exercises: [
       {
         plannedExerciseName: "卧推",
+        phase: "main",
         notes: "保持肩胛稳定",
         sets: [
           { plannedWeightKg: 60, plannedReps: 8 },
@@ -47,6 +48,7 @@ function makeInput(): CreateWorkoutSessionInput {
       },
       {
         plannedExerciseName: "划船",
+        phase: "main",
         sets: [{ plannedWeightKg: 50, plannedReps: 10 }],
         plannedAnalysis: {
           exerciseType: "strength",
@@ -68,6 +70,7 @@ describe("workout session core", () => {
 
     expect(session.sessionRole).toBe("current")
     expect(session.status).toBe("draft")
+    expect(session.exercises[0].phase).toBe("main")
     expect(session.exercises[0].sets[0].actualWeightKg).toBe(60)
     expect(session.derived.totalSetCount).toBe(4)
   })
@@ -299,7 +302,7 @@ const baseProfile: UserProfile = {
   age: 30,
   gender: "male",
   activityLevel: "moderate",
-  goal: "gain_muscle",
+  goal: "build_muscle",
 }
 
 const emptySummary = {

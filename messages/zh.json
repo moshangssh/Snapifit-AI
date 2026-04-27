@@ -853,7 +853,12 @@
       "planned": "计划",
       "completed": "已完成",
       "complete": "完成",
-      "unknown": "待识别"
+      "unknown": "待识别",
+      "phase": {
+        "warmup": "热身",
+        "main": "主训练",
+        "cooldown": "收尾"
+      }
     },
     "finishHint": "所有未跳过组完成后即可结束训练。",
     "finishing": "正在写入训练结果...",

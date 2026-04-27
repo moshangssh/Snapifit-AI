@@ -5,8 +5,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useTranslation } from "@/hooks/use-i18n"
+import { MUSCLE_LABELS_ZH } from "@/lib/muscle-groups"
 import { cn } from "@/lib/utils"
-import type { WorkoutSessionExercise } from "@/lib/workout/types"
+import type {
+  WorkoutExercisePhase,
+  WorkoutSessionExercise,
+} from "@/lib/workout/types"
+
+const PHASE_VARIANTS: Record<
+  WorkoutExercisePhase,
+  "secondary" | "default" | "outline"
+> = {
+  warmup: "secondary",
+  main: "default",
+  cooldown: "outline",
+}
 
 interface WorkoutExerciseCardProps {
   exercise: WorkoutSessionExercise
@@ -30,6 +43,11 @@ export function WorkoutExerciseCard({
 }: WorkoutExerciseCardProps) {
   const t = useTranslation("workout")
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
+  const phase = exercise.phase ?? "main"
+  const muscleLabels =
+    exercise.plannedAnalysis.muscleGroups
+      .map((muscle) => MUSCLE_LABELS_ZH[muscle] ?? muscle)
+      .join(", ") || t("exercise.unknown")
 
   return (
     <section
@@ -42,6 +60,9 @@ export function WorkoutExerciseCard({
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-xl font-semibold">{displayName}</h3>
+            <Badge variant={PHASE_VARIANTS[phase]}>
+              {t(`exercise.phase.${phase}`)}
+            </Badge>
             {exercise.actualExerciseName && (
               <Badge variant="secondary">{t("exercise.replaced")}</Badge>
             )}
@@ -53,8 +74,7 @@ export function WorkoutExerciseCard({
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {t("exercise.muscles")}:{" "}
-            {exercise.plannedAnalysis.muscleGroups.join(", ") || t("exercise.unknown")}
+            {t("exercise.muscles")}: {muscleLabels}
           </p>
           {exercise.notes && (
             <p className="text-sm text-muted-foreground">{exercise.notes}</p>

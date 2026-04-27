@@ -32,7 +32,12 @@
       "planned": "Planned",
       "completed": "Done",
       "complete": "Complete",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "phase": {
+        "warmup": "Warmup",
+        "main": "Main",
+        "cooldown": "Cooldown"
+      }
     },
     "finishHint": "All non-skipped sets must be completed before finishing.",
     "finishing": "Saving workout results...",

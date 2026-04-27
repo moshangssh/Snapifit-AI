@@ -15,6 +15,8 @@ export type WorkoutExerciseAnalysisStatus =
   | "enriched"
   | "fallback"
 
+export type WorkoutExercisePhase = "warmup" | "main" | "cooldown"
+
 export interface WorkoutExerciseAnalysis {
   exerciseType: ExerciseEntry["exercise_type"]
   muscleGroups: MuscleKey[]
@@ -42,6 +44,7 @@ export interface WorkoutSessionSet {
 export interface WorkoutSessionExercise {
   exerciseId: string
   plannedExerciseName: string
+  phase: WorkoutExercisePhase
   actualExerciseName?: string
   notes?: string
   sets: WorkoutSessionSet[]
@@ -112,6 +115,7 @@ export interface WorkoutSession {
 
 export interface WorkoutPlanExerciseDraft {
   plannedExerciseName: string
+  phase: WorkoutExercisePhase
   notes?: string
   sets: Array<{
     plannedWeightKg?: number

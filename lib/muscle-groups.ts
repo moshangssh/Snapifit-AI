@@ -19,6 +19,23 @@ export type MuscleKey = typeof MUSCLE_KEYS[number]
 
 export const MUSCLE_KEY_SET: ReadonlySet<string> = new Set(MUSCLE_KEYS)
 
+export const MUSCLE_LABELS_ZH: Record<MuscleKey, string> = {
+  "chest": "胸部",
+  "abs": "腹肌",
+  "obliques": "腹斜肌",
+  "upper-back": "上背",
+  "lower-back": "下背",
+  "front-deltoids": "前三角肌",
+  "back-deltoids": "后三角肌",
+  "biceps": "肱二头肌",
+  "triceps": "肱三头肌",
+  "forearms": "前臂",
+  "quadriceps": "股四头肌",
+  "hamstrings": "腘绳肌",
+  "glutes": "臀肌",
+  "calves": "小腿",
+}
+
 export const FRONT_MUSCLES: readonly MuscleKey[] = [
   "chest",
   "abs",
