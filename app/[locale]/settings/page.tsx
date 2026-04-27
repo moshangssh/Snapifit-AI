@@ -88,7 +88,9 @@ function SettingsContent() {
   // 获取URL参数中的tab值，默认为profile
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab')
-    return ['profile', 'goals', 'ai', 'data'].includes(tabParam || '') ? tabParam : 'profile'
+    return tabParam && ['profile', 'goals', 'ai', 'data'].includes(tabParam)
+      ? tabParam
+      : 'profile'
   })
 
   const { memories, updateMemory, clearMemory, clearAllMemories } = useAIMemory()
