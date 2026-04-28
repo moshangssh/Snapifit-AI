@@ -13,7 +13,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { useTranslation } from "@/hooks/use-i18n"
 
 interface ReplaceExerciseDialogProps {
   displayName: string
@@ -24,7 +23,6 @@ export function ReplaceExerciseDialog({
   displayName,
   onReplace,
 }: ReplaceExerciseDialogProps) {
-  const t = useTranslation("workout")
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(displayName)
 
@@ -45,14 +43,14 @@ export function ReplaceExerciseDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Pencil className="mr-2 h-4 w-4" />
-          {t("exercise.replace")}
+          {"替换动作"}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("exercise.replaceTitle")}</DialogTitle>
+          <DialogTitle>{"替换训练动作"}</DialogTitle>
           <DialogDescription>
-            {t("exercise.replaceDescription", { name: displayName })}
+            {`当前计划动作是 ${displayName}。替换后会在完成训练时重新补全肌群和热量分析。`}
           </DialogDescription>
         </DialogHeader>
         <Input
@@ -64,9 +62,9 @@ export function ReplaceExerciseDialog({
         />
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            {t("exercise.replaceCancel")}
+            {"取消"}
           </Button>
-          <Button onClick={submit}>{t("exercise.replaceConfirm")}</Button>
+          <Button onClick={submit}>{"确认替换"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

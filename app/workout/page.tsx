@@ -6,7 +6,6 @@ import { Dumbbell, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
-import { useTranslation } from "@/hooks/use-i18n"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useWorkoutSessions } from "@/hooks/use-workout-sessions"
 import { recalculateDailySummary } from "@/lib/daily-summary"
@@ -62,7 +61,6 @@ const emptySummary = {
 
 export default function WorkoutPage() {
   const { toast } = useToast()
-  const t = useTranslation("workout")
   const [userProfile] = useLocalStorage<UserProfile>("userProfile", defaultUserProfile)
   const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", defaultAIConfig)
   const { getData: getDailyLog, saveData: saveDailyLog } = useIndexedDB("healthLogs")
@@ -82,14 +80,14 @@ export default function WorkoutPage() {
     const model = aiConfig.agentModel
     if (!model.name || !model.baseUrl || !model.apiKey) {
       toast({
-        title: t("aiConfigErrorTitle"),
-        description: t("aiConfigErrorDesc"),
+        title: "AI 配置不完整",
+        description: "请先在设置页面配置工作模型。",
         variant: "destructive",
       })
       return false
     }
     return true
-  }, [aiConfig.agentModel, t, toast])
+  }, [aiConfig.agentModel, toast])
 
   const loadRecentLogs = useCallback(async () => {
     const today = new Date()
@@ -149,8 +147,8 @@ export default function WorkoutPage() {
     } catch (error) {
       console.error(error)
       toast({
-        title: t("generateErrorTitle"),
-        description: t("generateErrorDesc"),
+        title: "训练计划生成失败",
+        description: "请稍后重试。",
         variant: "destructive",
       })
     } finally {
@@ -163,7 +161,6 @@ export default function WorkoutPage() {
     hasCompletedWorkout,
     loadRecentLogs,
     saveActiveSession,
-    t,
     toast,
     userProfile,
   ])
@@ -293,12 +290,12 @@ export default function WorkoutPage() {
         status: "completed",
         completedAt,
       })
-      toast({ title: t("finishSuccessTitle"), description: t("finishSuccessDesc") })
+      toast({ title: "训练已完成", description: "结果已写入今日运动记录。" })
     } catch (error) {
       console.error(error)
       toast({
-        title: t("finishErrorTitle"),
-        description: t("finishErrorDesc"),
+        title: "训练完成失败",
+        description: "写入运动记录失败,请重试。",
         variant: "destructive",
       })
     } finally {
@@ -311,7 +308,6 @@ export default function WorkoutPage() {
     markSessionCompleted,
     saveActiveSession,
     saveDailyLog,
-    t,
     toast,
     userProfile.activityLevel,
     userProfile.goal,
@@ -321,10 +317,10 @@ export default function WorkoutPage() {
     if (!activeSession || activeSession.status === "finishing") return
     await abandonActiveSession(activeSession)
     toast({
-      title: t("abandon.successTitle"),
-      description: t("abandon.successDesc"),
+      title: "已放弃训练计划",
+      description: "你可以重新生成一份新的训练计划。",
     })
-  }, [abandonActiveSession, activeSession, t, toast])
+  }, [abandonActiveSession, activeSession, toast])
 
   if (!isReady) {
     return (
@@ -335,17 +331,17 @@ export default function WorkoutPage() {
   }
 
   if (!activeSession) {
-    const title = hasCompletedWorkout ? t("titleNext") : t("titleCurrent")
+    const title = hasCompletedWorkout ? "下次训练计划" : "本次训练计划"
     return (
       <div className="mx-auto max-w-4xl px-4 py-12">
         <div className="rounded-3xl border bg-gradient-to-br from-emerald-50 to-white p-10 text-center shadow-sm dark:from-emerald-950/30 dark:to-slate-950">
           <Dumbbell className="mx-auto h-12 w-12 text-emerald-600" />
           <h1 className="mt-4 text-4xl font-bold">{title}</h1>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            {t("subtitle")}
+            {"AI 会读取你的本地训练历史、肌肉疲劳和最近体重,生成一份可直接打卡的单次训练计划。"}
           </p>
           <Button className="mt-8" disabled={isGenerating} onClick={generatePlan}>
-            {isGenerating ? t("generating") : t("generate", { title })}
+            {isGenerating ? "正在生成..." : `生成${""}`}
           </Button>
         </div>
       </div>

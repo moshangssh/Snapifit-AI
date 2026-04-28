@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, use } from "react"
+import { useState, useEffect, useRef } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import Link from "next/link"
@@ -37,7 +37,6 @@ import { generateTEFAnalysis } from "@/lib/tef-utils"
 import { tefCacheManager } from "@/lib/tef-cache"
 import type { SmartSuggestionsResponse } from "@/lib/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useTranslation } from "@/hooks/use-i18n"
 
 // 图片预览类型
 interface ImagePreview {
@@ -46,14 +45,9 @@ interface ImagePreview {
   compressedFile?: File
 }
 
-export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
-  const t = useTranslation('dashboard')
+export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
-  // 解包params Promise
-  const resolvedParams = use(params)
-
-  // 获取当前语言环境
   const currentLocale = zhCN
   const [inputText, setInputText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
@@ -451,12 +445,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         title: (
           <span className="flex items-center">
             <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            {t('errors.aiConfigIncomplete')}
+            {"AI 配置不完整"}
           </span>
         ),
-        description: t('errors.configureModelFirst', {
-          modelType: uploadedImages.length > 0 ? t('modelTypes.vision') : t('modelTypes.work')
-        }),
+        description: `请先在设置页面配置 ${uploadedImages.length > 0 ? "视觉" : "工作"} 模型。`,
         variant: "destructive",
       })
       return false
@@ -474,10 +466,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         title: (
           <span className="flex items-center">
             <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            {t('errors.imageCountExceeded')}
+            {"图片数量超限"}
           </span>
         ),
-        description: t('errors.maxImagesAllowed'),
+        description: "最多只能上传5张图片。",
         variant: "destructive",
       })
       return
@@ -496,10 +488,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
             title: (
               <span className="flex items-center">
                 <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-                {t('errors.invalidFileType')}
+                {"文件类型错误"}
               </span>
             ),
-            description: t('errors.notImageFile', { fileName: file.name }),
+            description: `${file.name} 不是图片文件。`,
             variant: "destructive",
           })
           continue
@@ -522,10 +514,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         title: (
           <span className="flex items-center">
             <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            {t('errors.imageProcessingFailed')}
+            {"图片处理失败"}
           </span>
         ),
-        description: t('errors.cannotProcessImages'),
+        description: "无法处理上传的图片。",
         variant: "destructive",
       })
     } finally {
@@ -553,10 +545,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         title: (
           <span className="flex items-center">
             <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            {t('errors.emptyInput')}
+            {"输入为空"}
           </span>
         ),
-        description: t('errors.enterTextOrUpload'),
+        description: "请输入文本或上传图片。",
         variant: "destructive",
       })
       return
@@ -634,10 +626,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         title: (
           <span className="flex items-center">
             <CheckCircle2 className="mr-2 h-5 w-5 text-green-500" />
-            {t('success.recordAdded')}
+            {"记录成功"}
           </span>
         ),
-        description: activeTab === "food" ? t('success.foodAdded') : t('success.exerciseAdded'),
+        description: activeTab === "food" ? "已添加食物记录。" : "已添加运动记录。",
       })
     } catch (error: any) {
       console.error("Error:", error)
@@ -678,10 +670,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       title: (
         <span className="flex items-center">
           <Trash2 className="mr-2 h-5 w-5 text-green-500" />
-          {t('success.recordDeleted')}
+          {"删除成功"}
         </span>
       ),
-      description: type === "food" ? t('success.foodDeleted') : t('success.exerciseDeleted'),
+      description: type === "food" ? "已删除食物记录。" : "已删除运动记录。",
     })
   }
 
@@ -711,10 +703,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       title: (
         <span className="flex items-center">
           <Edit3 className="mr-2 h-5 w-5 text-green-500" />
-          {t('success.recordUpdated')}
+          {"更新成功"}
         </span>
       ),
-      description: type === "food" ? t('success.foodUpdated') : t('success.exerciseUpdated'),
+      description: type === "food" ? "已更新食物记录。" : "已更新运动记录。",
     })
   }
 
@@ -761,8 +753,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       // 刷新日期记录状态
       refreshRecords()
       toast({
-        title: <span className="flex items-center"><Info className="mr-2 h-5 w-5" />{t('success.weightCleared')}</span>,
-        description: t('success.weightClearedDesc', { date: dateKey })
+        title: <span className="flex items-center"><Info className="mr-2 h-5 w-5" />{"体重已清除"}</span>,
+        description: `已清除 ${dateKey} 的体重记录。`
       })
       return
     }
@@ -770,8 +762,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     const weightValue = parseFloat(currentDayWeight)
     if (isNaN(weightValue) || weightValue <= 0) {
       toast({
-        title: <span className="flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-destructive" />{t('validation.invalidWeight')}</span>,
-        description: t('validation.invalidWeightDesc'),
+        title: <span className="flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-destructive" />{"体重无效"}</span>,
+        description: "请输入一个有效的正数作为体重。",
         variant: "destructive"
       })
       return
@@ -785,8 +777,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     // 刷新日期记录状态
     refreshRecords()
     toast({
-      title: <span className="flex items-center"><CheckCircle2 className="mr-2 h-5 w-5 text-green-500" />{t('success.weightSaved')}</span>,
-      description: t('success.weightSavedDesc', { date: dateKey, weight: weightValue })
+      title: <span className="flex items-center"><CheckCircle2 className="mr-2 h-5 w-5 text-green-500" />{"体重已保存"}</span>,
+      description: `已将 ${dateKey} 的体重记录为 ${weightValue} kg。`
     })
   }
 
@@ -893,7 +885,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   SnapFit AI
                 </h1>
                 <p className="text-muted-foreground text-lg">
-                  {t('ui.subtitle')}
+                  {"记录您的健康数据，获得智能建议"}
                 </p>
               </div>
             </div>
@@ -924,17 +916,17 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
                     <Settings2 className="h-3 w-3" />
                     <Link
-                      href={`/${resolvedParams.locale}/settings?tab=ai`}
+                      href="/settings?tab=ai"
                       className="hover:text-primary transition-colors underline-offset-2 hover:underline"
                     >
-                      {t('ui.quickConfig')}
+                      {"快速配置"}
                     </Link>
                     <span>/</span>
                     <Link
-                      href={`/${resolvedParams.locale}/settings?tab=data`}
+                      href="/settings?tab=data"
                       className="hover:text-primary transition-colors underline-offset-2 hover:underline"
                     >
-                      {t('ui.dataExport')}
+                      {"数据导出"}
                     </Link>
                   </div>
 
@@ -944,8 +936,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                       <AlertTriangle className="h-3 w-3" />
                       <span>
                         {exportReminder.lastExportDate === null
-                          ? t('ui.neverExported')
-                          : t('ui.exportReminder', { days: exportReminder.daysSinceLastExport })
+                          ? "建议备份数据"
+                          : `已${exportReminder.daysSinceLastExport}天未备份`
                         }
                       </span>
                       <Clock className="h-3 w-3 ml-1" />
@@ -971,15 +963,15 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                     <Weight className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">{t('ui.todayWeight')}</h3>
-                    <p className="text-muted-foreground">{t('ui.recordWeightChanges')}</p>
+                    <h3 className="text-lg font-semibold">{"今日体重(Kg)"}</h3>
+                    <p className="text-muted-foreground">{"记录您的体重变化"}</p>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <Input
                     id="daily-weight"
                     type="number"
-                    placeholder={t('placeholders.weightExample')}
+                    placeholder={"例如: 70.5"}
                     value={currentDayWeight}
                     onChange={(e) => setCurrentDayWeight(e.target.value)}
                     className="w-full h-12 text-base"
@@ -1000,7 +992,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                     className="btn-gradient-primary w-full h-12"
                   >
                     <Save className="mr-2 h-4 w-4" />
-                    {t('ui.saveWeight')}
+                    {"保存体重"}
                   </Button>
                 </div>
               </div>
@@ -1011,8 +1003,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                     <UserCheck className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">{t('ui.activityLevel')}</h3>
-                    <p className="text-muted-foreground">{t('ui.setTodayActivity')}</p>
+                    <h3 className="text-lg font-semibold">{"活动水平"}</h3>
+                    <p className="text-muted-foreground">{"设置今日的活动强度"}</p>
                   </div>
                 </div>
                 <Select
@@ -1029,14 +1021,14 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   }}
                 >
                   <SelectTrigger className="w-full h-12 text-base" id="daily-activity-level">
-                    <SelectValue placeholder={t('ui.selectActivityLevel')} />
+                    <SelectValue placeholder={"选择活动水平"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sedentary">{t('activityLevels.sedentary')}</SelectItem>
-                    <SelectItem value="light">{t('activityLevels.light')}</SelectItem>
-                    <SelectItem value="moderate">{t('activityLevels.moderate')}</SelectItem>
-                    <SelectItem value="active">{t('activityLevels.active')}</SelectItem>
-                    <SelectItem value="very_active">{t('activityLevels.very_active')}</SelectItem>
+                    <SelectItem value="sedentary">{"久坐不动 (办公室工作)"}</SelectItem>
+                    <SelectItem value="light">{"轻度活跃 (少量运动)"}</SelectItem>
+                    <SelectItem value="moderate">{"中度活跃 (规律运动)"}</SelectItem>
+                    <SelectItem value="active">{"高度活跃 (每日运动)"}</SelectItem>
+                    <SelectItem value="very_active">{"非常活跃 (高强度训练)"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1057,8 +1049,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   <ClipboardPenLine className="h-6 w-6" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold">{t('ui.recordHealthData')}</h2>
-                  <p className="text-muted-foreground text-lg">{t('ui.recordHealthDataDesc')}</p>
+                  <h2 className="text-2xl font-semibold">{"记录健康数据"}</h2>
+                  <p className="text-muted-foreground text-lg">{"输入您的饮食或运动记录，智能识别营养和消耗"}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1078,13 +1070,13 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
               <TabsList className="grid w-full grid-cols-3 h-14">
                 <TabsTrigger value="food" className="text-base py-4 px-8">
-                  <Utensils className="mr-2 h-5 w-5" />{t('ui.dietRecord')}
+                  <Utensils className="mr-2 h-5 w-5" />{"饮食记录"}
                 </TabsTrigger>
                 <TabsTrigger value="exercise" className="text-base py-4 px-8">
-                  <Dumbbell className="mr-2 h-5 w-5" />{t('ui.exerciseRecord')}
+                  <Dumbbell className="mr-2 h-5 w-5" />{"运动记录"}
                 </TabsTrigger>
                 <TabsTrigger value="status" className="text-base py-4 px-8">
-                  <Activity className="mr-2 h-5 w-5" />{t('ui.dailyStatus')}
+                  <Activity className="mr-2 h-5 w-5" />{"每日状态"}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -1100,8 +1092,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                 <Textarea
                   placeholder={
                     activeTab === "food"
-                      ? t('placeholders.foodExample')
-                      : t('placeholders.exerciseExample')
+                      ? "例如：早餐 一碗小米粥，一个鸡蛋，5个小番茄；午餐 一份鸡胸肉沙拉，半个玉米..."
+                      : "例如：下午跑步30分钟5公里，晚上HIIT训练20分钟..."
                   }
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
@@ -1112,7 +1104,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
               {activeTab !== "status" && uploadedImages.length > 0 && (
                 <div className="p-6 rounded-xl bg-muted/30 border">
                   <p className="text-muted-foreground mb-4 flex items-center font-medium">
-                    <ImageIcon className="mr-2 h-5 w-5" /> {t('images.uploaded', { count: uploadedImages.length })}
+                    <ImageIcon className="mr-2 h-5 w-5" /> {`已上传 ${uploadedImages.length} 张图片 (最多5张)`}
                   </p>
                   <div className="flex flex-wrap gap-3">
                     {uploadedImages.map((img, index) => (
@@ -1157,7 +1149,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                     className="h-12 px-6"
                   >
                     <UploadCloud className="mr-2 h-5 w-5" />
-                    {isCompressing ? t('buttons.imageProcessing') : `${t('buttons.uploadImages')} (${uploadedImages.length}/5)`}
+                    {isCompressing ? "图片处理中..." : `${"上传图片"} (${uploadedImages.length}/5)`}
                   </Button>
                   {uploadedImages.length > 0 && (
                     <Button
@@ -1166,7 +1158,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                       onClick={() => setUploadedImages([])}
                       className="text-destructive hover:text-destructive h-12"
                     >
-                      <Trash2 className="mr-2 h-4 w-4" /> {t('buttons.clearImages')}
+                      <Trash2 className="mr-2 h-4 w-4" /> {"清空图片"}
                     </Button>
                   )}
                 </div>
@@ -1183,12 +1175,12 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      {t('buttons.processing')}
+                      {"处理中..."}
                     </>
                   ) : (
                     <>
                       {activeTab === "food" ? <Utensils className="mr-2 h-5 w-5" /> : <Dumbbell className="mr-2 h-5 w-5" />}
-                      {t('buttons.submitRecord')}
+                      {"提交记录"}
                     </>
                   )}
                 </Button>
@@ -1206,7 +1198,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                 <div className="absolute top-0 left-0 w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
               </div>
             </div>
-            <p className="text-lg text-slate-600 dark:text-slate-400 font-medium">{t('loading.dataLoading')}</p>
+            <p className="text-lg text-slate-600 dark:text-slate-400 font-medium">{"加载数据中，请稍候..."}</p>
           </div>
         )}
 
@@ -1218,8 +1210,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   <Utensils className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-semibold">{t('ui.myMeals')}</h3>
-                  <p className="text-muted-foreground text-lg">{t('ui.todayFoodCount', { count: dailyLog.foodEntries.length })}</p>
+                  <h3 className="text-2xl font-semibold">{"我的膳食"}</h3>
+                  <p className="text-muted-foreground text-lg">{`今日共记录 ${dailyLog.foodEntries.length} 项食物`}</p>
                 </div>
               </div>
 
@@ -1228,8 +1220,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   <div className="flex items-center justify-center w-20 h-20 mx-auto mb-6 rounded-2xl bg-muted/50">
                     <Utensils className="h-10 w-10" />
                   </div>
-                  <p className="text-xl font-medium mb-3">{t('ui.noFoodRecords')}</p>
-                  <p className="text-lg opacity-75">{t('ui.addFoodAbove')}</p>
+                  <p className="text-xl font-medium mb-3">{"暂无食物记录"}</p>
+                  <p className="text-lg opacity-75">{"请在上方添加您今天的饮食"}</p>
                 </div>
               ) : (
                 <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
@@ -1253,8 +1245,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   <Dumbbell className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-semibold">{t('ui.myExercise')}</h3>
-                  <p className="text-muted-foreground text-lg">{t('ui.todayExerciseCount', { count: dailyLog.exerciseEntries.length })}</p>
+                  <h3 className="text-2xl font-semibold">{"我的运动"}</h3>
+                  <p className="text-muted-foreground text-lg">{`今日共记录 ${dailyLog.exerciseEntries.length} 项运动`}</p>
                 </div>
               </div>
 
@@ -1263,8 +1255,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   <div className="flex items-center justify-center w-20 h-20 mx-auto mb-6 rounded-2xl bg-muted/50">
                     <Dumbbell className="h-10 w-10" />
                   </div>
-                  <p className="text-xl font-medium mb-3">{t('ui.noExerciseRecords')}</p>
-                  <p className="text-lg opacity-75">{t('ui.addExerciseAbove')}</p>
+                  <p className="text-xl font-medium mb-3">{"暂无运动记录"}</p>
+                  <p className="text-lg opacity-75">{"请在上方添加您今天的锻炼"}</p>
                 </div>
               ) : (
                 <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">

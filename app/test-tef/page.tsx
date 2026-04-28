@@ -62,38 +62,38 @@ export default function TestTEFPage() {
   }, []);
 
   const testCacheFunction = () => {
-    console.log('=== TEF Cache Test ===');
+    console.log('=== TEF 缓存测试 ===');
     
     // 第一次计算
-    console.log('1. First calculation...');
+    console.log('1. 首次计算...');
     const hash1 = tefCacheManager.generateFoodEntriesHash(sampleFoodEntries);
     console.log('Hash:', hash1);
     
     const cached1 = tefCacheManager.getCachedAnalysis(sampleFoodEntries);
-    console.log('Cached result (should be null):', cached1);
+    console.log('缓存结果（应为空）:', cached1);
     
     // 生成TEF分析
     const analysis = generateTEFAnalysis(sampleFoodEntries, 1.15);
-    console.log('Generated analysis:', analysis);
+    console.log('生成的分析:', analysis);
     
     // 缓存结果
     tefCacheManager.setCachedAnalysis(sampleFoodEntries, analysis);
-    console.log('Analysis cached');
+    console.log('分析已缓存');
     
     // 第二次获取（应该从缓存获取）
-    console.log('2. Second retrieval...');
+    console.log('2. 第二次读取...');
     const cached2 = tefCacheManager.getCachedAnalysis(sampleFoodEntries);
-    console.log('Cached result (should exist):', cached2);
+    console.log('缓存结果（应存在）:', cached2);
     
     // 测试哈希一致性
     const hash2 = tefCacheManager.generateFoodEntriesHash(sampleFoodEntries);
-    console.log('Hash consistency:', hash1 === hash2);
+    console.log('哈希一致性:', hash1 === hash2);
     
     // 测试shouldAnalyzeTEF
     const shouldAnalyze1 = tefCacheManager.shouldAnalyzeTEF(sampleFoodEntries, '');
     const shouldAnalyze2 = tefCacheManager.shouldAnalyzeTEF(sampleFoodEntries, hash1);
-    console.log('Should analyze (new):', shouldAnalyze1);
-    console.log('Should analyze (same hash):', shouldAnalyze2);
+    console.log('是否需要分析（新记录）:', shouldAnalyze1);
+    console.log('是否需要分析（相同哈希）:', shouldAnalyze2);
     
     // 更新缓存统计
     setCacheStats(tefCacheManager.getCacheStats());
@@ -103,28 +103,28 @@ export default function TestTEFPage() {
     if (!isClient) return;
     tefCacheManager.clearCache();
     setCacheStats(tefCacheManager.getCacheStats());
-    console.log('Cache cleared');
+    console.log('缓存已清空');
   };
 
   // 在客户端渲染之前显示加载状态
   if (!isClient) {
     return (
       <div className="container mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-6">TEF Cache Test Page</h1>
-        <p>Loading...</p>
+        <h1 className="text-2xl font-bold mb-6">TEF 缓存测试页</h1>
+        <p>加载中...</p>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">TEF Cache Test Page</h1>
+      <h1 className="text-2xl font-bold mb-6">TEF 缓存测试页</h1>
 
       <div className="space-y-4">
         <div className="bg-gray-100 p-4 rounded">
-          <h2 className="text-lg font-semibold mb-2">Cache Statistics</h2>
-          <p>Cache Size: {cacheStats.size}</p>
-          <p>Oldest Entry: {cacheStats.oldestEntry ? new Date(cacheStats.oldestEntry).toLocaleString() : 'None'}</p>
+          <h2 className="text-lg font-semibold mb-2">缓存统计</h2>
+          <p>缓存数量：{cacheStats.size}</p>
+          <p>最早条目：{cacheStats.oldestEntry ? new Date(cacheStats.oldestEntry).toLocaleString('zh-CN') : '无'}</p>
         </div>
         
         <div className="space-x-4">
@@ -132,38 +132,38 @@ export default function TestTEFPage() {
             onClick={testCacheFunction}
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
           >
-            Test Cache Function
+            测试缓存功能
           </button>
           
           <button 
             onClick={clearCache}
             className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
           >
-            Clear Cache
+            清空缓存
           </button>
           
           <button 
             onClick={() => setCacheStats(tefCacheManager.getCacheStats())}
             className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
           >
-            Refresh Stats
+            刷新统计
           </button>
         </div>
         
         <div className="bg-gray-100 p-4 rounded">
-          <h2 className="text-lg font-semibold mb-2">Sample Food Entries</h2>
+          <h2 className="text-lg font-semibold mb-2">示例食物记录</h2>
           <pre className="text-sm overflow-auto">
             {JSON.stringify(sampleFoodEntries, null, 2)}
           </pre>
         </div>
         
         <div className="bg-yellow-100 p-4 rounded">
-          <h2 className="text-lg font-semibold mb-2">Instructions</h2>
+          <h2 className="text-lg font-semibold mb-2">说明</h2>
           <ol className="list-decimal list-inside space-y-1">
-            <li>点击 "Test Cache Function" 测试缓存功能</li>
+            <li>点击“测试缓存功能”测试缓存功能</li>
             <li>查看浏览器控制台输出</li>
             <li>刷新页面测试持久化</li>
-            <li>点击 "Clear Cache" 清空缓存</li>
+            <li>点击“清空缓存”清空缓存</li>
           </ol>
         </div>
       </div>

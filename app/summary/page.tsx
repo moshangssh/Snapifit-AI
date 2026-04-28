@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useEffect, use, useRef, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useTranslation } from "@/hooks/use-i18n"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useToast } from "@/hooks/use-toast"
@@ -47,9 +46,7 @@ const defaultUserProfile: UserProfile = {
 }
 
 // 内部组件，处理 useSearchParams
-function SummaryPageContent({ params }: { params: Promise<{ locale: string }> }) {
-  const t = useTranslation('summary')
-  const tDashboard = useTranslation('dashboard')
+function SummaryPageContent() {
   const { toast } = useToast()
   const { theme } = useTheme()
   const [userProfile] = useLocalStorage("userProfile", defaultUserProfile)
@@ -63,10 +60,6 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
   const { getData } = useIndexedDB("healthLogs")
   const searchParams = useSearchParams()
 
-  // 解包params Promise
-  const resolvedParams = use(params)
-
-  // 获取当前语言环境
   const currentLocale = zhCN
 
   // 处理URL中的日期参数
@@ -435,7 +428,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
       console.error('html2canvas截图失败:', error)
       // 直接显示错误，不使用其他降级方案
       toast({
-        title: t('screenshot.failed'),
+        title: "截图失败",
         description: "html2canvas截图失败，请刷新页面后重试",
         variant: "destructive",
       })
@@ -1003,8 +996,8 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
       URL.revokeObjectURL(url)
 
       toast({
-        title: t('screenshot.success'),
-        description: t('screenshot.successDescription'),
+        title: "截图成功",
+        description: "健康汇总已保存为图片",
       })
 
     } catch (error) {
@@ -1034,12 +1027,12 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
           <Link href="/">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              {t('backToHome')}
+              {"返回主页"}
             </Button>
           </Link>
         </div>
         <div className="text-center py-12">
-          <p className="text-muted-foreground">{t('noDataForDate')}</p>
+          <p className="text-muted-foreground">{"该日期暂无数据"}</p>
         </div>
       </div>
     )
@@ -1056,13 +1049,13 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
 
   if (calorieDifference !== null) {
     if (calorieDifference > 0) {
-      calorieStatusText = t('deficit', { amount: calorieDifference.toFixed(0) })
+      calorieStatusText = `缺口 ${calorieDifference.toFixed(0)} kcal`
       calorieStatusColor = "text-green-600 dark:text-green-500"
     } else if (calorieDifference < 0) {
-      calorieStatusText = t('surplus', { amount: Math.abs(calorieDifference).toFixed(0) })
+      calorieStatusText = `盈余 ${Math.abs(calorieDifference).toFixed(0)} kcal`
       calorieStatusColor = "text-orange-500 dark:text-orange-400"
     } else {
-      calorieStatusText = t('balanced')
+      calorieStatusText = "平衡"
       calorieStatusColor = "text-blue-500 dark:text-blue-400"
     }
   }
@@ -1077,21 +1070,21 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
           <Link href="/">
             <Button variant="ghost" size="sm" className="no-screenshot">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              {t('backToHome')}
+              {"返回主页"}
             </Button>
           </Link>
         </div>
 
         {/* 第二行：标题区域 - 居中 */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold mb-2">{t('title')}</h1>
-          <p className="text-muted-foreground text-lg">{t('description')}</p>
+          <h1 className="text-3xl font-bold mb-2">{"今日汇总"}</h1>
+          <p className="text-muted-foreground text-lg">{"您的饮食和运动数据概览"}</p>
         </div>
 
         {/* 第三行：日期和操作按钮 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <p className="text-sm text-muted-foreground">{t('date')}:</p>
+            <p className="text-sm text-muted-foreground">{"日期"}:</p>
             <p className="text-lg font-medium">
               {format(selectedDate, "PPP (eeee)", { locale: currentLocale })}
             </p>
@@ -1106,12 +1099,12 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
             {isCapturing ? (
               <>
                 <Download className="h-4 w-4 animate-spin" />
-                <span>{t('screenshot.capturing')}</span>
+                <span>{"截图中..."}</span>
               </>
             ) : (
               <>
                 <Camera className="h-4 w-4" />
-                <span>{t('screenshot.capture')}</span>
+                <span>{"保存为图片"}</span>
               </>
             )}
           </Button>
@@ -1124,7 +1117,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
           <CardHeader>
             <CardTitle className="flex items-center">
               <Calculator className="mr-2 h-5 w-5 text-primary" />
-              {t('calorieBalance')}
+              {"热量平衡"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1133,7 +1126,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <Utensils className="mr-2 h-5 w-5 text-green-500" />
-                  <span className="text-lg font-medium">{t('caloriesIn')}</span>
+                  <span className="text-lg font-medium">{"卡路里摄入"}</span>
                 </div>
                 <span className="text-2xl font-bold text-green-600">
                   {totalCaloriesConsumed.toFixed(0)} kcal
@@ -1155,7 +1148,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
                 </div>
               ) : (
                 <p className="text-muted-foreground text-center py-4">
-                  {t('noFoodEntries')}
+                  {"今日暂无饮食记录"}
                 </p>
               )}
             </div>
@@ -1165,7 +1158,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <Flame className="mr-2 h-5 w-5 text-red-500" />
-                  <span className="text-lg font-medium">{t('exerciseBurn')}</span>
+                  <span className="text-lg font-medium">{"运动消耗"}</span>
                 </div>
                 <span className="text-2xl font-bold text-red-600">
                   {totalCaloriesBurned.toFixed(0)} kcal
@@ -1187,7 +1180,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
                 </div>
               ) : (
                 <p className="text-muted-foreground text-center py-4">
-                  {t('noExerciseEntries')}
+                  {"今日暂无运动记录"}
                 </p>
               )}
             </div>
@@ -1200,7 +1193,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
                     <TrendingUp className="mr-2 h-5 w-5 text-orange-500" /> : 
                     <TrendingDown className="mr-2 h-5 w-5 text-blue-500" />
                   }
-                  <span className="text-lg font-medium">{t('netCalories')}</span>
+                  <span className="text-lg font-medium">{"净卡路里"}</span>
                 </div>
                 <span className={`text-2xl font-bold ${netCalories > 0 ? "text-orange-500" : "text-blue-500"}`}>
                   {netCalories.toFixed(0)} kcal
@@ -1215,7 +1208,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
           <CardHeader>
             <CardTitle className="flex items-center">
               <Target className="mr-2 h-5 w-5 text-primary" />
-              {t('estimatedDailyNeeds')}
+              {"估算每日能量需求"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1225,8 +1218,8 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
                 <div className="flex items-center">
                   <BedDouble className="mr-2 h-5 w-5 text-purple-500" />
                   <div>
-                    <span className="text-lg font-medium">{t('bmr')}</span>
-                    <p className="text-sm text-muted-foreground">{t('bmrDescription')}</p>
+                    <span className="text-lg font-medium">{"基础代谢率 (BMR)"}</span>
+                    <p className="text-sm text-muted-foreground">{"维持基本生理功能所需的最低能量"}</p>
                   </div>
                 </div>
                 <span className="text-2xl font-bold text-purple-600">
@@ -1241,8 +1234,8 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
                 <div className="flex items-center">
                   <Target className="mr-2 h-5 w-5 text-indigo-500" />
                   <div>
-                    <span className="text-lg font-medium">{t('tdee')}</span>
-                    <p className="text-sm text-muted-foreground">{t('tdeeDescription')}</p>
+                    <span className="text-lg font-medium">{"目标消耗 (TDEE)"}</span>
+                    <p className="text-sm text-muted-foreground">{"包含日常活动的总能量消耗"}</p>
                   </div>
                 </div>
                 <span className="text-2xl font-bold text-indigo-600">
@@ -1263,8 +1256,8 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
                         <TrendingUp className="mr-2 h-5 w-5 text-orange-500" />
                     }
                     <div>
-                      <span className="text-lg font-medium">{t('calorieDeficitSurplus')}</span>
-                      <p className="text-sm text-muted-foreground">{t('deficitSurplusDescription')}</p>
+                      <span className="text-lg font-medium">{"热量缺口/盈余"}</span>
+                      <p className="text-sm text-muted-foreground">{"相对于目标消耗的热量差值"}</p>
                     </div>
                   </div>
                   <span className={`text-2xl font-bold ${calorieStatusColor}`}>
@@ -1277,7 +1270,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
             <div className="bg-muted/50 rounded-lg p-4 mt-4">
               <p className="text-sm text-muted-foreground flex items-start">
                 <Info className="mr-2 h-4 w-4 flex-shrink-0 mt-0.5" />
-                <span>{t('estimationNote')}</span>
+                <span>{"这些是基于您个人信息和当日活动水平的估算值。"}</span>
               </p>
             </div>
           </CardContent>
@@ -1292,7 +1285,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center">
                       <Brain className="mr-2 h-5 w-5 text-primary" />
-                      {t('smartSuggestions')}
+                      {"智能建议"}
                       <span className="ml-2 text-sm bg-primary/10 text-primary px-2 py-1 rounded-full">
                         {smartSuggestions.suggestions.reduce((total, category) => total + category.suggestions.length, 0)}
                       </span>
@@ -1366,7 +1359,7 @@ function SummaryPageContent({ params }: { params: Promise<{ locale: string }> })
 }
 
 // 主导出组件，用 Suspense 包装
-export default function SummaryPage({ params }: { params: Promise<{ locale: string }> }) {
+export default function SummaryPage() {
   return (
     <Suspense fallback={<div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
@@ -1374,7 +1367,7 @@ export default function SummaryPage({ params }: { params: Promise<{ locale: stri
         <p className="text-muted-foreground">加载中...</p>
       </div>
     </div>}>
-      <SummaryPageContent params={params} />
+      <SummaryPageContent />
     </Suspense>
   )
 }

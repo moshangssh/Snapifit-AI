@@ -6,46 +6,31 @@ import { cn } from "@/lib/utils"
 import { Dumbbell, Home, MessageSquare, Settings, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
-import { useTranslation } from "@/hooks/use-i18n"
-import { locales, type Locale } from "@/i18n"
 import Image from "next/image"
 
 export function MainNav() {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
-  const t = useTranslation('navigation')
-
-  // 直接从路径中提取当前语言，确保准确性
-  const getCurrentLocale = (): Locale => {
-    for (const loc of locales) {
-      if (pathname.startsWith(`/${loc}`)) {
-        return loc;
-      }
-    }
-    return 'zh'; // 默认语言
-  };
-
-  const locale = getCurrentLocale()
 
   const navItems = [
     {
-      name: t('home'),
-      href: `/${locale}`,
+      name: "首页",
+      href: "/",
       icon: Home,
     },
     {
-      name: t('workout'),
-      href: `/${locale}/workout`,
+      name: "训练",
+      href: "/workout",
       icon: Dumbbell,
     },
     {
-      name: t('chat'),
-      href: `/${locale}/chat`,
+      name: "智能对话",
+      href: "/chat",
       icon: MessageSquare,
     },
     {
-      name: t('settings'),
-      href: `/${locale}/settings`,
+      name: "设置",
+      href: "/settings",
       icon: Settings,
     },
   ]
@@ -54,7 +39,7 @@ export function MainNav() {
     <div className="sticky top-0 z-50 w-full border-b border-slate-200/20 dark:border-slate-600/30 bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl shadow-sm">
       <div className="flex h-20 items-center px-8 lg:px-16">
         <div className="mr-8 hidden md:flex">
-          <Link href={`/${locale}`} className="flex items-center space-x-4 group">
+          <Link href="/" className="flex items-center space-x-4 group">
             <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 dark:from-green-400 dark:to-green-500 shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
               <Image
                 src="/placeholder.svg"

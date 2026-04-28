@@ -6,11 +6,11 @@ import { Activity } from "lucide-react"
 import type { Slug } from "react-muscle-highlighter"
 
 import { useMuscleFatigue } from "@/hooks/use-muscle-fatigue"
-import { useTranslation } from "@/hooks/use-i18n"
 import {
   FRONT_MUSCLES,
   BACK_MUSCLES,
   MUSCLE_TO_LIB_SLUG,
+  MUSCLE_LABELS_ZH,
   type MuscleKey,
 } from "@/lib/muscle-groups"
 
@@ -38,7 +38,6 @@ type Props = {
 }
 
 export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
-  const t = useTranslation("dashboard.muscleFatigue")
   const { byMuscle, isLoading, hasAnyRecord } = useMuscleFatigue(
     selectedDate,
     refreshTrigger,
@@ -69,14 +68,14 @@ export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
   }, [byMuscle])
 
   const selectedState = selected ? byMuscle[selected] : null
-  const whenKey =
+  const selectedWhenText =
     selectedState?.daysAgo === 0
-      ? "whenToday"
+      ? "今天训练"
       : selectedState?.daysAgo === 1
-        ? "whenYesterday"
+        ? "昨天训练"
         : selectedState?.daysAgo === 2
-          ? "whenDayBefore"
-          : "whenRecovered"
+          ? "前天训练"
+          : "已恢复"
 
   return (
     <div className="health-card p-8 space-y-6">
@@ -85,8 +84,8 @@ export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
           <Activity className="h-6 w-6" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold">{t("title")}</h3>
-          <p className="text-muted-foreground">{t("subtitle")}</p>
+          <h3 className="text-lg font-semibold">{"今日恢复状态"}</h3>
+          <p className="text-muted-foreground">{"过去 3 天训练影响"}</p>
         </div>
       </div>
 
@@ -95,7 +94,7 @@ export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
       ) : !hasAnyRecord ? (
         <div className="text-center py-8 text-sm text-muted-foreground">
           <Activity className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p>{t("empty")}</p>
+          <p>{"暂无近期训练记录,记录运动后这里会显示肌肉恢复状态"}</p>
         </div>
       ) : (
         <>
@@ -110,7 +109,7 @@ export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
                 }}
               />
               <span className="text-xs text-muted-foreground mt-1">
-                {t("viewFront")}
+                {"前"}
               </span>
             </div>
             <div className="flex flex-col items-center">
@@ -123,7 +122,7 @@ export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
                 }}
               />
               <span className="text-xs text-muted-foreground mt-1">
-                {t("viewBack")}
+                {"后"}
               </span>
             </div>
           </div>
@@ -132,10 +131,10 @@ export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
             {selected && selectedState ? (
               <div className="text-sm text-center px-3 py-2 rounded-md bg-muted">
                 <span className="font-medium">
-                  {t(`muscleLabels.${selected}`)}
+                  {MUSCLE_LABELS_ZH[selected]}
                 </span>
                 <span className="mx-2 text-muted-foreground">·</span>
-                <span>{t(whenKey)}</span>
+                <span>{selectedWhenText}</span>
                 {selectedState.lastExerciseName && (
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {selectedState.lastExerciseName}
@@ -146,10 +145,10 @@ export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
           </div>
 
           <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
-            <LegendDot color="#ef4444" label={t("legendToday")} />
-            <LegendDot color="#f97316" label={t("legendYesterday")} />
-            <LegendDot color="#eab308" label={t("legendDayBefore")} />
-            <LegendDot color="#e5e7eb" label={t("legendRecovered")} />
+            <LegendDot color="#ef4444" label={"今"} />
+            <LegendDot color="#f97316" label={"昨"} />
+            <LegendDot color="#eab308" label={"前"} />
+            <LegendDot color="#e5e7eb" label={"恢复"} />
           </div>
         </>
       )}

@@ -38,7 +38,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Loader2, RefreshCw, UploadCloud } from "lucide-react"
-import { useTranslation } from "@/hooks/use-i18n"
 
 const defaultUserProfile = {
   weight: 70,
@@ -80,7 +79,6 @@ const defaultAIConfig: AIConfig = {
 
 function SettingsContent() {
   const { toast } = useToast()
-  const t = useTranslation('settings')
   const searchParams = useSearchParams()
   const [userProfile, setUserProfile] = useLocalStorage("userProfile", defaultUserProfile)
   const [aiConfig, setAIConfig] = useLocalStorage<AIConfig>("aiConfig", defaultAIConfig)
@@ -135,14 +133,14 @@ function SettingsContent() {
         })
 
         toast({
-          title: t('ai.memoryManagement.memorySaved'),
-          description: t('ai.memoryManagement.memorySavedDescription'),
+          title: "记忆已保存",
+          description: "AI助手记忆已自动保存",
         })
       } catch (error) {
         console.error("保存记忆失败:", error)
         toast({
-          title: t('ai.memoryManagement.saveFailed'),
-          description: t('ai.memoryManagement.saveFailedDescription'),
+          title: "保存失败",
+          description: "记忆保存失败，请重试",
           variant: "destructive",
         })
       } finally {
@@ -204,14 +202,14 @@ function SettingsContent() {
       })
 
       toast({
-        title: t('ai.memoryManagement.memorySaved'),
-        description: t('ai.memoryManagement.memorySavedDescription'),
+        title: "记忆已保存",
+        description: "AI助手记忆已自动保存",
       })
     } catch (error) {
       console.error("保存记忆失败:", error)
       toast({
-        title: t('ai.memoryManagement.saveFailed'),
-        description: t('ai.memoryManagement.saveFailedDescription'),
+        title: "保存失败",
+        description: "记忆保存失败，请重试",
         variant: "destructive",
       })
     } finally {
@@ -331,8 +329,8 @@ function SettingsContent() {
 
       if (!modelConfig.baseUrl || !modelConfig.apiKey) {
         toast({
-          title: t('ai.configIncomplete'),
-          description: t('ai.fillBaseUrlAndKey'),
+          title: "配置不完整",
+          description: "请先填写 Base URL 和 API Key",
           variant: "destructive",
         })
         return
@@ -364,7 +362,7 @@ function SettingsContent() {
         })
 
         if (!response.ok) {
-          throw new Error(t('ai.fetchModelsFailed'))
+          throw new Error("获取模型列表失败")
         }
 
         const data = await response.json()
@@ -387,14 +385,14 @@ function SettingsContent() {
         }
 
         toast({
-          title: t('ai.fetchSuccess'),
-          description: t('ai.fetchSuccessDesc', { count: data.data?.length || 0 }),
+          title: "获取成功",
+          description: `成功获取 ${data.data?.length || 0} 个可用模型`,
         })
       } catch (error) {
         console.error("Error fetching models:", error)
         toast({
-          title: t('ai.fetchFailed'),
-          description: error instanceof Error ? error.message : t('ai.fetchFailedDesc'),
+          title: "获取失败",
+          description: error instanceof Error ? error.message : "无法获取模型列表，请检查配置",
           variant: "destructive",
         })
       } finally {
@@ -419,8 +417,8 @@ function SettingsContent() {
   const handleSaveProfile = useCallback(() => {
     setUserProfile(formData)
     toast({
-      title: t('profile.saveSuccess'),
-      description: t('profile.saveSuccessDesc'),
+      title: "保存成功",
+      description: "您的个人资料已更新",
     })
   }, [formData, setUserProfile, toast])
 
@@ -431,8 +429,8 @@ function SettingsContent() {
     for (const model of models) {
       if (!model.name || !model.baseUrl || !model.apiKey) {
         toast({
-          title: t('ai.configIncomplete'),
-          description: t('ai.fillAllFields'),
+          title: "配置不完整",
+          description: "请填写所有模型的名称、Base URL 和 API Key",
           variant: "destructive",
         })
         return
@@ -441,8 +439,8 @@ function SettingsContent() {
 
     setAIConfig(aiFormData)
     toast({
-      title: t('ai.saveSuccess'),
-      description: t('ai.saveSuccessDesc'),
+      title: "保存成功",
+      description: "AI 模型配置已更新",
     })
   }, [aiFormData, setAIConfig, toast])
 
@@ -452,8 +450,8 @@ function SettingsContent() {
       const model = aiFormData[modelType]
       if (!model.name || !model.baseUrl || !model.apiKey) {
         toast({
-          title: t('ai.configIncomplete'),
-          description: t('ai.fillAllFields'),
+          title: "配置不完整",
+          description: "请填写所有模型的名称、Base URL 和 API Key",
           variant: "destructive",
         })
         return
@@ -473,16 +471,16 @@ function SettingsContent() {
 
         if (response.ok) {
           toast({
-            title: t('ai.testSuccess'),
-            description: t('ai.modelConnectionOk', { modelType }),
+            title: "测试成功",
+            description: `${""} 模型连接正常`,
           })
         } else {
           throw new Error("测试失败")
         }
       } catch (error) {
         toast({
-          title: t('ai.testFailed'),
-          description: t('ai.modelConnectionFailed', { modelType }),
+          title: "测试失败",
+          description: `${""} 模型连接失败，请检查配置`,
           variant: "destructive",
         })
       }
@@ -513,18 +511,18 @@ function SettingsContent() {
       localStorage.setItem('lastExportTime', new Date().toISOString())
 
       toast({
-        title: t('data.exportSuccessTitle'),
-        description: t('data.exportSuccessDescription'),
+        title: "导出成功",
+        description: "您的健康数据已导出为 JSON 文件",
       })
     } catch (error) {
       console.error("导出数据失败:", error)
       toast({
-        title: t('data.exportErrorTitle'),
-        description: t('data.exportErrorDescription'),
+        title: "导出失败",
+        description: "无法导出您的健康数据",
         variant: "destructive",
       })
     }
-  }, [userProfile, aiConfig, toast, t])
+  }, [userProfile, aiConfig, toast])
 
   // 导入数据
   const handleImportData = useCallback(
@@ -548,14 +546,14 @@ function SettingsContent() {
           await replaceStores(importedData.stores)
 
           toast({
-            title: t('data.importSuccessTitle'),
-            description: t('data.importSuccessDescription'),
+            title: "导入成功",
+            description: "您的健康数据已成功导入",
           })
         } catch (error) {
           console.error("导入数据失败:", error)
           toast({
-            title: t('data.importErrorTitle'),
-            description: t('data.importErrorDescription'),
+            title: "导入失败",
+            description: "无法导入您的健康数据，请确保文件格式正确",
             variant: "destructive",
           })
         } finally {
@@ -567,7 +565,7 @@ function SettingsContent() {
 
       reader.readAsText(file)
     },
-    [aiConfig, setAIConfig, setUserProfile, t, toast, userProfile],
+    [aiConfig, setAIConfig, setUserProfile, toast, userProfile],
   )
 
   // 清空所有数据
@@ -576,18 +574,18 @@ function SettingsContent() {
       await clearStores()
       localStorage.removeItem("lastExportTime")
       toast({
-        title: t('data.clearSuccessTitle'),
-        description: t('data.clearSuccessDescription'),
+        title: "清除成功",
+        description: "所有健康日志数据已清除",
       })
     } catch (error) {
       console.error("清除数据失败:", error)
       toast({
-        title: t('data.clearErrorTitle'),
-        description: t('data.clearErrorDescription'),
+        title: "清除失败",
+        description: "无法清除您的健康数据",
         variant: "destructive",
       })
     }
-  }, [t, toast])
+  }, [toast])
 
   // 渲染模型选择器
   const renderModelSelector = useCallback(
@@ -603,7 +601,7 @@ function SettingsContent() {
                 onValueChange={(value) => handleAIConfigChange(modelType, "name", value)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={t('ai.selectModel')} />
+                  <SelectValue placeholder={"选择模型"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[200px]">
                   {models.map((model) => (
@@ -619,7 +617,7 @@ function SettingsContent() {
               className="flex-1"
               value={modelConfig.name}
               onChange={(e) => handleAIConfigChange(modelType, "name", e.target.value)}
-              placeholder={t('ai.modelNamePlaceholder')}
+              placeholder={"例如: gpt-4o"}
             />
           )}
           <Button
@@ -628,7 +626,7 @@ function SettingsContent() {
             disabled={isLoading || !modelConfig.baseUrl || !modelConfig.apiKey}
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            <span className="ml-2">{t('ai.fetchModels')}</span>
+            <span className="ml-2">{"获取模型"}</span>
           </Button>
         </div>
       )
@@ -638,140 +636,140 @@ function SettingsContent() {
 
   return (
     <div className="container mx-auto py-6 max-w-8xl">
-      <h1 className="text-3xl font-bold mb-6">{t('title')}</h1>
+      <h1 className="text-3xl font-bold mb-6">{"我的档案与设置"}</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">{t('tabs.profile')}</TabsTrigger>
-          <TabsTrigger value="goals">{t('tabs.goals')}</TabsTrigger>
-          <TabsTrigger value="ai">{t('tabs.ai')}</TabsTrigger>
-          <TabsTrigger value="data">{t('tabs.data')}</TabsTrigger>
+          <TabsTrigger value="profile">{"个人信息"}</TabsTrigger>
+          <TabsTrigger value="goals">{"健康目标"}</TabsTrigger>
+          <TabsTrigger value="ai">{"AI 配置"}</TabsTrigger>
+          <TabsTrigger value="data">{"数据管理"}</TabsTrigger>
         </TabsList>
 
         {/* 个人信息 */}
         <TabsContent value="profile">
           <Card>
             <CardHeader>
-              <CardTitle>{t('profile.title')}</CardTitle>
-              <CardDescription>{t('profile.description')}</CardDescription>
+              <CardTitle>{"个人信息"}</CardTitle>
+              <CardDescription>{"更新您的个人信息，这些数据将用于计算卡路里消耗和提供个性化建议"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="weight">{t('profile.weight')}</Label>
+                  <Label htmlFor="weight">{"体重 (kg)"}</Label>
                   <Input id="weight" name="weight" type="number" value={formData.weight} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="height">{t('profile.height')}</Label>
+                  <Label htmlFor="height">{"身高 (cm)"}</Label>
                   <Input id="height" name="height" type="number" value={formData.height} onChange={handleInputChange} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="age">{t('profile.age')}</Label>
+                  <Label htmlFor="age">{"年龄"}</Label>
                   <Input id="age" name="age" type="number" value={formData.age} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="gender">{t('profile.gender')}</Label>
+                  <Label htmlFor="gender">{"性别"}</Label>
                   <Select value={formData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder={t('profile.gender')} />
+                      <SelectValue placeholder={"性别"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="male">{t('profile.male')}</SelectItem>
-                      <SelectItem value="female">{t('profile.female')}</SelectItem>
-                      <SelectItem value="other">{t('profile.other')}</SelectItem>
+                      <SelectItem value="male">{"男"}</SelectItem>
+                      <SelectItem value="female">{"女"}</SelectItem>
+                      <SelectItem value="other">{"其他"}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="activityLevel">{t('profile.activityLevel')}</Label>
+                <Label htmlFor="activityLevel">{"日常活动水平"}</Label>
                 <Select
                   value={formData.activityLevel}
                   onValueChange={(value) => handleSelectChange("activityLevel", value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t('profile.activityLevel')} />
+                    <SelectValue placeholder={"日常活动水平"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sedentary">{t('profile.activityLevels.sedentary')}</SelectItem>
-                    <SelectItem value="light">{t('profile.activityLevels.light')}</SelectItem>
-                    <SelectItem value="moderate">{t('profile.activityLevels.moderate')}</SelectItem>
-                    <SelectItem value="active">{t('profile.activityLevels.active')}</SelectItem>
-                    <SelectItem value="very_active">{t('profile.activityLevels.very_active')}</SelectItem>
+                    <SelectItem value="sedentary">{"久坐不动"}</SelectItem>
+                    <SelectItem value="light">{"轻度活跃"}</SelectItem>
+                    <SelectItem value="moderate">{"中度活跃"}</SelectItem>
+                    <SelectItem value="active">{"高度活跃"}</SelectItem>
+                    <SelectItem value="very_active">{"非常活跃"}</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {t('profile.activityLevelDescription')}
+                  {"设定您通常的活动水平。此设置将作为新日期的默认活动水平，或当您未在主页为特定日期指定活动水平时的备用值。"}
                 </p>
               </div>
 
               {/* BMR Formula Selection */}
               <div className="space-y-2">
-                <Label htmlFor="bmrFormula">{t('profile.bmrFormula')}</Label>
+                <Label htmlFor="bmrFormula">{"BMR 计算公式"}</Label>
                 <Select
                   value={formData.bmrFormula || 'mifflin-st-jeor'}
                   onValueChange={(value) => handleSelectChange("bmrFormula", value)}
                 >
                   <SelectTrigger id="bmrFormula">
-                    <SelectValue placeholder={t('profile.selectBmrFormula')} />
+                    <SelectValue placeholder={"选择BMR计算公式"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="mifflin-st-jeor">{t('profile.mifflinStJeor')}</SelectItem>
-                    <SelectItem value="harris-benedict">{t('profile.harrisBenedict')}</SelectItem>
+                    <SelectItem value="mifflin-st-jeor">{"Mifflin-St Jeor"}</SelectItem>
+                    <SelectItem value="harris-benedict">{"Harris-Benedict (修正版)"}</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {t('profile.bmrFormulaDescription')}
+                  {"选择用于计算基础代谢率 (BMR) 的公式。"}
                 </p>
               </div>
 
               {/* BMR Calculation Basis Selection */}
               <div className="space-y-2">
-                <Label htmlFor="bmrCalculationBasis">{t('profile.bmrCalculationBasis')}</Label>
+                <Label htmlFor="bmrCalculationBasis">{"BMR 计算依据"}</Label>
                 <Select
                   value={formData.bmrCalculationBasis || 'totalWeight'}
                   onValueChange={(value) => handleSelectChange("bmrCalculationBasis", value)}
                 >
                   <SelectTrigger id="bmrCalculationBasis">
-                    <SelectValue placeholder={t('profile.selectBmrBasis')} />
+                    <SelectValue placeholder={"选择BMR计算依据"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="totalWeight">{t('profile.totalWeight')}</SelectItem>
-                    <SelectItem value="leanBodyMass">{t('profile.leanBodyMass')}</SelectItem>
+                    <SelectItem value="totalWeight">{"基于总体重"}</SelectItem>
+                    <SelectItem value="leanBodyMass">{"基于去脂体重 (需填写体脂率)"}</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {t('profile.bmrBasisDescription')}
+                  {"选择计算BMR时是使用总体重还是去脂体重。选择后者通常更准确，但需要您提供体脂率。"}
                 </p>
               </div>
 
               {/* Body Fat Percentage Input (conditional) */}
               {formData.bmrCalculationBasis === 'leanBodyMass' && (
                 <div className="space-y-2">
-                  <Label htmlFor="bodyFatPercentage">{t('profile.bodyFatPercentage')}</Label>
+                  <Label htmlFor="bodyFatPercentage">{"体脂率 (%)"}</Label>
                   <Input
                     id="bodyFatPercentage"
                     name="bodyFatPercentage"
                     type="number"
                     value={formData.bodyFatPercentage === undefined ? "" : String(formData.bodyFatPercentage)} // Display empty string for undefined
                     onChange={handleInputChange}
-                    placeholder={t('profile.bodyFatPlaceholder')}
+                    placeholder={"例如: 15"}
                     min="0"
                     max="99"
                     step="0.1"
                   />
                   <p className="text-xs text-muted-foreground">
-                    {t('profile.bodyFatDescription')}
+                    {"请输入您的体脂百分比。例如，输入15代表15%。"}
                   </p>
                 </div>
               )}
             </CardContent>
             <CardFooter>
-              <Button onClick={handleSaveProfile}>{t('profile.saveProfile')}</Button>
+              <Button onClick={handleSaveProfile}>{"保存个人信息"}</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -780,55 +778,55 @@ function SettingsContent() {
         <TabsContent value="goals">
           <Card>
             <CardHeader>
-              <CardTitle>{t('goals.title')}</CardTitle>
-              <CardDescription>{t('goals.description')}</CardDescription>
+              <CardTitle>{"健康目标"}</CardTitle>
+              <CardDescription>{"设置您的健康目标，AI 助手将根据您的目标提供个性化建议"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="goal">{t('goals.goalType')}</Label>
+                <Label htmlFor="goal">{"目标类型"}</Label>
                 <Select value={formData.goal} onValueChange={(value) => handleSelectChange("goal", value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder={t('goals.selectGoal')} />
+                    <SelectValue placeholder={"选择目标"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="lose_weight">{t('goals.loseWeight')}</SelectItem>
-                    <SelectItem value="maintain">{t('goals.maintain')}</SelectItem>
-                    <SelectItem value="gain_weight">{t('goals.gainWeight')}</SelectItem>
-                    <SelectItem value="build_muscle">{t('goals.buildMuscle')}</SelectItem>
-                    <SelectItem value="improve_health">{t('goals.improveHealth')}</SelectItem>
+                    <SelectItem value="lose_weight">{"减重"}</SelectItem>
+                    <SelectItem value="maintain">{"保持体重"}</SelectItem>
+                    <SelectItem value="gain_weight">{"增重"}</SelectItem>
+                    <SelectItem value="build_muscle">{"增肌"}</SelectItem>
+                    <SelectItem value="improve_health">{"改善健康"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="targetWeight">{t('goals.targetWeight')}</Label>
+                  <Label htmlFor="targetWeight">{"目标体重 (kg)"}</Label>
                   <Input
                     id="targetWeight"
                     name="targetWeight"
                     type="number"
                     value={formData.targetWeight || ""}
                     onChange={handleInputChange}
-                    placeholder={t('goals.optional')}
+                    placeholder={"可选"}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="targetCalories">{t('goals.targetCalories')}</Label>
+                  <Label htmlFor="targetCalories">{"目标每日卡路里 (kcal)"}</Label>
                   <Input
                     id="targetCalories"
                     name="targetCalories"
                     type="number"
                     value={formData.targetCalories || ""}
                     onChange={handleInputChange}
-                    placeholder={t('goals.optional')}
+                    placeholder={"可选"}
                   />
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label htmlFor="notes">{t('goals.notes')}</Label>
-                  <p className="text-sm font-medium text-muted-foreground">{t('goals.notesSubtitle')}</p>
+                  <Label htmlFor="notes">{"其他目标或注意事项"}</Label>
+                  <p className="text-sm font-medium text-muted-foreground">{"补充说明您的个人目标和相关情况"}</p>
                 </div>
                 <div className="space-y-2">
                   <Textarea
@@ -836,11 +834,11 @@ function SettingsContent() {
                     name="notes"
                     value={formData.notes || ""}
                     onChange={handleTextareaChange}
-                    placeholder={t('goals.notesPlaceholder')}
+                    placeholder={"分享您的个人目标和偏好，让AI更好地为您服务..."}
                     className="min-h-[120px] text-base"
                   />
                   <div className="text-xs text-muted-foreground whitespace-pre-line">
-                    {t('goals.notesDescription')}
+                    {"个人目标：如改善睡眠、增强体力、提升运动表现等\n相关情况：如饮食偏好、生活习惯、身体状况、用药情况等（可选填写，有助于AI提供更精准的建议）"}
                   </div>
                 </div>
               </div>
@@ -849,8 +847,8 @@ function SettingsContent() {
               <div className="space-y-4 pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <Label htmlFor="professional-mode">{t('goals.professionalMode')}</Label>
-                    <p className="text-sm text-muted-foreground">{t('goals.professionalModeDescription')}</p>
+                    <Label htmlFor="professional-mode">{"专业模式"}</Label>
+                    <p className="text-sm text-muted-foreground">{"启用专业模式以填写更详细的健康信息，帮助AI提供更精准的个性化建议"}</p>
                   </div>
                   <Switch
                     id="professional-mode"
@@ -863,37 +861,37 @@ function SettingsContent() {
                 {formData.professionalMode && (
                   <div className="space-y-6 pt-4">
                     <div className="space-y-3">
-                      <Label htmlFor="medicalHistory">{t('goals.medicalHistory')}</Label>
+                      <Label htmlFor="medicalHistory">{"现有疾病、过敏、药物/补充剂、家族病史"}</Label>
                       <Textarea
                         id="medicalHistory"
                         name="medicalHistory"
                         value={formData.medicalHistory || ""}
                         onChange={handleTextareaChange}
-                        placeholder={t('goals.medicalHistoryPlaceholder')}
+                        placeholder={"请详细描述您的现有疾病、过敏史、正在服用的药物或补充剂（包括剂量和原因）、以及家族病史等信息..."}
                         className="min-h-[150px] text-base"
                       />
                     </div>
 
                     <div className="space-y-3">
-                      <Label htmlFor="lifestyle">{t('goals.lifestyle')}</Label>
+                      <Label htmlFor="lifestyle">{"食物偏好/禁忌、睡眠质量、压力水平、烟酒习惯"}</Label>
                       <Textarea
                         id="lifestyle"
                         name="lifestyle"
                         value={formData.lifestyle || ""}
                         onChange={handleTextareaChange}
-                        placeholder={t('goals.lifestylePlaceholder')}
+                        placeholder={"请描述您的饮食偏好和禁忌、睡眠质量、日常压力水平、烟酒习惯等生活方式信息..."}
                         className="min-h-[150px] text-base"
                       />
                     </div>
 
                     <div className="space-y-3">
-                      <Label htmlFor="healthAwareness">{t('goals.healthAwareness')}</Label>
+                      <Label htmlFor="healthAwareness">{"健康认知与目标期望"}</Label>
                       <Textarea
                         id="healthAwareness"
                         name="healthAwareness"
                         value={formData.healthAwareness || ""}
                         onChange={handleTextareaChange}
-                        placeholder={t('goals.healthAwarenessPlaceholder')}
+                        placeholder={"请分享您对自身健康状况的认知、对卡路里目标的理解和期望、改变的意愿以及可能面临的挑战..."}
                         className="min-h-[150px] text-base"
                       />
                     </div>
@@ -902,7 +900,7 @@ function SettingsContent() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button onClick={handleSaveProfile}>{t('goals.saveGoals')}</Button>
+              <Button onClick={handleSaveProfile}>{"保存健康目标"}</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -914,42 +912,42 @@ function SettingsContent() {
               {/* 工作模型/Agents模型 */}
               <Card>
                 <CardHeader>
-                  <CardTitle>{t('ai.agentModel')}</CardTitle>
-                  <CardDescription>{t('ai.agentModelDescription')}</CardDescription>
+                  <CardTitle>{"工作模型 / Agents 模型"}</CardTitle>
+                  <CardDescription>{"用于生成健康建议和分析的模型"}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="agent-base-url">{t('ai.baseUrl')}</Label>
+                      <Label htmlFor="agent-base-url">{"Base URL"}</Label>
                       <Input
                         id="agent-base-url"
                         value={aiFormData.agentModel.baseUrl}
                         onChange={(e) => handleAIConfigChange("agentModel", "baseUrl", e.target.value)}
-                        placeholder={t('ai.baseUrlPlaceholder')}
+                        placeholder={"例如: https://api.openai.com"}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="agent-api-key">{t('ai.apiKey')}</Label>
+                      <Label htmlFor="agent-api-key">{"API Key"}</Label>
                       <Input
                         id="agent-api-key"
                         type="password"
                         value={aiFormData.agentModel.apiKey}
                         onChange={(e) => handleAIConfigChange("agentModel", "apiKey", e.target.value)}
-                        placeholder={t('ai.apiKeyPlaceholder')}
+                        placeholder={"输入 API Key"}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="agent-model-name">{t('ai.modelName')}</Label>
+                    <Label htmlFor="agent-model-name">{"模型名称"}</Label>
                     {renderModelSelector("agentModel", agentModels, loadingAgentModels)}
                     {agentModels.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">{t('ai.modelsFound', { count: agentModels.length })}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{`成功获取 ${agentModels.length} 个可用模型`}</p>
                     )}
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button variant="outline" onClick={() => handleTestAIConfig("agentModel")}>
-                    {t('ai.testConnection')}
+                    {"测试连接"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -957,42 +955,42 @@ function SettingsContent() {
               {/* 对话模型 */}
               <Card>
                 <CardHeader>
-                  <CardTitle>{t('ai.chatModel')}</CardTitle>
-                  <CardDescription>{t('ai.chatModelDescription')}</CardDescription>
+                  <CardTitle>{"对话模型"}</CardTitle>
+                  <CardDescription>{"用于智能对话功能的模型"}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="chat-base-url">{t('ai.baseUrl')}</Label>
+                      <Label htmlFor="chat-base-url">{"Base URL"}</Label>
                       <Input
                         id="chat-base-url"
                         value={aiFormData.chatModel.baseUrl}
                         onChange={(e) => handleAIConfigChange("chatModel", "baseUrl", e.target.value)}
-                        placeholder={t('ai.baseUrlPlaceholder')}
+                        placeholder={"例如: https://api.openai.com"}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="chat-api-key">{t('ai.apiKey')}</Label>
+                      <Label htmlFor="chat-api-key">{"API Key"}</Label>
                       <Input
                         id="chat-api-key"
                         type="password"
                         value={aiFormData.chatModel.apiKey}
                         onChange={(e) => handleAIConfigChange("chatModel", "apiKey", e.target.value)}
-                        placeholder={t('ai.apiKeyPlaceholder')}
+                        placeholder={"输入 API Key"}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="chat-model-name">{t('ai.modelName')}</Label>
+                    <Label htmlFor="chat-model-name">{"模型名称"}</Label>
                     {renderModelSelector("chatModel", chatModels, loadingChatModels)}
                     {chatModels.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">{t('ai.modelsFound', { count: chatModels.length })}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{`成功获取 ${chatModels.length} 个可用模型`}</p>
                     )}
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button variant="outline" onClick={() => handleTestAIConfig("chatModel")}>
-                    {t('ai.testConnection')}
+                    {"测试连接"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -1000,65 +998,73 @@ function SettingsContent() {
               {/* 视觉模型 */}
               <Card>
                 <CardHeader>
-                  <CardTitle>{t('ai.visionModel')}</CardTitle>
-                  <CardDescription>{t('ai.visionModelDescription')}</CardDescription>
+                  <CardTitle>{"视觉模型"}</CardTitle>
+                  <CardDescription>{"用于图片识别和分析的模型"}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="vision-base-url">{t('ai.baseUrl')}</Label>
+                      <Label htmlFor="vision-base-url">{"Base URL"}</Label>
                       <Input
                         id="vision-base-url"
                         value={aiFormData.visionModel.baseUrl}
                         onChange={(e) => handleAIConfigChange("visionModel", "baseUrl", e.target.value)}
-                        placeholder={t('ai.baseUrlPlaceholder')}
+                        placeholder={"例如: https://api.openai.com"}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="vision-api-key">{t('ai.apiKey')}</Label>
+                      <Label htmlFor="vision-api-key">{"API Key"}</Label>
                       <Input
                         id="vision-api-key"
                         type="password"
                         value={aiFormData.visionModel.apiKey}
                         onChange={(e) => handleAIConfigChange("visionModel", "apiKey", e.target.value)}
-                        placeholder={t('ai.apiKeyPlaceholder')}
+                        placeholder={"输入 API Key"}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="vision-model-name">{t('ai.modelName')}</Label>
+                    <Label htmlFor="vision-model-name">{"模型名称"}</Label>
                     {renderModelSelector("visionModel", visionModels, loadingVisionModels)}
                     {visionModels.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">{t('ai.modelsFound', { count: visionModels.length })}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{`成功获取 ${visionModels.length} 个可用模型`}</p>
                     )}
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button variant="outline" onClick={() => handleTestAIConfig("visionModel")}>
-                    {t('ai.testConnection')}
+                    {"测试连接"}
                   </Button>
                 </CardFooter>
               </Card>
             </div>
 
-            <Button onClick={handleSaveAIConfig}>{t('ai.saveConfig')}</Button>
+            <Button onClick={handleSaveAIConfig}>{"保存 AI 配置"}</Button>
 
             {/* AI记忆管理 */}
             <Card className="mt-6">
               <CardHeader>
-                <CardTitle>{t('ai.memoryManagement.title')}</CardTitle>
+                <CardTitle>{"AI助手记忆管理"}</CardTitle>
                 <CardDescription>
-                  {t('ai.memoryManagement.description')}
+                  {"查看和管理每个AI助手的记忆内容。AI助手会记住重要的用户信息以提供更个性化的建议。"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {Object.entries(memories).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t('ai.memoryManagement.noMemoryData')}</p>
+                  <p className="text-sm text-muted-foreground">{"暂无AI记忆数据"}</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(memories).map(([expertId, memory]) => {
                       const getExpertName = (id: string) => {
-                        return t(`ai.memoryManagement.expertNames.${id}`) || id
+                        const expertNames: Record<string, string> = {
+                          general: "通用助手",
+                          nutrition: "营养师",
+                          exercise: "运动专家",
+                          metabolism: "代谢专家",
+                          behavior: "行为专家",
+                          timing: "时机专家",
+                        }
+                        return expertNames[id] || id
                       }
 
                       return (
@@ -1086,7 +1092,7 @@ function SettingsContent() {
                                       handleMemoryContentChange(expertId, e.target.value)
                                     }
                                   }}
-                                  placeholder={t('ai.memoryManagement.memoryPlaceholder')}
+                                  placeholder={"AI助手的记忆内容..."}
                                   className="min-h-[60px] resize-none text-sm"
                                   maxLength={500}
                                 />
@@ -1094,13 +1100,13 @@ function SettingsContent() {
                                 {savingMemories[expertId] && (
                                   <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
                                     <div className="w-2 h-2 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                    <span>{t('ai.memoryManagement.saving')}</span>
+                                    <span>{"保存中"}</span>
                                   </div>
                                 )}
                                 {hasUnsavedChanges(expertId) && !savingMemories[expertId] && (
                                   <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
                                     <div className="w-1.5 h-1.5 bg-amber-600 rounded-full"></div>
-                                    <span>{t('ai.memoryManagement.unsaved')}</span>
+                                    <span>{"未保存"}</span>
                                   </div>
                                 )}
                               </div>
@@ -1126,7 +1132,7 @@ function SettingsContent() {
                                       disabled={savingMemories[expertId]}
                                       className="h-6 px-2 text-xs"
                                     >
-                                      {savingMemories[expertId] ? t('ai.memoryManagement.saving') : t('common.save')}
+                                      {savingMemories[expertId] ? "保存中" : "保存"}
                                     </Button>
                                   )}
                                   <Button
@@ -1140,12 +1146,12 @@ function SettingsContent() {
                                           [expertId]: ""
                                         }))
                                         toast({
-                                          title: t('ai.memoryManagement.allMemoriesCleared'),
+                                          title: "所有记忆已清空",
                                           description: `${getExpertName(expertId)}的记忆已清空`,
                                         })
                                       }).catch((error) => {
                                         toast({
-                                          title: t('ai.memoryManagement.clearFailed'),
+                                          title: "清空失败",
                                           description: error.message,
                                           variant: "destructive",
                                         })
@@ -1153,7 +1159,7 @@ function SettingsContent() {
                                     }}
                                     className="h-6 px-2 text-xs"
                                   >
-                                    {t('common.clear')}
+                                    {"清除"}
                                   </Button>
                                 </div>
                               </div>
@@ -1170,35 +1176,35 @@ function SettingsContent() {
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm">
-                          {t('ai.memoryManagement.clearAllMemories')}
+                          {"清空所有AI记忆"}
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>{t('ai.memoryManagement.confirmClearTitle')}</AlertDialogTitle>
+                          <AlertDialogTitle>{"确认清空所有AI记忆"}</AlertDialogTitle>
                           <AlertDialogDescription>
-                            {t('ai.memoryManagement.confirmClearDescription')}
+                            {"此操作将清空所有AI助手的记忆内容，无法恢复。AI助手将失去对您的个性化了解。"}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>{t('ai.memoryManagement.cancel')}</AlertDialogCancel>
+                          <AlertDialogCancel>{"取消"}</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => {
                               clearAllMemories().then(() => {
                                 toast({
-                                  title: t('ai.memoryManagement.allMemoriesCleared'),
-                                  description: t('ai.memoryManagement.allMemoriesClearedDescription'),
+                                  title: "所有记忆已清空",
+                                  description: "所有AI助手的记忆已清空",
                                 })
                               }).catch((error) => {
                                 toast({
-                                  title: t('ai.memoryManagement.clearFailed'),
+                                  title: "清空失败",
                                   description: error.message,
                                   variant: "destructive",
                                 })
                               })
                             }}
                           >
-                            {t('ai.memoryManagement.confirmClear')}
+                            {"确认清空"}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -1215,19 +1221,19 @@ function SettingsContent() {
         <TabsContent value="data">
           <Card>
             <CardHeader>
-              <CardTitle>{t('data.title')}</CardTitle>
-              <CardDescription>{t('data.description')}</CardDescription>
+              <CardTitle>{"数据管理"}</CardTitle>
+              <CardDescription>{"导出或导入您的健康数据，或清空所有数据"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">{t('data.exportData')}</h3>
-                <p className="text-sm text-muted-foreground">{t('data.exportDescription')}</p>
-                <Button onClick={handleExportData}>{t('data.exportAllData')}</Button>
+                <h3 className="text-lg font-medium">{"导出数据"}</h3>
+                <p className="text-sm text-muted-foreground">{"将您的所有健康数据导出为 JSON 文件，以便备份或迁移"}</p>
+                <Button onClick={handleExportData}>{"导出所有数据"}</Button>
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">{t('data.importData')}</h3>
-                <p className="text-sm text-muted-foreground">{t('data.importDescription')}</p>
+                <h3 className="text-lg font-medium">{"导入数据"}</h3>
+                <p className="text-sm text-muted-foreground">{"从之前导出的 JSON 文件中导入健康数据"}</p>
                 <div className="flex items-center space-x-2">
                   <input
                     type="file"
@@ -1241,28 +1247,28 @@ function SettingsContent() {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <UploadCloud className="mr-2 h-4 w-4" />
-                    {t('data.selectFile')}
+                    {"选择文件"}
                   </Button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">{t('data.clearData')}</h3>
-                <p className="text-sm text-muted-foreground">{t('data.clearDescription')}</p>
+                <h3 className="text-lg font-medium">{"清空数据"}</h3>
+                <p className="text-sm text-muted-foreground">{"清空所有健康日志数据，此操作不可撤销"}</p>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive">{t('data.clearAllData')}</Button>
+                    <Button variant="destructive">{"清空所有数据"}</Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>{t('data.confirmClearTitle')}</AlertDialogTitle>
+                      <AlertDialogTitle>{"确认清空数据"}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        {t('data.confirmClearDescription')}
+                        {"此操作将永久删除所有健康日志数据，且无法恢复。您确定要继续吗？"}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>{t('data.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearAllData}>{t('data.confirmClear')}</AlertDialogAction>
+                      <AlertDialogCancel>{"取消"}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleClearAllData}>{"确认清空"}</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -1275,30 +1281,30 @@ function SettingsContent() {
       {/* 关于与帮助 */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>{t('about.title')}</CardTitle>
+          <CardTitle>{"关于与帮助"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h3 className="text-lg font-medium">{t('about.privacyTitle')}</h3>
+            <h3 className="text-lg font-medium">{"隐私声明"}</h3>
             <p className="text-sm text-muted-foreground">
-              {t('about.privacyDescription')}
+              {"本应用所有数据均存储在您的浏览器本地，不会上传到任何服务器。与 AI 模型的通信仅用于处理您的输入并生成建议，不会存储您的个人数据。"}
             </p>
           </div>
 
           <div>
-            <h3 className="text-lg font-medium">{t('about.usageTitle')}</h3>
+            <h3 className="text-lg font-medium">{"使用说明"}</h3>
             <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-              <li>{t('about.usage1')}</li>
-              <li>{t('about.usage2')}</li>
-              <li>{t('about.usage3')}</li>
-              <li>{t('about.usage4')}</li>
-              <li>{t('about.usage5')}</li>
+              <li>{"在主页记录您的饮食和运动"}</li>
+              <li>{"使用文本输入或上传图片来添加记录"}</li>
+              <li>{"在智能对话页面与 AI 助手交流获取健康建议"}</li>
+              <li>{"在 AI 配置页面设置您的模型参数"}</li>
+              <li>{"定期导出您的数据以防数据丢失"}</li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-lg font-medium">{t('about.versionTitle')}</h3>
-            <p className="text-sm text-muted-foreground">{t('about.versionInfo')}</p>
+            <h3 className="text-lg font-medium">{"版本信息"}</h3>
+            <p className="text-sm text-muted-foreground">{"SnapFit AI 个人版"}</p>
           </div>
         </CardContent>
       </Card>

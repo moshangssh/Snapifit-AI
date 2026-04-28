@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { useTranslations } from "next-intl"
 import { DailyStatus } from "@/lib/types"
 import { Heart, Brain, Activity, Moon, Plus, Edit3, Check } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -18,9 +17,23 @@ interface DailyStatusCardProps {
   onSave: (status: DailyStatus) => void
 }
 
+const LEVEL_TEXT: Record<number, string> = {
+  1: "很差",
+  2: "较差",
+  3: "一般",
+  4: "良好",
+  5: "很好",
+  6: "极佳",
+}
+
+const STATUS_PLACEHOLDERS: Record<string, string> = {
+  stress: "描述今日的压力来源或感受...",
+  mood: "分享今日的心情状态...",
+  health: "记录身体感受或症状...",
+  sleepQuality: "记录睡眠质量或相关情况...",
+}
+
 export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCardProps) {
-  const t = useTranslations('dashboard')
-  const tCommon = useTranslations('common')
   const isMobile = useIsMobile()
 
   const [status, setStatus] = useState<DailyStatus>({
@@ -85,7 +98,7 @@ export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCard
   }
 
   const getLevelText = (level: number) => {
-    return t(`dailyStatus.levels.${level}`)
+    return LEVEL_TEXT[level] || `${level}`
   }
 
   // 获取颜色类名 - 压力水平使用反向逻辑
@@ -106,10 +119,10 @@ export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCard
   }
 
   const statusItems = [
-    { key: 'stress', icon: Brain, label: t('dailyStatus.stress'), value: status.stress, notes: status.stressNotes },
-    { key: 'mood', icon: Heart, label: t('dailyStatus.mood'), value: status.mood, notes: status.moodNotes },
-    { key: 'health', icon: Activity, label: t('dailyStatus.health'), value: status.health, notes: status.healthNotes },
-    { key: 'sleepQuality', icon: Moon, label: t('dailyStatus.sleepQuality'), value: status.sleepQuality || 3, notes: status.sleepNotes },
+    { key: 'stress', icon: Brain, label: "压力水平", value: status.stress, notes: status.stressNotes },
+    { key: 'mood', icon: Heart, label: "心情状态", value: status.mood, notes: status.moodNotes },
+    { key: 'health', icon: Activity, label: "健康状况", value: status.health, notes: status.healthNotes },
+    { key: 'sleepQuality', icon: Moon, label: "睡眠质量", value: status.sleepQuality || 3, notes: status.sleepNotes },
   ]
 
   return (
@@ -117,7 +130,7 @@ export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCard
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Activity className="h-5 w-5" />
-          {t('ui.dailyStatus')}
+          {"每日状态"}
         </CardTitle>
       </CardHeader>
 
@@ -193,7 +206,7 @@ export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCard
                         </Button>
                       </div>
                       <Textarea
-                        placeholder={t(`dailyStatus.placeholders.${item.key === 'sleepQuality' ? 'sleep' : item.key}`)}
+                        placeholder={STATUS_PLACEHOLDERS[item.key] || "记录今日状态..."}
                         value={item.notes}
                         onChange={(e) => handleInputChange(`${item.key}Notes` as keyof DailyStatus, e.target.value)}
                         className={`flex-1 ${isMobile ? 'min-h-[120px] text-base' : 'min-h-[80px] text-sm'} resize-none`}
@@ -296,7 +309,7 @@ export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCard
                         </Button>
                       </div>
                       <Textarea
-                        placeholder={t('dailyStatus.placeholders.sleep')}
+                        placeholder={"记录睡眠质量或相关情况..."}
                         value={item.notes}
                         onChange={(e) => handleInputChange('sleepNotes', e.target.value)}
                         className={`flex-1 ${isMobile ? 'min-h-[120px] text-base' : 'min-h-[80px] text-sm'} resize-none`}
@@ -332,7 +345,7 @@ export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCard
             <div className={`flex items-center justify-between ${isMobile ? 'mb-3' : 'mb-1.5'}`}>
               <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-1'}`}>
                 <Moon className={`${isMobile ? 'h-4 w-4' : 'h-3 w-3'} text-muted-foreground/80`} />
-                <span className={`${isMobile ? 'text-sm' : 'text-xs'} font-medium text-foreground/90`}>{t('dailyStatus.sleepTime')}</span>
+                <span className={`${isMobile ? 'text-sm' : 'text-xs'} font-medium text-foreground/90`}>{"睡眠时间"}</span>
               </div>
               {(status.bedTime && status.wakeTime) && (
                 <span className={`${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground/70 font-mono`}>
@@ -349,7 +362,7 @@ export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCard
             {/* 时间输入 - 移动端垂直布局 */}
             <div className={`grid ${isMobile ? 'grid-cols-1 gap-3' : 'grid-cols-2 gap-2'}`}>
               <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-1.5'}`}>
-                <Label className={`${isMobile ? 'text-sm w-16' : 'text-xs'} text-muted-foreground/80 whitespace-nowrap`}>{t('dailyStatus.bedTime')}</Label>
+                <Label className={`${isMobile ? 'text-sm w-16' : 'text-xs'} text-muted-foreground/80 whitespace-nowrap`}>{"睡眠时间"}</Label>
                 <Input
                   type="time"
                   value={status.bedTime}
@@ -361,7 +374,7 @@ export function DailyStatusCard({ date, initialStatus, onSave }: DailyStatusCard
                 />
               </div>
               <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-1.5'}`}>
-                <Label className={`${isMobile ? 'text-sm w-16' : 'text-xs'} text-muted-foreground/80 whitespace-nowrap`}>{t('dailyStatus.wakeTime')}</Label>
+                <Label className={`${isMobile ? 'text-sm w-16' : 'text-xs'} text-muted-foreground/80 whitespace-nowrap`}>{"起床时间"}</Label>
                 <Input
                   type="time"
                   value={status.wakeTime}

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ReplaceExerciseDialog } from "@/components/workout/replace-exercise-dialog"
 import { WorkoutSetNumberInput } from "@/components/workout/workout-set-number-input"
-import { useTranslation } from "@/hooks/use-i18n"
 import { MUSCLE_LABELS_ZH } from "@/lib/muscle-groups"
 import { cn } from "@/lib/utils"
 import type {
@@ -20,6 +19,12 @@ const PHASE_VARIANTS: Record<
   warmup: "secondary",
   main: "default",
   cooldown: "outline",
+}
+
+const PHASE_LABELS: Record<WorkoutExercisePhase, string> = {
+  warmup: "热身",
+  main: "主训练",
+  cooldown: "收尾",
 }
 
 interface WorkoutExerciseCardProps {
@@ -42,14 +47,13 @@ export function WorkoutExerciseCard({
   onReplaceExercise,
   onToggleSkipExercise,
 }: WorkoutExerciseCardProps) {
-  const t = useTranslation("workout")
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
   const phase = exercise.phase ?? "main"
   const tips = exercise.tips ?? []
   const muscleLabels =
     exercise.plannedAnalysis.muscleGroups
       .map((muscle) => MUSCLE_LABELS_ZH[muscle] ?? muscle)
-      .join(", ") || t("exercise.unknown")
+      .join(", ") || "待识别"
 
   return (
     <section
@@ -63,20 +67,20 @@ export function WorkoutExerciseCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-xl font-semibold">{displayName}</h3>
             <Badge variant={PHASE_VARIANTS[phase]}>
-              {t(`exercise.phase.${phase}`)}
+              {PHASE_LABELS[phase]}
             </Badge>
             {exercise.actualExerciseName && (
-              <Badge variant="secondary">{t("exercise.replaced")}</Badge>
+              <Badge variant="secondary">{"已替换"}</Badge>
             )}
             {exercise.analysisStatus === "stale" && (
-              <Badge variant="outline">{t("exercise.recalculate")}</Badge>
+              <Badge variant="outline">{"完成后重算分析"}</Badge>
             )}
             {exercise.isExerciseSkipped && (
-              <Badge variant="destructive">{t("exercise.skipped")}</Badge>
+              <Badge variant="destructive">{"已跳过"}</Badge>
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {t("exercise.muscles")}: {muscleLabels}
+            {"目标肌群"}: {muscleLabels}
           </p>
           {exercise.notes && (
             <p className="text-sm text-muted-foreground">{exercise.notes}</p>
@@ -84,7 +88,7 @@ export function WorkoutExerciseCard({
           {tips.length > 0 && (
             <div className="space-y-1 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">
-                {t("exercise.tips")}
+                {"注意事项"}
               </p>
               <ul className="list-disc space-y-1 pl-5">
                 {tips.map((tip) => (
@@ -108,8 +112,8 @@ export function WorkoutExerciseCard({
           >
             <SkipForward className="mr-2 h-4 w-4" />
             {exercise.isExerciseSkipped
-              ? t("exercise.unskip")
-              : t("exercise.skip")}
+              ? "取消跳过"
+              : "跳过动作"}
           </Button>
         </div>
       </div>
@@ -125,10 +129,10 @@ export function WorkoutExerciseCard({
             )}
           >
             <div className="col-span-2 font-medium">
-              {t("exercise.setLabel", { index: set.setIndex })}
+              {`第 ${set.setIndex} 组`}
             </div>
             <div className="col-span-3 text-sm text-muted-foreground">
-              {t("exercise.planned")} {set.plannedWeightKg ?? "-"} kg x{" "}
+              {"计划"} {set.plannedWeightKg ?? "-"} kg x{" "}
               {set.plannedReps ?? "-"}
             </div>
             <div className="col-span-3">
@@ -176,7 +180,7 @@ export function WorkoutExerciseCard({
                 ) : (
                   <Circle className="mr-2 h-4 w-4" />
                 )}
-                {set.isCompleted ? t("exercise.completed") : t("exercise.complete")}
+                {set.isCompleted ? "已完成" : "完成"}
               </Button>
             </div>
           </div>

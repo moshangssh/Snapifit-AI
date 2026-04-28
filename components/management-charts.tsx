@@ -9,7 +9,6 @@ import { format, subDays, parseISO, eachDayOfInterval } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useTranslation } from "@/hooks/use-i18n"
 
 interface ChartData {
   date: string
@@ -33,7 +32,6 @@ interface DateRangeOption {
 }
 
 export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementChartsProps) {
-  const t = useTranslation('dashboard.charts')
   const [chartData, setChartData] = useState<ChartData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUsingMockData, setIsUsingMockData] = useState(false)
@@ -44,10 +42,10 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
 
   // 日期范围选项
   const dateRangeOptions: DateRangeOption[] = [
-    { value: '7d', label: t('dateRanges.7d'), days: 7 },
-    { value: '14d', label: t('dateRanges.14d'), days: 14 },
-    { value: '30d', label: t('dateRanges.30d'), days: 30 },
-    { value: '90d', label: t('dateRanges.90d'), days: 90 },
+    { value: '7d', label: "7天", days: 7 },
+    { value: '14d', label: "14天", days: 14 },
+    { value: '30d', label: "30天", days: 30 },
+    { value: '90d', label: "90天", days: 90 },
   ]
 
   useEffect(() => {
@@ -223,13 +221,13 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
   const formatTooltipValue = (value: number, name: string) => {
     switch (name) {
       case 'weight':
-        return [`${value} kg`, t('weight')]
+        return [`${value} kg`, "体重"]
       case 'caloriesIn':
-        return [`${value} kcal`, t('caloriesIn')]
+        return [`${value} kcal`, "卡路里摄入"]
       case 'caloriesOut':
-        return [`${value} kcal`, t('caloriesOut')]
+        return [`${value} kcal`, "运动消耗"]
       case 'calorieDeficit':
-        return [`${value > 0 ? '+' : ''}${value} kcal`, value > 0 ? t('calorieSurplus') : t('calorieDeficit')]
+        return [`${value > 0 ? '+' : ''}${value} kcal`, value > 0 ? "热量盈余" : "热量缺口"]
       default:
         return [value, name]
     }
@@ -270,12 +268,12 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
               <TrendingUp className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-2xl font-semibold">{t('title')}</h3>
-              <p className="text-muted-foreground text-lg">{t('description', { days: '30日' })}</p>
+              <h3 className="text-2xl font-semibold">{"管理图表"}</h3>
+              <p className="text-muted-foreground text-lg">{`${'30日'}健康数据趋势分析`}</p>
             </div>
           </div>
           <div className="text-center py-16">
-            <p className="text-lg text-muted-foreground">{t('loadingCharts')}</p>
+            <p className="text-lg text-muted-foreground">{"加载图表数据中..."}</p>
           </div>
         </div>
       </div>
@@ -291,16 +289,16 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
               <TrendingUp className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-2xl font-semibold">{t('title')}</h3>
+              <h3 className="text-2xl font-semibold">{"管理图表"}</h3>
               <p className="text-muted-foreground text-lg">
                 {isUsingMockData
-                  ? t('demoDescription')
-                  : t('description', { days: `${dateRangeOptions.find(opt => opt.value === dateRange)?.label}` })
+                  ? "演示数据 - 请先记录您的健康数据"
+                  : `${`${dateRangeOptions.find(opt => opt.value === dateRange)?.label}`}健康数据趋势分析`
                 }
               </p>
               {isDataOptimized && !isUsingMockData && (
                 <p className="text-sm text-amber-600 mt-1">
-                  {t('optimizedDisplay', { count: realDataCount })}
+                  {`已优化显示：仅显示有数据的时间段 (${realDataCount} 天有效数据)`}
                 </p>
               )}
             </div>
@@ -329,19 +327,19 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
           <TabsList className="grid w-full grid-cols-4 h-14">
             <TabsTrigger value="weight" className="text-base py-4 px-4">
               <Weight className="mr-2 h-4 w-4" />
-              {t('weight')}
+              {"体重"}
             </TabsTrigger>
             <TabsTrigger value="calories" className="text-base py-4 px-4">
               <Utensils className="mr-2 h-4 w-4" />
-              {t('calories')}
+              {"卡路里"}
             </TabsTrigger>
             <TabsTrigger value="exercise" className="text-base py-4 px-4">
               <Dumbbell className="mr-2 h-4 w-4" />
-              {t('exercise')}
+              {"运动消耗"}
             </TabsTrigger>
             <TabsTrigger value="deficit" className="text-base py-4 px-4">
               <Target className="mr-2 h-4 w-4" />
-              {t('deficit')}
+              {"热量缺口"}
             </TabsTrigger>
           </TabsList>
 
@@ -541,13 +539,13 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
                     <TrendingUp className="w-8 h-8 text-primary" />
                   </div>
                   <h4 className="text-xl font-bold text-foreground mb-3">
-                    {t('startRecording')}
+                    {"开始记录您的健康数据"}
                   </h4>
                   <p className="text-base text-muted-foreground mb-4 leading-relaxed">
-                    {t('recordingPrompt')}
+                    {"记录体重、饮食和运动数据后，这里将显示您的真实健康趋势图表"}
                   </p>
                   <div className="text-sm text-muted-foreground/80 bg-muted/50 px-3 py-2 rounded-lg">
-                    {t('demoDataNote')}
+                    {"当前显示的是演示数据"}
                   </div>
                 </div>
               </div>

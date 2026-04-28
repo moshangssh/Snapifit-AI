@@ -12,7 +12,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { useTranslation } from "@/hooks/use-i18n"
 
 interface AbandonWorkoutDialogProps {
   disabled: boolean
@@ -23,26 +22,25 @@ export function AbandonWorkoutDialog({
   disabled,
   onConfirm,
 }: AbandonWorkoutDialogProps) {
-  const t = useTranslation("workout")
 
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button variant="outline" disabled={disabled}>
-          {t("abandon.open")}
+          {"放弃计划"}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("abandon.title")}</AlertDialogTitle>
+          <AlertDialogTitle>{"放弃当前训练计划？"}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("abandon.description")}
+            {"放弃后不会写入运动记录，你可以重新生成一份训练计划。"}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("abandon.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel>{"继续训练"}</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>
-            {t("abandon.confirm")}
+            {"确认放弃"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

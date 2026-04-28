@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import type { ExerciseEntry } from "@/lib/types"
-import { useTranslation } from "@/hooks/use-i18n"
-import { MUSCLE_KEY_SET, type MuscleKey } from "@/lib/muscle-groups"
+import { MUSCLE_KEY_SET, MUSCLE_LABELS_ZH, type MuscleKey } from "@/lib/muscle-groups"
 
 interface ExerciseEntryCardProps {
   entry: ExerciseEntry
@@ -20,12 +19,10 @@ interface ExerciseEntryCardProps {
 }
 
 export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCardProps) {
-  const t = useTranslation('dashboard.exerciseCard')
-  const tFatigue = useTranslation('dashboard.muscleFatigue')
 
   const renderMuscle = (raw: string) =>
     MUSCLE_KEY_SET.has(raw)
-      ? tFatigue(`muscleLabels.${raw as MuscleKey}`)
+      ? MUSCLE_LABELS_ZH[raw as MuscleKey]
       : raw
   const [isEditing, setIsEditing] = useState(false)
   const [editedEntry, setEditedEntry] = useState<ExerciseEntry>({ ...entry })
@@ -79,7 +76,7 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="exercise_name">{t('exerciseName')}</Label>
+                <Label htmlFor="exercise_name">{"运动名称"}</Label>
                 <Input
                   id="exercise_name"
                   name="exercise_name"
@@ -88,7 +85,7 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
                 />
               </div>
               <div>
-                <Label htmlFor="duration_minutes">{t('duration')}</Label>
+                <Label htmlFor="duration_minutes">{"时长 (分钟)"}</Label>
                 <Input
                   id="duration_minutes"
                   name="duration_minutes"
@@ -102,7 +99,7 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
             <div className="grid grid-cols-2 gap-2">
               {entry.exercise_type === "cardio" && (
                 <div>
-                  <Label htmlFor="distance_km">距离 ({t('distance')})</Label>
+                  <Label htmlFor="distance_km">距离 ({"公里"})</Label>
                   <Input
                     id="distance_km"
                     name="distance_km"
@@ -116,7 +113,7 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
               {entry.exercise_type === "strength" && (
                 <>
                   <div>
-                    <Label htmlFor="sets">组数 ({t('sets')})</Label>
+                    <Label htmlFor="sets">组数 ({"组"})</Label>
                     <Input
                       id="sets"
                       name="sets"
@@ -126,7 +123,7 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
                     />
                   </div>
                   <div>
-                    <Label htmlFor="reps">次数 ({t('reps')})</Label>
+                    <Label htmlFor="reps">次数 ({"次"})</Label>
                     <Input
                       id="reps"
                       name="reps"
@@ -136,7 +133,7 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
                     />
                   </div>
                   <div>
-                    <Label htmlFor="weight_kg">重量 ({t('weight')})</Label>
+                    <Label htmlFor="weight_kg">重量 ({"kg"})</Label>
                     <Input
                       id="weight_kg"
                       name="weight_kg"
@@ -151,10 +148,10 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
 
             <div className="flex justify-end space-x-2 mt-2">
               <Button size="sm" variant="outline" onClick={handleCancel}>
-                <X className="h-4 w-4 mr-1" /> {t('cancel')}
+                <X className="h-4 w-4 mr-1" /> {"取消"}
               </Button>
               <Button size="sm" onClick={handleSave}>
-                <Check className="h-4 w-4 mr-1" /> {t('save')}
+                <Check className="h-4 w-4 mr-1" /> {"保存"}
               </Button>
             </div>
           </div>
@@ -164,19 +161,19 @@ export function ExerciseEntryCard({ entry, onDelete, onUpdate }: ExerciseEntryCa
               <div className="flex items-center">
                 <h4 className="font-medium">{entry.exercise_name}</h4>
                 {entry.is_estimated && (
-                  <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-1 rounded">{t('estimated')}</span>
+                  <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-1 rounded">{"估算"}</span>
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                {entry.duration_minutes} {t('minutes')}
-                {entry.distance_km && ` · ${entry.distance_km} ${t('distance')}`}
-                {entry.sets && entry.reps && ` · ${entry.sets}${t('sets')} × ${entry.reps}${t('reps')}`}
-                {entry.weight_kg && ` · ${entry.weight_kg}${t('weight')}`}
+                {entry.duration_minutes} {"分钟"}
+                {entry.distance_km && ` · ${entry.distance_km} ${"公里"}`}
+                {entry.sets && entry.reps && ` · ${entry.sets}${"组"} × ${entry.reps}${"次"}`}
+                {entry.weight_kg && ` · ${entry.weight_kg}${"kg"}`}
               </p>
-              <p className="text-sm font-medium mt-1">{entry.calories_burned_estimated?.toFixed(0) || 0} {t('calories')}</p>
+              <p className="text-sm font-medium mt-1">{entry.calories_burned_estimated?.toFixed(0) || 0} {"卡路里"}</p>
               {entry.muscle_groups && entry.muscle_groups.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {t('muscleGroups')}: {entry.muscle_groups.map(renderMuscle).join(", ")}
+                  {"锻炼部位"}: {entry.muscle_groups.map(renderMuscle).join(", ")}
                 </p>
               )}
             </div>

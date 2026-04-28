@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import type { FoodEntry } from "@/lib/types"
-import { useTranslation } from "@/hooks/use-i18n"
 
 interface FoodEntryCardProps {
   entry: FoodEntry
@@ -19,8 +18,21 @@ interface FoodEntryCardProps {
   onUpdate: (updatedEntry: FoodEntry) => void
 }
 
+const MEAL_TYPE_LABELS: Record<string, string> = {
+  breakfast: "早餐",
+  lunch: "午餐",
+  dinner: "晚餐",
+  snack: "加餐",
+}
+
+const TIME_PERIOD_LABELS: Record<string, string> = {
+  morning: "上午",
+  noon: "中午",
+  afternoon: "下午",
+  evening: "夜宵",
+}
+
 export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps) {
-  const t = useTranslation('dashboard.foodCard')
   const [isEditing, setIsEditing] = useState(false)
   const [editedEntry, setEditedEntry] = useState<FoodEntry>({ ...entry })
 
@@ -72,11 +84,11 @@ export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps)
 
   const getTimePeriodLabel = (period?: string) => {
     if (!period) return ""
-    return t(`timePeriods.${period}`) || period
+    return TIME_PERIOD_LABELS[period] || period
   }
 
   const getMealTypeLabel = (type: string) => {
-    return t(`mealTypes.${type}`) || type
+    return MEAL_TYPE_LABELS[type] || type
   }
 
   return (
@@ -89,11 +101,11 @@ export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps)
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="food_name">{t('foodName')}</Label>
+                <Label htmlFor="food_name">{"食物名称"}</Label>
                 <Input id="food_name" name="food_name" value={editedEntry.food_name} onChange={handleInputChange} />
               </div>
               <div>
-                <Label htmlFor="consumed_grams">{t('portion')}</Label>
+                <Label htmlFor="consumed_grams">{"份量 (克)"}</Label>
                 <Input
                   id="consumed_grams"
                   name="consumed_grams"
@@ -106,30 +118,30 @@ export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps)
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="meal_type">{t('mealType')}</Label>
+                <Label htmlFor="meal_type">{"餐次"}</Label>
                 <Select value={editedEntry.meal_type} onValueChange={handleMealTypeChange}>
                   <SelectTrigger id="meal_type">
-                    <SelectValue placeholder={t('selectMealType')} />
+                    <SelectValue placeholder={"选择餐次"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="breakfast">{t('mealTypes.breakfast')}</SelectItem>
-                    <SelectItem value="lunch">{t('mealTypes.lunch')}</SelectItem>
-                    <SelectItem value="dinner">{t('mealTypes.dinner')}</SelectItem>
-                    <SelectItem value="snack">{t('mealTypes.snack')}</SelectItem>
+                    <SelectItem value="breakfast">{"早餐"}</SelectItem>
+                    <SelectItem value="lunch">{"午餐"}</SelectItem>
+                    <SelectItem value="dinner">{"晚餐"}</SelectItem>
+                    <SelectItem value="snack">{"加餐"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="time_period">{t('timePeriod')}</Label>
+                <Label htmlFor="time_period">{"时间段"}</Label>
                 <Select value={editedEntry.time_period || ""} onValueChange={handleTimePeriodChange}>
                   <SelectTrigger id="time_period">
-                    <SelectValue placeholder={t('selectTimePeriod')} />
+                    <SelectValue placeholder={"选择时间段"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="morning">{t('timePeriods.morning')}</SelectItem>
-                    <SelectItem value="noon">{t('timePeriods.noon')}</SelectItem>
-                    <SelectItem value="afternoon">{t('timePeriods.afternoon')}</SelectItem>
-                    <SelectItem value="evening">{t('timePeriods.evening')}</SelectItem>
+                    <SelectItem value="morning">{"上午"}</SelectItem>
+                    <SelectItem value="noon">{"中午"}</SelectItem>
+                    <SelectItem value="afternoon">{"下午"}</SelectItem>
+                    <SelectItem value="evening">{"夜宵"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -137,10 +149,10 @@ export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps)
 
             <div className="flex justify-end space-x-2 mt-2">
               <Button size="sm" variant="outline" onClick={handleCancel}>
-                <X className="h-4 w-4 mr-1" /> {t('cancel')}
+                <X className="h-4 w-4 mr-1" /> {"取消"}
               </Button>
               <Button size="sm" onClick={handleSave}>
-                <Check className="h-4 w-4 mr-1" /> {t('save')}
+                <Check className="h-4 w-4 mr-1" /> {"保存"}
               </Button>
             </div>
           </div>
@@ -150,19 +162,19 @@ export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps)
               <div className="flex items-center">
                 <h4 className="font-medium">{entry.food_name}</h4>
                 {entry.is_estimated && (
-                  <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-1 rounded">{t('estimated')}</span>
+                  <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-1 rounded">{"估算"}</span>
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                {entry.consumed_grams}{t('grams')} · {getMealTypeLabel(entry.meal_type)}
+                {entry.consumed_grams}{"克"} · {getMealTypeLabel(entry.meal_type)}
                 {entry.time_period && ` · ${getTimePeriodLabel(entry.time_period)}`}
               </p>
               <p className="text-sm font-medium mt-1">
-                {entry.total_nutritional_info_consumed?.calories?.toFixed(0) || 0} {t('calories')}
+                {entry.total_nutritional_info_consumed?.calories?.toFixed(0) || 0} {"卡路里"}
               </p>
               <p className="text-xs text-muted-foreground">
-                {t('carbs')}: {entry.total_nutritional_info_consumed?.carbohydrates?.toFixed(1) || 0}g · {t('protein')}:{" "}
-                {entry.total_nutritional_info_consumed?.protein?.toFixed(1) || 0}g · {t('fat')}:{" "}
+                {"碳水"}: {entry.total_nutritional_info_consumed?.carbohydrates?.toFixed(1) || 0}g · {"蛋白质"}:{" "}
+                {entry.total_nutritional_info_consumed?.protein?.toFixed(1) || 0}g · {"脂肪"}:{" "}
                 {entry.total_nutritional_info_consumed?.fat?.toFixed(1) || 0}g
               </p>
             </div>

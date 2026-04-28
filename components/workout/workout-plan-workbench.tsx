@@ -6,7 +6,6 @@ import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { AbandonWorkoutDialog } from "@/components/workout/abandon-workout-dialog"
 import { WorkoutExerciseCard } from "@/components/workout/workout-exercise-card"
-import { useTranslation } from "@/hooks/use-i18n"
 
 interface WorkoutPlanWorkbenchProps {
   session: WorkoutSession
@@ -35,11 +34,10 @@ export function WorkoutPlanWorkbench({
   onReplaceExercise,
   onToggleSkipExercise,
 }: WorkoutPlanWorkbenchProps) {
-  const t = useTranslation("workout")
   const title =
     session.sessionRole === "next" && session.status === "draft"
-      ? t("titleNext")
-      : t("titleCurrent")
+      ? "下次训练计划"
+      : "本次训练计划"
   const progress = Math.round(session.derived.exerciseCompletionRate * 100)
   const canFinish = canCompleteWorkoutSession(session)
 
@@ -47,14 +45,11 @@ export function WorkoutPlanWorkbench({
     <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
       <header className="rounded-3xl border bg-gradient-to-br from-emerald-50 to-white p-8 shadow-sm dark:from-emerald-950/30 dark:to-slate-950">
         <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-          {t("eyebrow")}
+          {"智能训练"}
         </p>
         <h1 className="mt-2 text-4xl font-bold">{title}</h1>
         <p className="mt-3 text-muted-foreground">
-          {t("setsProgress", {
-            done: session.derived.completedSetCount,
-            total: session.derived.totalSetCount,
-          })}
+          {`${session.derived.completedSetCount} / ${session.derived.totalSetCount} 组已完成`}
         </p>
         <div className="mt-5">
           <Progress value={progress} />
@@ -62,11 +57,11 @@ export function WorkoutPlanWorkbench({
       </header>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Metric label={t("metrics.exerciseCount")} value={session.exercises.length} />
-        <Metric label={t("metrics.setCount")} value={session.derived.totalSetCount} />
-        <Metric label={t("metrics.completedSets")} value={session.derived.completedSetCount} />
+        <Metric label={"动作"} value={session.exercises.length} />
+        <Metric label={"总组数"} value={session.derived.totalSetCount} />
+        <Metric label={"已完成"} value={session.derived.completedSetCount} />
         <Metric
-          label={t("metrics.replacedExercises")}
+          label={"已替换"}
           value={session.derived.replacedExerciseCount}
         />
       </div>
@@ -87,7 +82,7 @@ export function WorkoutPlanWorkbench({
       <footer className="sticky bottom-4 rounded-2xl border bg-background/95 p-4 shadow-xl backdrop-blur">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <p className="text-sm text-muted-foreground">
-            {t("finishHint")}
+            {"所有未跳过组完成后即可结束训练。"}
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <AbandonWorkoutDialog
@@ -95,7 +90,7 @@ export function WorkoutPlanWorkbench({
               onConfirm={onAbandonWorkout}
             />
             <Button disabled={!canFinish || isFinishing} onClick={onFinishWorkout}>
-              {isFinishing ? t("finishing") : t("finish")}
+              {isFinishing ? "正在写入训练结果..." : "完成训练"}
             </Button>
           </div>
         </div>

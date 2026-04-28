@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useTranslation } from "@/hooks/use-i18n"
 import { 
   Brain, 
   ChevronDown, 
@@ -24,8 +23,6 @@ interface SmartSuggestionsProps {
 }
 
 export function SmartSuggestions({ suggestions, isLoading, onRefresh, currentDate }: SmartSuggestionsProps) {
-  const t = useTranslation('dashboard.suggestions')
-  const tChatSuggestions = useTranslation('chat.suggestions')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [isClient, setIsClient] = useState(false)
 
@@ -123,11 +120,11 @@ export function SmartSuggestions({ suggestions, isLoading, onRefresh, currentDat
         <CardHeader>
           <CardTitle className="flex items-center">
             <Brain className="mr-2 h-5 w-5 text-primary" />
-            {t('title')}
+            {"智能建议"}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center">
-          <p className="text-muted-foreground">{t('loading')}</p>
+          <p className="text-muted-foreground">{"加载中..."}</p>
         </CardContent>
       </Card>
     )
@@ -139,7 +136,7 @@ export function SmartSuggestions({ suggestions, isLoading, onRefresh, currentDat
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center">
             <Brain className="mr-2 h-5 w-5 text-primary" />
-            {t('title')}
+            {"智能建议"}
             <div className="ml-auto">
               <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
@@ -170,7 +167,7 @@ export function SmartSuggestions({ suggestions, isLoading, onRefresh, currentDat
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center">
             <Brain className="mr-2 h-5 w-5 text-primary" />
-            {t('title')}
+            {"智能建议"}
             {onRefresh && (
               <Button
                 variant="ghost"
@@ -185,9 +182,9 @@ export function SmartSuggestions({ suggestions, isLoading, onRefresh, currentDat
         </CardHeader>
         <CardContent className="pt-0 flex-1 flex flex-col items-center justify-center">
           <Sparkles className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">{t('noSuggestions')}</p>
+          <p className="text-muted-foreground">{"暂无智能建议"}</p>
           <p className="text-sm text-muted-foreground mt-1">
-            {t('addMoreData')}
+            {"添加更多数据后将获得个性化建议"}
           </p>
         </CardContent>
       </Card>
@@ -199,7 +196,7 @@ export function SmartSuggestions({ suggestions, isLoading, onRefresh, currentDat
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center">
           <Brain className="mr-2 h-5 w-5 text-primary" />
-          {t('title')}
+          {"智能建议"}
           {onRefresh && (
             <Button
               variant="ghost"
@@ -213,7 +210,7 @@ export function SmartSuggestions({ suggestions, isLoading, onRefresh, currentDat
           )}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          {t('description')}
+          {"基于您的数据生成的个性化建议"}
           {currentDate && (
             <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
               {new Date(currentDate).toLocaleDateString('zh-CN')}
@@ -299,7 +296,7 @@ export function SmartSuggestions({ suggestions, isLoading, onRefresh, currentDat
                           </div>
                           {suggestion.actionable && (
                             <Badge variant="outline" className="mt-1 text-xs px-1 py-0">
-                              {tChatSuggestions('actionable')}
+                              {"可执行"}
                             </Badge>
                           )}
                         </div>
