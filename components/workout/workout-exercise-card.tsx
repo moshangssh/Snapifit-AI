@@ -45,6 +45,7 @@ export function WorkoutExerciseCard({
   const t = useTranslation("workout")
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
   const phase = exercise.phase ?? "main"
+  const tips = exercise.tips ?? []
   const muscleLabels =
     exercise.plannedAnalysis.muscleGroups
       .map((muscle) => MUSCLE_LABELS_ZH[muscle] ?? muscle)
@@ -79,6 +80,18 @@ export function WorkoutExerciseCard({
           </p>
           {exercise.notes && (
             <p className="text-sm text-muted-foreground">{exercise.notes}</p>
+          )}
+          {tips.length > 0 && (
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">
+                {t("exercise.tips")}
+              </p>
+              <ul className="list-disc space-y-1 pl-5">
+                {tips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
         <div className="flex gap-2">

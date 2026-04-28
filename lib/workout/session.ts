@@ -57,6 +57,7 @@ export function createWorkoutSessionFromPlan(
     plannedExerciseName: exercise.plannedExerciseName,
     phase: exercise.phase,
     notes: exercise.notes,
+    tips: exercise.tips,
     isExerciseSkipped: false,
     analysisStatus: "planned" as const,
     plannedAnalysis: exercise.plannedAnalysis,
@@ -189,6 +190,7 @@ export function replaceWorkoutExercise(
           actualExerciseName: trimmed,
           analysisStatus: "stale" as const,
           enrichedAnalysis: undefined,
+          tips: [],
         }
       : exercise,
   )

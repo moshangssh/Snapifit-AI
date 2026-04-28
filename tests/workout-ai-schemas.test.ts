@@ -12,23 +12,40 @@ function makePlan(overrides = {}) {
   return {
     exercises: [
       {
-        plannedExerciseName: "肩胛俯卧撑",
+        plannedExerciseName: "靠墙胸椎伸展",
         phase: "warmup",
-        notes: "激活肩胛控制",
-        sets: [{ plannedWeightKg: 5, plannedReps: 12 }],
+        notes: "为主训练准备胸椎活动度",
+        tips: ["保持自然呼吸", "不要强行追求大幅度后伸"],
+        sets: [{ plannedReps: 10 }],
         plannedAnalysis: {
-          exerciseType: "strength",
-          muscleGroups: ["chest", "front-deltoids"],
-          estimatedMets: 4,
+          exerciseType: "flexibility",
+          muscleGroups: ["upper-back"],
+          estimatedMets: 2,
           estimatedDurationMinutes: 4,
-          caloriesBurnedEstimated: 20,
+          caloriesBurnedEstimated: 10,
+          isEstimated: true,
+        },
+      },
+      {
+        plannedExerciseName: "弹力带肩外旋",
+        phase: "warmup",
+        notes: "激活肩袖以准备推类动作",
+        tips: ["肘部贴近身体", "使用轻阻力避免耸肩代偿"],
+        sets: [{ plannedReps: 12 }],
+        plannedAnalysis: {
+          exerciseType: "other",
+          muscleGroups: ["back-deltoids"],
+          estimatedMets: 2,
+          estimatedDurationMinutes: 4,
+          caloriesBurnedEstimated: 10,
           isEstimated: true,
         },
       },
       {
         plannedExerciseName: "卧推",
         phase: "main",
-        notes: "保持肩胛稳定",
+        notes: "作为本次胸部主训练",
+        tips: ["保持肩胛稳定", "推起时呼气避免憋气"],
         sets: [
           { plannedWeightKg: 60, plannedReps: 8 },
           { plannedWeightKg: 60, plannedReps: 8 },
@@ -47,6 +64,7 @@ function makePlan(overrides = {}) {
         plannedExerciseName: "上斜哑铃卧推",
         phase: "main",
         notes: "补充上胸容量",
+        tips: ["手腕保持中立", "肩部不适时降低重量"],
         sets: [
           { plannedWeightKg: 20, plannedReps: 10 },
           { plannedWeightKg: 20, plannedReps: 10 },
@@ -65,6 +83,7 @@ function makePlan(overrides = {}) {
         plannedExerciseName: "绳索下压",
         phase: "main",
         notes: "控制肘部位置",
+        tips: ["肘部保持固定", "避免身体前后摆动借力"],
         sets: [
           { plannedWeightKg: 25, plannedReps: 12 },
           { plannedWeightKg: 25, plannedReps: 12 },
@@ -83,6 +102,7 @@ function makePlan(overrides = {}) {
         plannedExerciseName: "胸大肌拉伸",
         phase: "cooldown",
         notes: "恢复胸肩活动度",
+        tips: ["拉伸到轻微牵拉感即可", "不要压到疼痛范围"],
         sets: [{ plannedReps: 10 }],
         plannedAnalysis: {
           exerciseType: "flexibility",
@@ -90,6 +110,36 @@ function makePlan(overrides = {}) {
           estimatedMets: 3,
           estimatedDurationMinutes: 4,
           caloriesBurnedEstimated: 14,
+          isEstimated: true,
+        },
+      },
+      {
+        plannedExerciseName: "跪姿髋屈肌拉伸",
+        phase: "cooldown",
+        notes: "恢复髋前侧活动度",
+        tips: ["骨盆轻微后倾", "避免塌腰代偿"],
+        sets: [{ plannedReps: 8 }],
+        plannedAnalysis: {
+          exerciseType: "flexibility",
+          muscleGroups: ["quadriceps"],
+          estimatedMets: 2,
+          estimatedDurationMinutes: 4,
+          caloriesBurnedEstimated: 10,
+          isEstimated: true,
+        },
+      },
+      {
+        plannedExerciseName: "仰卧腹式呼吸",
+        phase: "cooldown",
+        notes: "降低训练后紧张度",
+        tips: ["呼吸保持平稳", "腰背不适时缩短保持时间"],
+        sets: [{ plannedReps: 8 }],
+        plannedAnalysis: {
+          exerciseType: "other",
+          muscleGroups: ["abs"],
+          estimatedMets: 1,
+          estimatedDurationMinutes: 3,
+          caloriesBurnedEstimated: 5,
           isEstimated: true,
         },
       },
@@ -102,16 +152,23 @@ describe("workout AI schemas", () => {
   it("parses a workout plan with analysis values", () => {
     const parsed = WorkoutPlanSchema.parse(makePlan())
 
-    expect(parsed.exercises).toHaveLength(5)
-    expect(parsed.exercises[1].plannedAnalysis.muscleGroups).toEqual([
+    expect(parsed.exercises).toHaveLength(8)
+    expect(parsed.exercises[2].plannedAnalysis.muscleGroups).toEqual([
       "chest",
       "triceps",
     ])
+    expect(parsed.exercises[2].tips).toEqual([
+      "保持肩胛稳定",
+      "推起时呼气避免憋气",
+    ])
     expect(parsed.exercises.map((exercise) => exercise.phase)).toEqual([
+      "warmup",
       "warmup",
       "main",
       "main",
       "main",
+      "cooldown",
+      "cooldown",
       "cooldown",
     ])
   })
@@ -123,6 +180,7 @@ describe("workout AI schemas", () => {
           {
             plannedExerciseName: "胸椎伸展",
             notes: "热身活动度",
+            tips: ["保持自然呼吸", "避免疼痛范围"],
             sets: [{ plannedReps: 10 }],
             plannedAnalysis: {
               exerciseType: "flexibility",
@@ -148,9 +206,33 @@ describe("workout AI schemas", () => {
     ).toThrow()
   })
 
+  it("requires 2 warmup exercises and 3 cooldown exercises", () => {
+    expect(() =>
+      WorkoutPlanSchema.parse(
+        makePlan({
+          exercises: makePlan().exercises.filter(
+            (exercise) =>
+              exercise.plannedExerciseName !== "弹力带肩外旋" &&
+              exercise.plannedExerciseName !== "仰卧腹式呼吸",
+          ),
+        }),
+      ),
+    ).toThrow()
+  })
+
+  it("requires 2-4 tips for each workout plan exercise", () => {
+    const plan = makePlan()
+    plan.exercises[2] = {
+      ...plan.exercises[2],
+      tips: ["保持肩胛稳定"],
+    }
+
+    expect(() => WorkoutPlanSchema.parse(plan)).toThrow()
+  })
+
   it("requires positive weight and reps for strength sets", () => {
     const plan = makePlan()
-    plan.exercises[1].sets[0] = { plannedReps: 8 }
+    plan.exercises[2].sets[0] = { plannedReps: 8 }
 
     expect(() => WorkoutPlanSchema.parse(plan)).toThrow()
   })
@@ -159,10 +241,10 @@ describe("workout AI schemas", () => {
     const plan = WorkoutPlanSchema.parse(makePlan())
     const normalized = recalculateWorkoutPlanCalories(plan, 80)
 
-    expect(normalized.exercises[1].plannedAnalysis.caloriesBurnedEstimated).toBe(
+    expect(normalized.exercises[2].plannedAnalysis.caloriesBurnedEstimated).toBe(
       80,
     )
-    expect(normalized.exercises[1].plannedAnalysis.isEstimated).toBe(true)
+    expect(normalized.exercises[2].plannedAnalysis.isEstimated).toBe(true)
   })
 
   it("filters empty muscle groups and clamps unsafe numeric values", () => {

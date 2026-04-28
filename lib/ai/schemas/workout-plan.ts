@@ -20,12 +20,13 @@ const WorkoutPlanExerciseSchema = z.object({
   plannedExerciseName: z.string().min(1),
   phase: WorkoutPlanPhaseSchema,
   notes: z.string().optional(),
+  tips: z.array(z.string().min(1)).min(2).max(4),
   sets: z.array(WorkoutPlanSetSchema).min(1),
   plannedAnalysis: WorkoutExerciseAnalysisSchema,
 })
 
 export const WorkoutPlanSchema = z.object({
-  exercises: z.array(WorkoutPlanExerciseSchema).min(4).max(6),
+  exercises: z.array(WorkoutPlanExerciseSchema).min(7).max(9),
 }).superRefine((plan, ctx) => {
   const phaseCounts = {
     warmup: 0,
@@ -89,18 +90,18 @@ export const WorkoutPlanSchema = z.object({
     })
   })
 
-  if (phaseCounts.warmup !== 1 || phaseCounts.main < 2 || phaseCounts.main > 4) {
+  if (phaseCounts.warmup !== 2 || phaseCounts.main < 2 || phaseCounts.main > 4) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Workout plan requires 1 warmup, 2-4 main exercises",
+      message: "Workout plan requires 2 warmup, 2-4 main exercises",
       path: ["exercises"],
     })
   }
 
-  if (phaseCounts.cooldown !== 1) {
+  if (phaseCounts.cooldown !== 3) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Workout plan requires 1 cooldown exercise",
+      message: "Workout plan requires 3 cooldown exercises",
       path: ["exercises"],
     })
   }

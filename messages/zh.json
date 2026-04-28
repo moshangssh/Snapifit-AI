@@ -858,6 +858,7 @@
       "completed": "已完成",
       "complete": "完成",
       "unknown": "待识别",
+      "tips": "注意事项",
       "phase": {
         "warmup": "热身",
         "main": "主训练",

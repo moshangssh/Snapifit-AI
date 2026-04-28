@@ -37,6 +37,7 @@
       "completed": "Done",
       "complete": "Complete",
       "unknown": "Unknown",
+      "tips": "Safety notes",
       "phase": {
         "warmup": "Warmup",
         "main": "Main",

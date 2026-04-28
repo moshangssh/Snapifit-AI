@@ -34,6 +34,7 @@ function makeInput(): CreateWorkoutSessionInput {
         plannedExerciseName: "卧推",
         phase: "main",
         notes: "保持肩胛稳定",
+        tips: ["保持肩胛稳定", "推起时呼气避免憋气"],
         sets: [
           { plannedWeightKg: 60, plannedReps: 8 },
           { plannedWeightKg: 60, plannedReps: 8 },
@@ -51,6 +52,7 @@ function makeInput(): CreateWorkoutSessionInput {
       {
         plannedExerciseName: "划船",
         phase: "main",
+        tips: ["保持脊柱中立", "避免身体后仰借力"],
         sets: [{ plannedWeightKg: 50, plannedReps: 10 }],
         plannedAnalysis: {
           exerciseType: "strength",
@@ -73,6 +75,10 @@ describe("workout session core", () => {
     expect(session.sessionRole).toBe("current")
     expect(session.status).toBe("draft")
     expect(session.exercises[0].phase).toBe("main")
+    expect(session.exercises[0].tips).toEqual([
+      "保持肩胛稳定",
+      "推起时呼气避免憋气",
+    ])
     expect(session.exercises[0].sets[0].actualWeightKg).toBe(60)
     expect(session.derived.totalSetCount).toBe(4)
   })
@@ -128,6 +134,7 @@ describe("workout session core", () => {
 
     expect(replaced.exercises[0].actualExerciseName).toBe("哑铃卧推")
     expect(replaced.exercises[0].analysisStatus).toBe("stale")
+    expect(replaced.exercises[0].tips).toEqual([])
   })
 
   it("allows completion after all non-skipped sets are completed", () => {
@@ -193,6 +200,7 @@ describe("workout session core", () => {
     expect(entries[0].weight_kg).toBe(60)
     expect(entries[0].muscle_groups).toEqual(["chest", "triceps"])
     expect(entries[0].calories_burned_estimated).toBe(86)
+    expect(entries[0]).not.toHaveProperty("tips")
   })
 
   it("uses stable workout log ids for derived exercise entries", () => {
