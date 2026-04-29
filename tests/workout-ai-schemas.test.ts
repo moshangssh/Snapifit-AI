@@ -237,6 +237,58 @@ describe("workout AI schemas", () => {
     expect(() => WorkoutPlanSchema.parse(plan)).toThrow()
   })
 
+  it("rejects invalid workout plan muscle groups before normalization", () => {
+    const plan = makePlan()
+    plan.exercises[2] = {
+      ...plan.exercises[2],
+      plannedAnalysis: {
+        ...plan.exercises[2].plannedAnalysis,
+        muscleGroups: ["胸部"],
+      },
+    }
+
+    expect(() => WorkoutPlanSchema.parse(plan)).toThrow()
+  })
+
+  it("rejects mixed valid and invalid workout plan muscle groups", () => {
+    const plan = makePlan()
+    plan.exercises[2] = {
+      ...plan.exercises[2],
+      plannedAnalysis: {
+        ...plan.exercises[2].plannedAnalysis,
+        muscleGroups: ["chest", "胸部"],
+      },
+    }
+
+    expect(() => WorkoutPlanSchema.parse(plan)).toThrow()
+  })
+
+  it("requires at least one workout plan muscle group", () => {
+    const plan = makePlan()
+    plan.exercises[2] = {
+      ...plan.exercises[2],
+      plannedAnalysis: {
+        ...plan.exercises[2].plannedAnalysis,
+        muscleGroups: [],
+      },
+    }
+
+    expect(() => WorkoutPlanSchema.parse(plan)).toThrow()
+  })
+
+  it("keeps workout exercise enrich muscle group normalization lenient", () => {
+    const parsed = WorkoutExerciseEnrichSchema.parse({
+      exerciseType: "strength",
+      muscleGroups: ["chest", "胸部"],
+      estimatedMets: 5,
+      estimatedDurationMinutes: 10,
+      caloriesBurnedEstimated: 50,
+      isEstimated: true,
+    })
+
+    expect(parsed.muscleGroups).toEqual(["chest"])
+  })
+
   it("recalculates workout plan calories from effective body weight", () => {
     const plan = WorkoutPlanSchema.parse(makePlan())
     const normalized = recalculateWorkoutPlanCalories(plan, 80)

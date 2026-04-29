@@ -1,7 +1,8 @@
 import { z } from "zod"
+import { MUSCLE_KEYS } from "@/lib/muscle-groups"
 import {
   normalizeWorkoutExerciseAnalysis,
-  WorkoutExerciseAnalysisSchema,
+  WorkoutExerciseTypeSchema,
 } from "@/lib/ai/schemas/workout-exercise-enrich"
 
 const WorkoutPlanSetSchema = z.object({
@@ -10,6 +11,22 @@ const WorkoutPlanSetSchema = z.object({
 })
 
 const WorkoutPlanPhaseSchema = z.enum(["warmup", "main", "cooldown"])
+
+const WorkoutPlanMuscleGroupSchema = z.enum(MUSCLE_KEYS)
+
+const WorkoutPlanAnalysisSchema = z.object({
+  exerciseType: WorkoutExerciseTypeSchema,
+  muscleGroups: z.array(WorkoutPlanMuscleGroupSchema).min(1).max(3),
+  estimatedMets: z
+    .number()
+    .transform((value) => Math.min(8, Math.max(1, value))),
+  estimatedDurationMinutes: z
+    .number()
+    .transform((value) => Math.max(1, Math.round(value))),
+  caloriesBurnedEstimated: z.number().transform((value) => Math.max(0, value)),
+  isEstimated: z.boolean().default(true),
+})
+
 const PHASE_ORDER = {
   warmup: 0,
   main: 1,
@@ -22,7 +39,7 @@ const WorkoutPlanExerciseSchema = z.object({
   notes: z.string().optional(),
   tips: z.array(z.string().min(1)).min(2).max(4),
   sets: z.array(WorkoutPlanSetSchema).min(1),
-  plannedAnalysis: WorkoutExerciseAnalysisSchema,
+  plannedAnalysis: WorkoutPlanAnalysisSchema,
 })
 
 export const WorkoutPlanSchema = z.object({

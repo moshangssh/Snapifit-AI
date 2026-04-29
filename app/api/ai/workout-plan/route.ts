@@ -34,6 +34,16 @@ export async function POST(req: Request) {
     const aiConfig = extractAIConfig(req)
     validateModelConfig(aiConfig.agentModel)
 
+    const promptUserProfile =
+      userProfile.professionalMode === true
+        ? userProfile
+        : {
+            ...userProfile,
+            medicalHistory: undefined,
+            lifestyle: undefined,
+            healthAwareness: undefined,
+          }
+
     const prompt = `你是 SnapFit AI 的力量训练计划教练。基于用户资料、最近 session 摘要、近 14 天运动记录和肌肉疲劳快照,生成一份**单次力量训练计划**。
 
 # 最高优先级
@@ -53,7 +63,7 @@ export async function POST(req: Request) {
 - plannedExerciseName 必须是**单个具体可执行动作名**,例如"靠墙胸椎伸展"、"跪姿髋屈肌拉伸"、"弹力带肩外旋"、"坐姿器械推胸";不得使用训练目的、康复方向或组合概念,例如"胸椎伸展与肩胛控制热身"、"髋屈肌拉伸与胸式呼吸放松"、"活动度训练"、"核心稳定训练"
 - notes 只写 1 句,说明为什么安排这个动作,以及它和本次训练阶段或主题的关系
 - 每个动作必须包含 tips,为 2-4 条中文短句;tips 只写该动作执行时的技术、安全和健康限制注意点,不要写医学诊断、治疗承诺或泛泛建议
-- 若 medicalHistory 涉及强直性脊柱炎、脊柱活动度限制、疼痛或损伤,tips 必须包含与该动作相关的保守执行提醒,例如避免疼痛范围、避免憋气、保持脊柱中立、降低重量或停止
+- 只有当 userProfile.professionalMode 为 true 且 medicalHistory 有内容时,才读取 medicalHistory;若其中涉及强直性脊柱炎、脊柱活动度限制、疼痛或损伤,tips 必须包含与该动作相关的保守执行提醒,例如避免疼痛范围、避免憋气、保持脊柱中立、降低重量或停止
 - 每个动作必须包含 phase,只能是 "warmup"、"main"、"cooldown"
 - 默认生成力量训练动作时 plannedAnalysis.exerciseType 使用 "strength";若健康限制需要康复、拉伸或活动度训练,允许使用 "flexibility" 或 "other"
 - exerciseType 为 "strength" 的每一组必须包含正数 plannedWeightKg 和正整数 plannedReps
@@ -81,7 +91,7 @@ fatigueSnapshot 是 Record<肌群, { intensity, daysAgo, lastExerciseName }>。
 - 只参考 completedSets > 0 且 wasSkipped=false 的历史动作
 - wasReplaced=true 时,以 exerciseName 作为实际完成动作名
 - recentWorkoutSessionSummaries 内有效出现过的动作:在最近一次 averageWeightKg 上做小幅渐进(上肢 +1.25~2.5kg,下肢 +2.5~5kg);若 averageReps 低于目标下限,保持或降低重量,先补 reps
-- 历史无记录的动作:按 effectiveUserWeightKg 估算初始重量(复合动作约 0.4~0.8 × 体重,孤立动作约 0.1~0.3 × 体重)
+- 历史无记录的动作:按 effectiveUserWeightKg 保守估算初始重量(复合动作约 0.25~0.5 × 体重,孤立动作约 0.05~0.2 × 体重);若 goal 为 "improve_health"、存在健康限制、睡眠/压力/恢复较差或动作技术要求高,在该范围内继续下调
 - 以 generatedAt 为当前时间判断日期;不要与 recentExerciseEntries 中近 2 天内出现过的动作完全重复,除非是 warmup/cooldown 活动度动作
 
 # 分化选择与动作编排
@@ -103,6 +113,7 @@ fatigueSnapshot 是 Record<肌群, { intensity, daysAgo, lastExerciseName }>。
 - 其他或缺失:综合方案,reps 8-12
 
 # 健康限制与医学安全(读取 userProfile.professionalMode 和 userProfile.medicalHistory)
+- 只有当 userProfile.professionalMode 为 true 且相关字段存在时,才读取 userProfile.medicalHistory、userProfile.lifestyle 与 userProfile.healthAwareness;若 professionalMode 不为 true,这些字段不会出现在输入中,不得臆测医学限制。
 - 如果 userProfile.professionalMode 为 true 且 userProfile.medicalHistory 有内容,必须把其中的现有疾病、过敏、药物/补充剂、家族病史作为选动作和强度设计因素。
 - 如果 userProfile.professionalMode 为 true,也要结合 userProfile.lifestyle 与 userProfile.healthAwareness 调整训练量、复杂度和保守程度;睡眠差、压力高、恢复差或风险担忧明显时降低强度。
 - 若 medicalHistory 提到心血管疾病、高血压、胸痛、晕厥、哮喘、糖尿病、神经系统疾病、孕产相关、近期手术、急性损伤或医生限制,优先选择保守方案:中低强度、避免极限重量、避免憋气/Valsalva、避免冲击性跳跃和高风险动作。
@@ -120,7 +131,7 @@ plannedAnalysis 内:
 - isEstimated 固定为 true
 
 # 兜底
-若 recentWorkoutSessionSummaries 与 recentExerciseEntries 均为空,生成保守的全身基础训练:2 个相关 warmup,2-4 个 main strength 动作(优先选择稳定、低冲击、可控轨迹动作;如无医学限制可从深蹲 / 卧推 / 杠铃划船 / 肩推 中选,每个 3 组,重量按 0.5 × 体重起步并向下取整到合理重量),3 个 cooldown。
+若 recentWorkoutSessionSummaries 与 recentExerciseEntries 均为空,生成保守的全身基础训练:2 个相关 warmup,2-4 个 main strength 动作(优先选择稳定、低冲击、可控轨迹的器械或哑铃动作;如无医学限制且动作简单可控,可选择深蹲 / 卧推 / 杠铃划船 / 肩推 等基础动作,每个 3 组,重量按保守区间估算并向下取整到常见健身房重量),3 个 cooldown。
 
 # 输入
 
@@ -129,7 +140,7 @@ effectiveUserWeightKg: ${effectiveUserWeightKg}
 generatedAt: ${generatedAt ?? "unknown"}
 
 userProfile:
-${JSON.stringify(userProfile, null, 2)}
+${JSON.stringify(promptUserProfile, null, 2)}
 
 recentWorkoutSessionSummaries:
 ${JSON.stringify(recentWorkoutSessionSummaries ?? [], null, 2)}
