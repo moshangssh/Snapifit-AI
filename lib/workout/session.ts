@@ -286,6 +286,17 @@ export function workoutSessionToExerciseEntries(
           ? FALLBACK_STRENGTH_ANALYSIS
           : exercise.plannedAnalysis)
 
+      const plannedSetCount = exercise.sets.length
+      const completionRatio =
+        plannedSetCount > 0 ? completedSets.length / plannedSetCount : 1
+      const scaledDuration = Math.max(
+        1,
+        Math.round(analysis.estimatedDurationMinutes * completionRatio),
+      )
+      const scaledCalories = Math.round(
+        analysis.caloriesBurnedEstimated * completionRatio,
+      )
+
       return {
         log_id: getWorkoutExerciseEntryLogId(
           session.sessionId,
@@ -294,7 +305,7 @@ export function workoutSessionToExerciseEntries(
         exercise_name:
           exercise.actualExerciseName ?? exercise.plannedExerciseName,
         exercise_type: analysis.exerciseType,
-        duration_minutes: analysis.estimatedDurationMinutes,
+        duration_minutes: scaledDuration,
         sets: completedSets.length,
         reps: average(
           completedSets
@@ -308,7 +319,7 @@ export function workoutSessionToExerciseEntries(
         ),
         estimated_mets: analysis.estimatedMets,
         user_weight: session.effectiveUserWeightKg,
-        calories_burned_estimated: analysis.caloriesBurnedEstimated,
+        calories_burned_estimated: scaledCalories,
         muscle_groups: analysis.muscleGroups,
         is_estimated: true,
         timestamp: completedAt,

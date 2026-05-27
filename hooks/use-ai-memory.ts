@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useIndexedDB } from "./use-indexed-db"
-import { HEALTH_DB_NAME, HEALTH_DB_VERSION } from "@/lib/indexed-db"
+import { HEALTH_DB_STORES, openHealthDatabase } from "@/lib/indexed-db"
 import type { AIMemory, AIMemoryUpdateRequest } from "@/lib/types"
 
 interface AIMemoryHook {
@@ -33,15 +33,16 @@ export function useAIMemory(): AIMemoryHook {
 
       // 尝试打开IndexedDB并获取所有记忆
       try {
-        const db = await new Promise<IDBDatabase>((resolve, reject) => {
-          const request = window.indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
-          request.onsuccess = () => resolve(request.result)
-          request.onerror = () => reject(request.error)
-        })
+        const db = await openHealthDatabase()
 
-        if (db.objectStoreNames.contains("aiMemories")) {
-          const transaction = db.transaction(["aiMemories"], "readonly")
-          const objectStore = transaction.objectStore("aiMemories")
+        if (db.objectStoreNames.contains(HEALTH_DB_STORES.aiMemories)) {
+          const transaction = db.transaction(
+            [HEALTH_DB_STORES.aiMemories],
+            "readonly",
+          )
+          const objectStore = transaction.objectStore(
+            HEALTH_DB_STORES.aiMemories,
+          )
 
           const allMemories = await new Promise<Record<string, AIMemory>>((resolve, reject) => {
             const memories: Record<string, AIMemory> = {}

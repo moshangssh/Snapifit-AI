@@ -13,7 +13,8 @@ export class TEFCacheManager {
 
   /**
    * 生成食物条目的稳定哈希
-   * 排除易变字段如时间戳、log_id等
+   * 排除 log_id 等记录标识，但保留进食时间语义。
+   * TEF AI prompt 会分析时间窗口，时间变化必须触发新分析。
    */
   generateFoodEntriesHash(foodEntries: FoodEntry[]): string {
     const stableData = foodEntries
@@ -21,6 +22,8 @@ export class TEFCacheManager {
         name: entry.food_name.trim().toLowerCase(),
         grams: Math.round(entry.consumed_grams * 100) / 100, // 保留2位小数
         mealType: entry.meal_type,
+        timePeriod: entry.time_period ?? null,
+        timestamp: entry.timestamp ?? null,
         // 只包含营养信息的关键字段
         nutrition: {
           calories: Math.round((entry.total_nutritional_info_consumed?.calories || 0) * 100) / 100,
@@ -30,9 +33,15 @@ export class TEFCacheManager {
         }
       }))
       .sort((a, b) => {
-        // 先按食物名称排序，再按重量排序
+        // 按语义字段排序，避免 UI 列表顺序变化造成缓存失效。
         const nameCompare = a.name.localeCompare(b.name);
-        return nameCompare !== 0 ? nameCompare : a.grams - b.grams;
+        if (nameCompare !== 0) return nameCompare;
+        if (a.grams !== b.grams) return a.grams - b.grams;
+        const mealCompare = a.mealType.localeCompare(b.mealType);
+        if (mealCompare !== 0) return mealCompare;
+        const timePeriodCompare = (a.timePeriod ?? '').localeCompare(b.timePeriod ?? '');
+        if (timePeriodCompare !== 0) return timePeriodCompare;
+        return (a.timestamp ?? '').localeCompare(b.timestamp ?? '');
       });
     
     return JSON.stringify(stableData);

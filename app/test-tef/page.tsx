@@ -6,7 +6,10 @@ import { generateTEFAnalysis } from '@/lib/tef-utils';
 import type { FoodEntry } from '@/lib/types';
 
 export default function TestTEFPage() {
-  const [cacheStats, setCacheStats] = useState({ size: 0, oldestEntry: null });
+  const [cacheStats, setCacheStats] = useState<{ size: number; oldestEntry: number | null }>({
+    size: 0,
+    oldestEntry: null,
+  });
   const [sampleFoodEntries, setSampleFoodEntries] = useState<FoodEntry[]>([]);
   const [isClient, setIsClient] = useState(false);
 
@@ -144,7 +147,7 @@ export default function TestTEFPage() {
           
           <button 
             onClick={() => setCacheStats(tefCacheManager.getCacheStats())}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
           >
             刷新统计
           </button>

@@ -60,8 +60,8 @@ export interface RecentWorkoutSessionSummary {
   exercises: Array<{
     exerciseName: string
     completedSets: number
-    averageWeightKg?: number
-    averageReps?: number
+    workingSetWeightKg?: number
+    workingSetReps?: number
     wasReplaced: boolean
     wasSkipped: boolean
     muscleGroups: string[]

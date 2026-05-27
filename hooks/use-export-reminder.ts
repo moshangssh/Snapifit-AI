@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { HEALTH_DB_NAME, HEALTH_DB_VERSION } from "@/lib/indexed-db"
+import { HEALTH_DB_STORES, openHealthDatabase } from "@/lib/indexed-db"
 
 interface ExportReminderState {
   shouldRemind: boolean
@@ -76,17 +76,22 @@ export function useExportReminder(): ExportReminderState {
 
     // 检查IndexedDB中数据的时间跨度
     const checkDataSpan = async (): Promise<{ hasData: boolean; spanDays: number }> => {
-      return new Promise((resolve) => {
-        const request = indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
+      let db: IDBDatabase | null = null
+      try {
+        db = await openHealthDatabase()
+      } catch {
+        return { hasData: false, spanDays: 0 }
+      }
 
-        request.onerror = () => {
-          resolve({ hasData: false, spanDays: 0 })
-        }
-
-        request.onsuccess = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result
-          const transaction = db.transaction(['healthLogs'], 'readonly')
-          const objectStore = transaction.objectStore('healthLogs')
+      try {
+        return await new Promise((resolve) => {
+          const transaction = db!.transaction(
+            [HEALTH_DB_STORES.healthLogs],
+            "readonly",
+          )
+          const objectStore = transaction.objectStore(
+            HEALTH_DB_STORES.healthLogs,
+          )
           const getAllRequest = objectStore.getAll()
 
           getAllRequest.onsuccess = () => {
@@ -128,8 +133,10 @@ export function useExportReminder(): ExportReminderState {
           getAllRequest.onerror = () => {
             resolve({ hasData: false, spanDays: 0 })
           }
-        }
-      })
+        })
+      } finally {
+        db.close()
+      }
     }
 
     checkExportReminder()

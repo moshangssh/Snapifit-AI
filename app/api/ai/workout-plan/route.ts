@@ -90,7 +90,7 @@ fatigueSnapshot 是 Record<肌群, { intensity, daysAgo, lastExerciseName }>。
 # 渐进超负荷与历史利用
 - 只参考 completedSets > 0 且 wasSkipped=false 的历史动作
 - wasReplaced=true 时,以 exerciseName 作为实际完成动作名
-- recentWorkoutSessionSummaries 内有效出现过的动作:在最近一次 averageWeightKg 上做小幅渐进(上肢 +1.25~2.5kg,下肢 +2.5~5kg);若 averageReps 低于目标下限,保持或降低重量,先补 reps
+- recentWorkoutSessionSummaries 内有效出现过的动作:workingSetWeightKg 是上次该动作**最重一组**的重量,workingSetReps 是该组对应的次数。在 workingSetWeightKg 上做小幅渐进(上肢 +1.25~2.5kg,下肢 +2.5~5kg);若 workingSetReps 低于目标下限,保持或降低重量,先补 reps
 - 历史无记录的动作:按 effectiveUserWeightKg 保守估算初始重量(复合动作约 0.25~0.5 × 体重,孤立动作约 0.05~0.2 × 体重);若 goal 为 "improve_health"、存在健康限制、睡眠/压力/恢复较差或动作技术要求高,在该范围内继续下调
 - 以 generatedAt 为当前时间判断日期;不要与 recentExerciseEntries 中近 2 天内出现过的动作完全重复,除非是 warmup/cooldown 活动度动作
 

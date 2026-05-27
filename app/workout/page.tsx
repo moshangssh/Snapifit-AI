@@ -1,9 +1,12 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, type ReactNode } from "react"
 import { format, subDays } from "date-fns"
 import { Dumbbell, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/ui/page-header"
+import { Tile } from "@/components/ui/tile"
 import { useToast } from "@/hooks/use-toast"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useLocalStorage } from "@/hooks/use-local-storage"
@@ -266,7 +269,6 @@ export default function WorkoutPage() {
         foodEntries: [],
         exerciseEntries: [],
         summary: emptySummary,
-        activityLevel: userProfile.activityLevel,
       }
       const exerciseEntries = [
         ...removeWorkoutSessionEntries(
@@ -309,7 +311,6 @@ export default function WorkoutPage() {
     saveActiveSession,
     saveDailyLog,
     toast,
-    userProfile.activityLevel,
     userProfile.goal,
   ])
 
@@ -324,27 +325,38 @@ export default function WorkoutPage() {
 
   if (!isReady) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <WorkoutPageChrome subtitle="正在读取本地训练状态">
+        <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
+          <CardContent className="flex min-h-[40vh] items-center justify-center p-10">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </WorkoutPageChrome>
     )
   }
 
   if (!activeSession) {
     const title = hasCompletedWorkout ? "下次训练计划" : "本次训练计划"
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        <div className="rounded-3xl border bg-gradient-to-br from-emerald-50 to-white p-10 text-center shadow-sm dark:from-emerald-950/30 dark:to-slate-950">
-          <Dumbbell className="mx-auto h-12 w-12 text-emerald-600" />
-          <h1 className="mt-4 text-4xl font-bold">{title}</h1>
-          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            {"AI 会读取你的本地训练历史、肌肉疲劳和最近体重,生成一份可直接打卡的单次训练计划。"}
-          </p>
-          <Button className="mt-8" disabled={isGenerating} onClick={generatePlan}>
-            {isGenerating ? "正在生成..." : `生成${""}`}
-          </Button>
-        </div>
-      </div>
+      <WorkoutPageChrome subtitle="AI 会根据你的肌肉疲劳、近期体重和训练历史生成本次计划">
+        <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
+          <CardContent className="flex flex-col items-center gap-5 p-10 text-center sm720:p-14">
+            <Tile variant="exercise" size={44}>
+              <Dumbbell />
+            </Tile>
+            <div className="space-y-2">
+              <h2 className="text-[22px] font-bold tracking-tight">{title}</h2>
+              <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                {"AI 会读取你的本地训练历史、肌肉疲劳和最近体重,生成一份可直接打卡的单次训练计划。"}
+              </p>
+            </div>
+            <Button variant="ink" disabled={isGenerating} onClick={generatePlan}>
+              {isGenerating && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {isGenerating ? "正在生成..." : "生成训练计划"}
+            </Button>
+          </CardContent>
+        </Card>
+      </WorkoutPageChrome>
     )
   }
 
@@ -352,7 +364,6 @@ export default function WorkoutPage() {
     <WorkoutPlanWorkbench
       session={activeSession}
       isFinishing={isFinishing}
-      onGeneratePlan={generatePlan}
       onFinishWorkout={finishWorkout}
       onAbandonWorkout={abandonWorkout}
       onUpdateSetValue={(exerciseId, setIndex, field, value) =>
@@ -379,6 +390,23 @@ export default function WorkoutPage() {
         )
       }
     />
+  )
+}
+
+function WorkoutPageChrome({
+  subtitle,
+  children,
+}: {
+  subtitle: string
+  children: ReactNode
+}) {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto w-full max-w-[1240px] px-4 py-6 pb-16 sm720:px-9 sm720:py-7">
+        <PageHeader title="训练" subtitle={subtitle} />
+        {children}
+      </div>
+    </div>
   )
 }
 

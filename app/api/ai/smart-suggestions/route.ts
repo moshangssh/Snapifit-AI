@@ -5,7 +5,10 @@ import {
   validateModelConfig,
 } from "@/lib/ai/client"
 import { handleAIError, AIError } from "@/lib/ai/errors"
-import { SmartSuggestionCategorySchema } from "@/lib/ai/schemas/smart-suggestions"
+import {
+  DaySmartAnalysisOverviewSchema,
+  SmartSuggestionCategorySchema,
+} from "@/lib/ai/schemas/smart-suggestions"
 import { formatDailyStatusForAI } from "@/lib/utils"
 
 export async function POST(req: Request) {
@@ -19,17 +22,26 @@ export async function POST(req: Request) {
     validateModelConfig(aiConfig.agentModel)
     const model = createAIClient(aiConfig.agentModel)
 
+    const todayBaseline = dailyLog.baselineExpenditure ?? dailyLog.calculatedTDEE ?? null
+    const todayExercise = dailyLog.summary?.totalCaloriesBurned ?? 0
+    const todayTotalExpenditure = todayBaseline ? todayBaseline + todayExercise : null
+
     const dataSummary = {
+      energyModel: {
+        note: "能量平衡口径采用 NEAT 动态法。PAL 乘数仅覆盖 NEAT+TEF,不含刻意运动;运动消耗单独计入。",
+        formula: "今日总消耗 = 基础消耗 + 当日运动消耗;热量差额 = 摄入 − 今日总消耗 (负数为缺口)",
+      },
       today: {
         date: dailyLog.date,
-        calories: dailyLog.summary.totalCalories,
-        protein: dailyLog.summary.totalProtein,
-        carbs: dailyLog.summary.totalCarbohydrates,
-        fat: dailyLog.summary.totalFat,
-        exercise: dailyLog.summary.totalExerciseCalories,
+        calories: dailyLog.summary?.totalCaloriesConsumed ?? 0,
+        protein: dailyLog.summary?.macros?.protein ?? 0,
+        carbs: dailyLog.summary?.macros?.carbs ?? 0,
+        fat: dailyLog.summary?.macros?.fat ?? 0,
+        exercise: todayExercise,
         weight: dailyLog.weight,
         bmr: dailyLog.calculatedBMR,
-        tdee: dailyLog.calculatedTDEE,
+        baselineExpenditure: todayBaseline,
+        dailyTotalExpenditure: todayTotalExpenditure,
         tefAnalysis: dailyLog.tefAnalysis,
         foodEntries: dailyLog.foodEntries.map((entry: any) => ({
           name: entry.food_name,
@@ -40,7 +52,7 @@ export async function POST(req: Request) {
         })),
         exerciseEntries: dailyLog.exerciseEntries.map((entry: any) => ({
           name: entry.exercise_name,
-          calories: entry.calories_burned,
+          calories: entry.calories_burned_estimated ?? 0,
           duration: entry.duration_minutes,
         })),
         dailyStatus: formatDailyStatusForAI(dailyLog.dailyStatus),
@@ -73,8 +85,8 @@ export async function POST(req: Request) {
       recent: recentLogs
         ? recentLogs.slice(0, 7).map((log: any) => ({
             date: log.date,
-            calories: log.summary.totalCalories,
-            exercise: log.summary.totalExerciseCalories,
+            calories: log.summary?.totalCaloriesConsumed ?? 0,
+            exercise: log.summary?.totalCaloriesBurned ?? 0,
             weight: log.weight,
             foodNames: log.foodEntries
               .map((entry: any) => entry.food_name)
@@ -127,7 +139,7 @@ export async function POST(req: Request) {
         数据：${JSON.stringify(dataSummary, null, 2)}
 
         专业分析要点：
-        1. 运动量与TDEE目标的匹配度评估
+        1. 运动量与今日总消耗目标的匹配度评估(总消耗 = 基线 + 运动)
         2. 有氧vs无氧运动配比优化（基于用户目标）
         3. 运动时机与代谢窗口利用
         4. 运动强度区间建议（基于心率储备）
@@ -286,7 +298,28 @@ export async function POST(req: Request) {
       `,
     }
 
-    // 并发调用 6 路 generateObject。每一路失败时降级返回空建议,不影响其他路。
+    const overviewPrompt = `
+      你是一位健康教练,负责对用户今日的饮食、运动和身体状态做事实层的整体总评。
+
+      数据:${JSON.stringify(dataSummary, null, 2)}
+
+      分析要求:
+      1. 聚焦今天发生了什么,可以立刻调整什么,不要做"下周/下阶段"这种宏观策略
+      2. summary 在 80 字以内,描述今日整体表现 + 接下来几小时可调整的一两件事
+      3. highlights 是今日做对的事实(已记录的项目、达标的指标、完成的行为),2-3 条短句,每条 ≤ 20 字
+      4. risks 是今日值得注意的短期问题(单日的数值偏差、行为偏差),2-3 条短句,每条 ≤ 20 字
+      5. 与具体执行建议错开,综述只做事实总评和当下提醒,不重复 6 个分类里的"做什么"细节
+      6. 使用中文,不要 Markdown
+
+      返回 JSON:
+      {
+        "summary": "今日整体表现 + 当下可调整的事(80 字以内)",
+        "highlights": ["今日做对的事实 1", "今日做对的事实 2"],
+        "risks": ["今日要注意的偏差 1", "今日要注意的偏差 2"]
+      }
+    `
+
+    // 并发调用 6 路 category + 1 路 overview。每一路失败时降级,不影响其他路。
     const suggestionPromises = Object.entries(suggestionPrompts).map(
       async ([key, prompt]) => {
         try {
@@ -310,7 +343,26 @@ export async function POST(req: Request) {
       },
     )
 
-    const allSuggestions = await Promise.all(suggestionPromises)
+    const overviewPromise: Promise<{
+      summary: string
+      highlights: string[]
+      risks: string[]
+    }> = generateObject({
+      model,
+      schema: DaySmartAnalysisOverviewSchema,
+      mode: "json",
+      prompt: overviewPrompt,
+    })
+      .then((res) => res.object)
+      .catch((error) => {
+        console.warn("Failed to get day overview:", error)
+        return { summary: "", highlights: [], risks: [] }
+      })
+
+    const [allSuggestions, overview] = await Promise.all([
+      Promise.all(suggestionPromises),
+      overviewPromise,
+    ])
 
     const priorityOrder: Record<string, number> = { high: 3, medium: 2, low: 1 }
     allSuggestions.sort(
@@ -320,6 +372,9 @@ export async function POST(req: Request) {
 
     return Response.json({
       suggestions: allSuggestions,
+      summary: overview.summary || undefined,
+      highlights: overview.highlights.length > 0 ? overview.highlights : undefined,
+      risks: overview.risks.length > 0 ? overview.risks : undefined,
       generatedAt: new Date().toISOString(),
       dataDate: dailyLog.date,
     })

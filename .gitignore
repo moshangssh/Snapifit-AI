@@ -34,3 +34,4 @@ export_code_to_xml.py
 # git worktrees
 .worktrees/
 .codex
+.claude/

@@ -89,6 +89,22 @@ export interface SmartSuggestionsResponse {
   suggestions: SmartSuggestionCategory[]
   generatedAt: string
   dataDate: string
+  summary?: string
+  highlights?: string[]
+  risks?: string[]
+}
+
+export interface PeriodSmartAnalysisResponse {
+  range: '7d' | '30d'
+  startDate: string
+  endDate: string
+  generatedAt: string
+  dataDays: number
+  minDataDays: number
+  summary: string
+  highlights: string[]
+  risks: string[]
+  suggestions: SmartSuggestionCategory[]
 }
 
 // 每日状态记录类型
@@ -111,12 +127,16 @@ export interface DailyLog {
   foodEntries: FoodEntry[]
   exerciseEntries: ExerciseEntry[]
   summary: DailySummaryType
-  weight?: number // 新增：记录当日体重
-  activityLevel?: string // 新增：记录当日的活动水平，用于TDEE计算
-  calculatedBMR?: number // 新增：当日计算的BMR
-  calculatedTDEE?: number // 新增：当日计算的TDEE
-  tefAnalysis?: TEFAnalysis // 新增：TEF分析结果
-  dailyStatus?: DailyStatus // 新增：每日状态记录
+  weight?: number // 当日体重
+  /** @deprecated 仅用于读取历史数据。新流程不再写入 daily activityLevel，统一从 profile 取 */
+  activityLevel?: string
+  calculatedBMR?: number // 当日计算的 BMR
+  /** @deprecated 仅用于读取历史数据。新流程改用 baselineExpenditure + 运动消耗计算缺口 */
+  calculatedTDEE?: number
+  baselineExpenditure?: number // 基础消耗（BMR × PAL，只含 NEAT+TEF，不含刻意运动）
+  dailyTotalExpenditure?: number // 今日总消耗 = baselineExpenditure + summary.totalCaloriesBurned
+  tefAnalysis?: TEFAnalysis // TEF 分析结果
+  dailyStatus?: DailyStatus // 每日状态记录
 }
 
 // 用户配置类型

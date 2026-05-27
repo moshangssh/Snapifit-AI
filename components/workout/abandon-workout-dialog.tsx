@@ -1,5 +1,6 @@
 "use client"
 
+import { CircleX } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,8 +27,9 @@ export function AbandonWorkoutDialog({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" disabled={disabled}>
-          {"放弃计划"}
+        <Button variant="outline" size="sm" disabled={disabled}>
+          <CircleX className="mr-1.5 h-4 w-4" />
+          {"放弃训练"}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
