@@ -107,6 +107,84 @@ export interface PeriodSmartAnalysisResponse {
   suggestions: SmartSuggestionCategory[]
 }
 
+export type PlannedTrainingType =
+  | "rest"
+  | "strength"
+  | "strength_cardio"
+  | "high_output"
+
+export type MealPlanDisplayMode = "plans" | "items"
+
+export type MealPlanType = "steady" | "craving" | "high_protein"
+
+export interface MealPlanNutritionEstimate {
+  calories: number
+  protein: number
+  carbohydrates: number
+  fat: number
+}
+
+export interface MealPlanMeal {
+  mealType: "breakfast" | "lunch" | "dinner" | "snack"
+  title: string
+  foods: string[]
+  portionHint: string
+  nutrition: MealPlanNutritionEstimate
+}
+
+export interface MealPlanOption {
+  type: MealPlanType
+  title: string
+  rationale: string
+  meals: MealPlanMeal[]
+  totalNutrition: MealPlanNutritionEstimate
+  slightlyOverBudget: boolean
+  warning?: string
+}
+
+export interface MealPlanItem {
+  title: string
+  kind: "combo" | "single"
+  foods: string[]
+  portionHint: string
+  bestFor: string
+  nutrition: MealPlanNutritionEstimate
+}
+
+export interface MealPlanBudgetSnapshot {
+  date: string
+  plannedTrainingType: PlannedTrainingType
+  baselineExpenditure: number
+  recordedExerciseCalories: number
+  plannedTrainingCalories: number
+  effectiveExerciseCalories: number
+  targetCalories: number
+  consumedCalories: number
+  remainingCalories: number
+  macroTargets: {
+    protein: number
+    carbohydrates: number
+    fat: number
+  }
+  remainingMacros: {
+    protein: number
+    carbohydrates: number
+    fat: number
+  }
+  remainingMealSlots: Array<"breakfast" | "lunch" | "dinner" | "snack">
+  summaryText: string
+}
+
+export interface MealPlanSuggestion {
+  generatedAt: string
+  inputPreference: string
+  plannedTrainingType: PlannedTrainingType
+  budgetSnapshot: MealPlanBudgetSnapshot
+  summary: string
+  plans: MealPlanOption[]
+  items: MealPlanItem[]
+}
+
 // 每日状态记录类型
 export interface DailyStatus {
   stress: number // 压力水平 1-6
@@ -137,6 +215,8 @@ export interface DailyLog {
   dailyTotalExpenditure?: number // 今日总消耗 = baselineExpenditure + summary.totalCaloriesBurned
   tefAnalysis?: TEFAnalysis // TEF 分析结果
   dailyStatus?: DailyStatus // 每日状态记录
+  plannedTrainingType?: PlannedTrainingType
+  mealPlanSuggestion?: MealPlanSuggestion
 }
 
 // 用户配置类型
