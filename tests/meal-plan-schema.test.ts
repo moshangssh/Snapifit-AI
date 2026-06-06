@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   MealPlanResponseSchema,
+  toMealPlanSuggestion,
   validateMealPlanBudget,
 } from "@/lib/ai/schemas/meal-plan"
 import type { MealPlanBudgetSnapshot } from "@/lib/types"
@@ -122,6 +123,13 @@ function makeResponse(calories: number) {
   }
 }
 
+function makeBudget(remainingCalories: number): MealPlanBudgetSnapshot {
+  return {
+    ...budget,
+    remainingCalories,
+  }
+}
+
 describe("meal plan schema", () => {
   it("parses the structured AI response", () => {
     const parsed = MealPlanResponseSchema.parse(makeResponse(620))
@@ -133,6 +141,16 @@ describe("meal plan schema", () => {
       "high_protein",
     ])
     expect(parsed.items[0].kind).toBe("combo")
+  })
+
+  it("rejects responses missing a required plan type", () => {
+    const response = makeResponse(620)
+    response.plans[2] = {
+      ...response.plans[2],
+      type: "craving",
+    }
+
+    expect(MealPlanResponseSchema.safeParse(response).success).toBe(false)
   })
 
   it("accepts plans within 5 percent of remaining calories", () => {
@@ -152,6 +170,69 @@ describe("meal plan schema", () => {
       valid: false,
       maxAllowedCalories: 683,
       invalidPlanTypes: ["steady"],
+    })
+  })
+
+  it("rejects plans when meal calories exceed budget despite lower total nutrition", () => {
+    const response = MealPlanResponseSchema.parse(makeResponse(620))
+    response.plans[0].totalNutrition.calories = 500
+    response.plans[0].meals[0].nutrition.calories = 720
+
+    expect(validateMealPlanBudget(response, budget)).toEqual({
+      valid: false,
+      maxAllowedCalories: 683,
+      invalidPlanTypes: ["steady"],
+    })
+  })
+
+  it("returns zero max allowed calories when remaining calories are zero", () => {
+    const response = MealPlanResponseSchema.parse(makeResponse(10))
+
+    expect(validateMealPlanBudget(response, makeBudget(0))).toEqual({
+      valid: false,
+      maxAllowedCalories: 0,
+      invalidPlanTypes: ["steady", "craving", "high_protein"],
+    })
+  })
+
+  it("returns zero max allowed calories when remaining calories are negative", () => {
+    const response = MealPlanResponseSchema.parse(makeResponse(10))
+
+    expect(validateMealPlanBudget(response, makeBudget(-120))).toEqual({
+      valid: false,
+      maxAllowedCalories: 0,
+      invalidPlanTypes: ["steady", "craving", "high_protein"],
+    })
+  })
+
+  it("rejects plans above the rounded 5 percent boundary", () => {
+    const response = MealPlanResponseSchema.parse(makeResponse(682))
+
+    expect(validateMealPlanBudget(response, makeBudget(649))).toEqual({
+      valid: false,
+      maxAllowedCalories: 681,
+      invalidPlanTypes: ["steady"],
+    })
+  })
+
+  it("maps parsed responses into meal plan suggestions", () => {
+    const response = MealPlanResponseSchema.parse(makeResponse(620))
+
+    expect(
+      toMealPlanSuggestion({
+        response,
+        generatedAt: "2026-05-28T18:00:00+08:00",
+        inputPreference: "想吃点高蛋白的",
+        budgetSnapshot: budget,
+      }),
+    ).toEqual({
+      generatedAt: "2026-05-28T18:00:00+08:00",
+      inputPreference: "想吃点高蛋白的",
+      plannedTrainingType: budget.plannedTrainingType,
+      budgetSnapshot: budget,
+      summary: response.summary,
+      plans: response.plans,
+      items: response.items,
     })
   })
 })

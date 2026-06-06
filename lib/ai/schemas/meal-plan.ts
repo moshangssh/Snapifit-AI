@@ -72,7 +72,17 @@ export function validateMealPlanBudget(
     Math.max(0, budget.remainingCalories) * 1.05,
   )
   const invalidPlanTypes = response.plans
-    .filter((plan) => plan.totalNutrition.calories > maxAllowedCalories)
+    .filter((plan) => {
+      const summedMealCalories = plan.meals.reduce(
+        (sum, meal) => sum + meal.nutrition.calories,
+        0,
+      )
+      const budgetCalories = Math.max(
+        plan.totalNutrition.calories,
+        summedMealCalories,
+      )
+      return budgetCalories > maxAllowedCalories
+    })
     .map((plan) => plan.type)
 
   return {
