@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronRight, Loader2, Sparkles, Utensils } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -63,6 +63,10 @@ export function WhatCanIEatCard({
     suggestion?.inputPreference ?? "",
   )
   const [isPlanning, setIsPlanning] = useState(false)
+
+  useEffect(() => {
+    setPreference(suggestion?.inputPreference ?? "")
+  }, [suggestion?.inputPreference])
 
   const handlePlan = async () => {
     setIsPlanning(true)
