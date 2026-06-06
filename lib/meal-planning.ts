@@ -94,6 +94,10 @@ export function inferRemainingMealSlots(input: {
 function buildSummaryText(
   snapshot: Omit<MealPlanBudgetSnapshot, "summaryText">,
 ): string {
+  const calorieText =
+    snapshot.remainingCalories >= 0
+      ? `今天还可吃约 ${snapshot.remainingCalories} kcal`
+      : `今天已超出约 ${Math.abs(snapshot.remainingCalories)} kcal`
   const proteinText =
     snapshot.remainingMacros.protein > 0
       ? `蛋白还差 ${snapshot.remainingMacros.protein}g`
@@ -103,7 +107,7 @@ function buildSummaryText(
       ? "脂肪空间偏紧"
       : `脂肪还可约 ${snapshot.remainingMacros.fat}g`
 
-  return `今天还可吃约 ${snapshot.remainingCalories} kcal · ${proteinText} · ${fatText}`
+  return `${calorieText} · ${proteinText} · ${fatText}`
 }
 
 export function buildMealPlanBudgetSnapshot(input: {
@@ -130,8 +134,8 @@ export function buildMealPlanBudgetSnapshot(input: {
   const consumedCalories = input.log.summary.totalCaloriesConsumed ?? 0
   const macroTargets = buildMacroTargets(targetCalories, input.userProfile)
   const consumedMacros = input.log.summary.macros ?? {
+    carbs: 0,
     protein: 0,
-    carbohydrates: 0,
     fat: 0,
   }
   const snapshotWithoutSummary = {
