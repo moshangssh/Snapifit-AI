@@ -33,11 +33,22 @@ const PHASE_ORDER = {
   cooldown: 2,
 } as const
 
+const HAN_TEXT_PATTERN = /[\u3400-\u9fff]/
+const ENGLISH_WORD_PATTERN = /[A-Za-z]{4,}/
+
+function isChineseDisplayText(value: string) {
+  return HAN_TEXT_PATTERN.test(value) && !ENGLISH_WORD_PATTERN.test(value)
+}
+
+const ChineseDisplayTextSchema = z.string().min(1).refine(isChineseDisplayText, {
+  message: "Workout plan display text must be Chinese",
+})
+
 const WorkoutPlanExerciseSchema = z.object({
-  plannedExerciseName: z.string().min(1),
+  plannedExerciseName: ChineseDisplayTextSchema,
   phase: WorkoutPlanPhaseSchema,
-  notes: z.string().optional(),
-  tips: z.array(z.string().min(1)).min(2).max(4),
+  notes: ChineseDisplayTextSchema.optional(),
+  tips: z.array(ChineseDisplayTextSchema).min(2).max(4),
   sets: z.array(WorkoutPlanSetSchema).min(1),
   plannedAnalysis: WorkoutPlanAnalysisSchema,
 })
@@ -141,4 +152,14 @@ export function recalculateWorkoutPlanCalories(
       ),
     })),
   }
+}
+
+export function finalizeWorkoutPlanResult(
+  plan: unknown,
+  effectiveUserWeightKg: number,
+): WorkoutPlanResult {
+  return recalculateWorkoutPlanCalories(
+    WorkoutPlanSchema.parse(plan),
+    effectiveUserWeightKg,
+  )
 }

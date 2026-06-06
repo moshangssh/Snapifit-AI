@@ -4,6 +4,7 @@ import {
   WorkoutExerciseEnrichSchema,
 } from "@/lib/ai/schemas/workout-exercise-enrich"
 import {
+  finalizeWorkoutPlanResult,
   recalculateWorkoutPlanCalories,
   WorkoutPlanSchema,
 } from "@/lib/ai/schemas/workout-plan"
@@ -228,6 +229,57 @@ describe("workout AI schemas", () => {
     }
 
     expect(() => WorkoutPlanSchema.parse(plan)).toThrow()
+  })
+
+  it("rejects English display text in workout plan exercises", () => {
+    const plan = makePlan()
+    plan.exercises[2] = {
+      ...plan.exercises[2],
+      plannedExerciseName: "Machine Chest-Supported Row",
+      notes: "Focus on pulling with your elbows.",
+      tips: [
+        "Keep your chest firmly pressed against the pad.",
+        "Squeeze your shoulder blades together.",
+      ],
+    }
+
+    expect(() => WorkoutPlanSchema.parse(plan)).toThrow()
+  })
+
+  it("allows short exercise-name abbreviations in Chinese workout plan text", () => {
+    const plan = makePlan()
+    plan.exercises[2] = {
+      ...plan.exercises[2],
+      plannedExerciseName: "T杠划船",
+    }
+
+    expect(WorkoutPlanSchema.parse(plan).exercises[2].plannedExerciseName).toBe(
+      "T杠划船",
+    )
+  })
+
+  it("rejects English display text before finalizing workout plan API output", () => {
+    const plan = makePlan()
+    plan.exercises[2] = {
+      ...plan.exercises[2],
+      plannedExerciseName: "Machine Chest-Supported Row",
+      notes: "Focus on pulling with your elbows.",
+      tips: [
+        "Keep your chest firmly pressed against the pad.",
+        "Squeeze your shoulder blades together.",
+      ],
+    }
+
+    expect(() => finalizeWorkoutPlanResult(plan, 80)).toThrow()
+  })
+
+  it("finalizes workout plan API output with schema validation and calories", () => {
+    const finalized = finalizeWorkoutPlanResult(makePlan(), 80)
+
+    expect(finalized.exercises[2].plannedExerciseName).toBe("卧推")
+    expect(finalized.exercises[2].plannedAnalysis.caloriesBurnedEstimated).toBe(
+      80,
+    )
   })
 
   it("requires positive weight and reps for strength sets", () => {

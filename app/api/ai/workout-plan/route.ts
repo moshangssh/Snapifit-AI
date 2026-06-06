@@ -6,7 +6,7 @@ import {
 } from "@/lib/ai/client"
 import { AIError, handleAIError } from "@/lib/ai/errors"
 import {
-  recalculateWorkoutPlanCalories,
+  finalizeWorkoutPlanResult,
   WorkoutPlanSchema,
 } from "@/lib/ai/schemas/workout-plan"
 
@@ -161,7 +161,7 @@ ${JSON.stringify(fatigueSnapshot, null, 2)}
     })
 
     return Response.json(
-      recalculateWorkoutPlanCalories(object, effectiveUserWeightKg),
+      finalizeWorkoutPlanResult(object, effectiveUserWeightKg),
     )
   } catch (error) {
     return handleAIError(error)
