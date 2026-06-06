@@ -32,10 +32,21 @@ import { Tile } from "@/components/ui/tile"
 import { Ring } from "@/components/ui/ring"
 import { ProgressBar } from "@/components/ui/progress-bar"
 import { useToast } from "@/hooks/use-toast"
-import type { FoodEntry, ExerciseEntry, DailyLog, AIConfig, DailyStatus, UserProfile } from "@/lib/types"
+import type {
+  FoodEntry,
+  ExerciseEntry,
+  DailyLog,
+  AIConfig,
+  DailyStatus,
+  UserProfile,
+  PlannedTrainingType,
+  MealPlanSuggestion,
+  SmartSuggestionsResponse,
+} from "@/lib/types"
 import { FoodEntryCard } from "@/components/food-entry-card"
 import { ExerciseEntryCard } from "@/components/exercise-entry-card"
 import { MuscleFatigueCard } from "@/components/muscle-fatigue-card"
+import { WhatCanIEatCard } from "@/components/what-can-i-eat-card"
 import { ManagementCharts } from "@/components/management-charts"
 import { SmartSuggestions } from "@/components/smart-suggestions"
 import { DailyStatusSummary } from "@/components/daily-status-summary"
@@ -45,12 +56,12 @@ import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useDateRecords } from "@/hooks/use-date-records"
 import { calculateMetabolicRates } from "@/lib/health-utils"
+import { buildMealPlanBudgetSnapshot } from "@/lib/meal-planning"
 import { syncProfileWeightFromDailyLog } from "@/lib/profile-weight"
 import { scheduleTEFAnalysisForLog } from "@/lib/tef-background-analysis"
 import { formatDateParam, parseDateParam } from "@/lib/date-params"
 import { resolveSmartSuggestionsForDate } from "@/lib/smart-suggestions-history"
 import { cn } from "@/lib/utils"
-import type { SmartSuggestionsResponse } from "@/lib/types"
 
 function DashboardContent() {
   const searchParams = useSearchParams()
@@ -114,6 +125,12 @@ function DashboardContent() {
       apiKey: "",
     },
   })
+
+  const [lastPlannedTrainingType, setLastPlannedTrainingType] =
+    useLocalStorage<PlannedTrainingType>(
+      "lastPlannedTrainingType",
+      "strength_cardio",
+    )
 
   // 使用 IndexedDB 钩子获取日志数据
   const { getData: getDailyLog, saveData: saveDailyLog, isInitializing: dbInitializing } = useIndexedDB("healthLogs")
@@ -453,6 +470,14 @@ function DashboardContent() {
   const dailyTotalExpenditure = baselineExpenditure + totalCaloriesBurned
   const calorieDelta = totalCaloriesConsumed - dailyTotalExpenditure // 负数 = 缺口，正数 = 盈余
   const macros = dailyLog.summary.macros ?? { carbs: 0, protein: 0, fat: 0 }
+  const plannedTrainingType =
+    dailyLog.plannedTrainingType ?? lastPlannedTrainingType
+  const mealPlanBudgetSnapshot = buildMealPlanBudgetSnapshot({
+    log: dailyLog,
+    userProfile,
+    plannedTrainingType,
+    now: new Date(),
+  })
 
   // TEF 状态展示
   const tef = dailyLog.tefAnalysis
@@ -567,6 +592,21 @@ function DashboardContent() {
   }
   const macroPctV2 = (g: number, target: number) =>
     target > 0 ? Math.min(Math.max((g / target) * 100, 0), 100) : 0
+
+  const handlePlannedTrainingTypeChange = (value: PlannedTrainingType) => {
+    setLastPlannedTrainingType(value)
+    const updatedLog = { ...dailyLog, plannedTrainingType: value }
+    setDailyLog(updatedLog)
+    saveDailyLog(updatedLog.date, updatedLog)
+    refreshRecords()
+  }
+
+  const handleMealPlanSuggestionSave = (suggestion: MealPlanSuggestion) => {
+    const updatedLog = { ...dailyLog, mealPlanSuggestion: suggestion }
+    setDailyLog(updatedLog)
+    saveDailyLog(updatedLog.date, updatedLog)
+    refreshRecords()
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -792,6 +832,20 @@ function DashboardContent() {
               </div>
             </CardContent>
           </Card>
+
+          {checkAIConfig() && (
+            <WhatCanIEatCard
+              dailyLog={dailyLog}
+              userProfile={userProfile}
+              aiConfig={aiConfig}
+              budgetSnapshot={mealPlanBudgetSnapshot}
+              plannedTrainingType={plannedTrainingType}
+              suggestion={dailyLog.mealPlanSuggestion}
+              workbenchHref={`/workbench?date=${dateParam}`}
+              onTrainingTypeChange={handlePlannedTrainingTypeChange}
+              onSuggestionSave={handleMealPlanSuggestionSave}
+            />
+          )}
 
           {/* Card 3 — 今日恢复状态 (MuscleFatigueCard 自带 card chrome) */}
           <MuscleFatigueCard selectedDate={selectedDate} refreshTrigger={chartRefreshTrigger} />
