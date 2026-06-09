@@ -37,7 +37,10 @@ const validAIConfig = {
   },
 }
 
-function createMealPlanResponse(caloriesByType: Record<string, number>) {
+function createMealPlanResponse(
+  caloriesByType: Record<string, number>,
+  proteinByType: Partial<Record<string, number>> = {},
+) {
   const planTypes = ["steady", "craving", "high_protein"] as const
 
   return {
@@ -54,7 +57,7 @@ function createMealPlanResponse(caloriesByType: Record<string, number>) {
           portionHint: "1 份",
           nutrition: {
             calories: caloriesByType[type],
-            protein: 30,
+            protein: proteinByType[type] ?? 30,
             carbohydrates: 40,
             fat: 10,
           },
@@ -62,7 +65,7 @@ function createMealPlanResponse(caloriesByType: Record<string, number>) {
       ],
       totalNutrition: {
         calories: caloriesByType[type],
-        protein: 30,
+        protein: proteinByType[type] ?? 30,
         carbohydrates: 40,
         fat: 10,
       },
@@ -125,11 +128,8 @@ function createBaseBody() {
     },
     budgetSnapshot: {
       date: "2026-06-07",
-      plannedTrainingType: "rest",
       baselineExpenditure: 1800,
       recordedExerciseCalories: 200,
-      plannedTrainingCalories: 0,
-      effectiveExerciseCalories: 200,
       targetCalories: 2000,
       consumedCalories: 1200,
       remainingCalories: 500,
@@ -166,6 +166,11 @@ describe("meal plan route source", () => {
   it("validates budget and retries once", () => {
     expect(source).toContain("validateMealPlanBudget")
     expect(source).toContain("attempt < 2")
+  })
+
+  it("tells the model to prioritize remaining protein", () => {
+    expect(source).toContain("优先补足今日剩余蛋白")
+    expect(source).toContain("high_protein 方案")
   })
 
   it("uses agent model configuration from request headers", () => {
@@ -214,6 +219,52 @@ describe("meal plan route source", () => {
     ).toMatchObject({
       type: "steady",
       slightlyOverBudget: false,
+    })
+  })
+
+  it("retries once when the high protein plan misses the protein floor", async () => {
+    const { POST } = await import("@/app/api/ai/meal-plan/route")
+
+    generateObjectMock
+      .mockResolvedValueOnce({
+        object: createMealPlanResponse(
+          {
+            steady: 500,
+            craving: 450,
+            high_protein: 430,
+          },
+          {
+            high_protein: 12,
+          },
+        ),
+      })
+      .mockResolvedValueOnce({
+        object: createMealPlanResponse(
+          {
+            steady: 500,
+            craving: 450,
+            high_protein: 430,
+          },
+          {
+            high_protein: 30,
+          },
+        ),
+      })
+
+    const response = await POST(createRequest(createBaseBody()))
+    const payload = await response.json()
+    const retryPrompt = generateObjectMock.mock.calls[1]?.[0]?.prompt as string
+
+    expect(response.status).toBe(200)
+    expect(generateObjectMock).toHaveBeenCalledTimes(2)
+    expect(retryPrompt).toContain("蛋白不足")
+    expect(
+      payload.plans.find((plan: { type: string }) => plan.type === "high_protein"),
+    ).toMatchObject({
+      type: "high_protein",
+      totalNutrition: {
+        protein: 30,
+      },
     })
   })
 

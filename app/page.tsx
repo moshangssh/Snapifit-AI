@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { Suspense, useState, useEffect, useMemo } from "react"
+import { Suspense, useState, useEffect, useMemo, useRef } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import Link from "next/link"
@@ -39,7 +39,6 @@ import type {
   AIConfig,
   DailyStatus,
   UserProfile,
-  PlannedTrainingType,
   MealPlanSuggestion,
   SmartSuggestionsResponse,
 } from "@/lib/types"
@@ -70,6 +69,11 @@ function DashboardContent() {
   const dateParamRaw = searchParams.get("date")
   const selectedDate = useMemo(() => parseDateParam(dateParamRaw), [dateParamRaw])
   const dateParam = formatDateParam(selectedDate)
+  const currentDateParamRef = useRef(dateParam)
+
+  useEffect(() => {
+    currentDateParamRef.current = dateParam
+  }, [dateParam])
 
   const setSelectedDate = (date: Date) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -125,12 +129,6 @@ function DashboardContent() {
       apiKey: "",
     },
   })
-
-  const [lastPlannedTrainingType, setLastPlannedTrainingType] =
-    useLocalStorage<PlannedTrainingType>(
-      "lastPlannedTrainingType",
-      "strength_cardio",
-    )
 
   // 使用 IndexedDB 钩子获取日志数据
   const { getData: getDailyLog, saveData: saveDailyLog, isInitializing: dbInitializing } = useIndexedDB("healthLogs")
@@ -470,12 +468,11 @@ function DashboardContent() {
   const dailyTotalExpenditure = baselineExpenditure + totalCaloriesBurned
   const calorieDelta = totalCaloriesConsumed - dailyTotalExpenditure // 负数 = 缺口，正数 = 盈余
   const macros = dailyLog.summary.macros ?? { carbs: 0, protein: 0, fat: 0 }
-  const plannedTrainingType =
-    dailyLog.plannedTrainingType ?? lastPlannedTrainingType
+  const isCurrentLogReady =
+    isLogLoaded && !dbInitializing && dailyLog.date === dateParam
   const mealPlanBudgetSnapshot = buildMealPlanBudgetSnapshot({
     log: dailyLog,
     userProfile,
-    plannedTrainingType,
     now: new Date(),
   })
 
@@ -593,15 +590,15 @@ function DashboardContent() {
   const macroPctV2 = (g: number, target: number) =>
     target > 0 ? Math.min(Math.max((g / target) * 100, 0), 100) : 0
 
-  const handlePlannedTrainingTypeChange = (value: PlannedTrainingType) => {
-    setLastPlannedTrainingType(value)
-    const updatedLog = { ...dailyLog, plannedTrainingType: value }
-    setDailyLog(updatedLog)
-    saveDailyLog(updatedLog.date, updatedLog)
-    refreshRecords()
-  }
-
   const handleMealPlanSuggestionSave = (suggestion: MealPlanSuggestion) => {
+    if (
+      !isCurrentLogReady ||
+      dailyLog.date !== currentDateParamRef.current ||
+      suggestion.budgetSnapshot.date !== currentDateParamRef.current
+    ) {
+      return
+    }
+
     const updatedLog = { ...dailyLog, mealPlanSuggestion: suggestion }
     setDailyLog(updatedLog)
     saveDailyLog(updatedLog.date, updatedLog)
@@ -833,16 +830,14 @@ function DashboardContent() {
             </CardContent>
           </Card>
 
-          {checkAIConfig() && (
+          {checkAIConfig() && isCurrentLogReady && (
             <WhatCanIEatCard
               dailyLog={dailyLog}
               userProfile={userProfile}
               aiConfig={aiConfig}
               budgetSnapshot={mealPlanBudgetSnapshot}
-              plannedTrainingType={plannedTrainingType}
               suggestion={dailyLog.mealPlanSuggestion}
               workbenchHref={`/workbench?date=${dateParam}`}
-              onTrainingTypeChange={handlePlannedTrainingTypeChange}
               onSuggestionSave={handleMealPlanSuggestionSave}
             />
           )}

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
   buildMealPlanBudgetSnapshot,
-  getPlannedTrainingCalories,
   inferRemainingMealSlots,
 } from "@/lib/meal-planning"
 import type { DailyLog, UserProfile } from "@/lib/types"
@@ -32,24 +31,17 @@ function makeLog(overrides: Partial<DailyLog> = {}): DailyLog {
 }
 
 describe("meal planning budget", () => {
-  it("maps planned training types to conservative calories", () => {
-    expect(getPlannedTrainingCalories("rest")).toBe(0)
-    expect(getPlannedTrainingCalories("strength")).toBe(150)
-    expect(getPlannedTrainingCalories("strength_cardio")).toBe(300)
-    expect(getPlannedTrainingCalories("high_output")).toBe(500)
-  })
-
-  it("uses the larger of recorded exercise and planned training calories", () => {
+  it("ignores legacy planned training type and uses only recorded exercise calories", () => {
     const snapshot = buildMealPlanBudgetSnapshot({
-      log: makeLog(),
+      log: makeLog({ plannedTrainingType: "high_output" }),
       userProfile: baseProfile,
-      plannedTrainingType: "strength_cardio",
       now: new Date("2026-05-28T09:00:00+08:00"),
     })
 
     expect(snapshot.recordedExerciseCalories).toBe(180)
-    expect(snapshot.plannedTrainingCalories).toBe(300)
-    expect(snapshot.effectiveExerciseCalories).toBe(300)
+    expect(snapshot.targetCalories).toBe(2430)
+    expect(snapshot).not.toHaveProperty("plannedTrainingCalories")
+    expect(snapshot).not.toHaveProperty("effectiveExerciseCalories")
   })
 
   it("applies goal adjustment and male safety floor", () => {
@@ -64,7 +56,6 @@ describe("meal planning budget", () => {
         },
       }),
       userProfile: { ...baseProfile, goal: "lose_weight" },
-      plannedTrainingType: "rest",
       now: new Date("2026-05-28T09:00:00+08:00"),
     })
 
@@ -88,7 +79,6 @@ describe("meal planning budget", () => {
         gender: "female",
         goal: "lose_weight",
       },
-      plannedTrainingType: "rest",
       now: new Date("2026-05-28T09:00:00+08:00"),
     })
 
@@ -100,7 +90,6 @@ describe("meal planning budget", () => {
     const snapshot = buildMealPlanBudgetSnapshot({
       log: makeLog(),
       userProfile: baseProfile,
-      plannedTrainingType: "strength_cardio",
       now: new Date("2026-05-28T09:00:00+08:00"),
     })
 
@@ -121,7 +110,6 @@ describe("meal planning budget", () => {
         },
       }),
       userProfile: baseProfile,
-      plannedTrainingType: "strength_cardio",
       now: new Date("2026-05-28T09:00:00+08:00"),
     })
 
@@ -142,7 +130,6 @@ describe("meal planning budget", () => {
         },
       }),
       userProfile: baseProfile,
-      plannedTrainingType: "rest",
       now: new Date("2026-05-28T19:00:00+08:00"),
     })
 
@@ -164,7 +151,6 @@ describe("meal planning budget", () => {
         },
       }),
       userProfile: { ...baseProfile, goal: "maintain" },
-      plannedTrainingType: "rest",
       now: new Date("2026-05-28T20:00:00+08:00"),
     })
 

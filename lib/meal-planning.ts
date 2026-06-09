@@ -1,7 +1,6 @@
 import type {
   DailyLog,
   MealPlanBudgetSnapshot,
-  PlannedTrainingType,
   UserProfile,
 } from "@/lib/types"
 
@@ -21,22 +20,8 @@ const GOAL_CALORIE_ADJUSTMENT: Record<string, number> = {
   improve_health: -150,
 }
 
-const TRAINING_CALORIES: Record<PlannedTrainingType, number> = {
-  rest: 0,
-  strength: 150,
-  strength_cardio: 300,
-  high_output: 500,
-}
-
-export function getPlannedTrainingCalories(type: PlannedTrainingType): number {
-  return TRAINING_CALORIES[type]
-}
-
-function getSafetyFloor(
-  userProfile: UserProfile,
-  plannedTrainingType: PlannedTrainingType,
-): number {
-  if (userProfile.gender === "female" && plannedTrainingType === "rest") {
+function getSafetyFloor(userProfile: UserProfile): number {
+  if (userProfile.gender === "female") {
     return 1200
   }
 
@@ -46,12 +31,11 @@ function getSafetyFloor(
 function clampGoalAdjustedCalories(
   baseCalories: number,
   userProfile: UserProfile,
-  plannedTrainingType: PlannedTrainingType,
 ): number {
   const adjustment = GOAL_CALORIE_ADJUSTMENT[userProfile.goal] ?? 0
   const adjusted = Math.round(baseCalories + adjustment)
 
-  return Math.max(adjusted, getSafetyFloor(userProfile, plannedTrainingType))
+  return Math.max(adjusted, getSafetyFloor(userProfile))
 }
 
 function buildMacroTargets(targetCalories: number, userProfile: UserProfile) {
@@ -113,23 +97,14 @@ function buildSummaryText(
 export function buildMealPlanBudgetSnapshot(input: {
   log: DailyLog
   userProfile: UserProfile
-  plannedTrainingType: PlannedTrainingType
   now: Date
 }): MealPlanBudgetSnapshot {
   const baselineExpenditure =
     input.log.baselineExpenditure ?? input.log.calculatedTDEE ?? 0
   const recordedExerciseCalories = input.log.summary.totalCaloriesBurned ?? 0
-  const plannedTrainingCalories = getPlannedTrainingCalories(
-    input.plannedTrainingType,
-  )
-  const effectiveExerciseCalories = Math.max(
-    recordedExerciseCalories,
-    plannedTrainingCalories,
-  )
   const targetCalories = clampGoalAdjustedCalories(
-    baselineExpenditure + effectiveExerciseCalories,
+    baselineExpenditure + recordedExerciseCalories,
     input.userProfile,
-    input.plannedTrainingType,
   )
   const consumedCalories = input.log.summary.totalCaloriesConsumed ?? 0
   const macroTargets = buildMacroTargets(targetCalories, input.userProfile)
@@ -140,11 +115,8 @@ export function buildMealPlanBudgetSnapshot(input: {
   }
   const snapshotWithoutSummary = {
     date: input.log.date,
-    plannedTrainingType: input.plannedTrainingType,
     baselineExpenditure: Math.round(baselineExpenditure),
     recordedExerciseCalories: Math.round(recordedExerciseCalories),
-    plannedTrainingCalories,
-    effectiveExerciseCalories: Math.round(effectiveExerciseCalories),
     targetCalories,
     consumedCalories: Math.round(consumedCalories),
     remainingCalories: Math.round(targetCalories - consumedCalories),

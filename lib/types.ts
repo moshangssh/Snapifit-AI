@@ -153,11 +153,8 @@ export interface MealPlanItem {
 
 export interface MealPlanBudgetSnapshot {
   date: string
-  plannedTrainingType: PlannedTrainingType
   baselineExpenditure: number
   recordedExerciseCalories: number
-  plannedTrainingCalories: number
-  effectiveExerciseCalories: number
   targetCalories: number
   consumedCalories: number
   remainingCalories: number
@@ -178,7 +175,6 @@ export interface MealPlanBudgetSnapshot {
 export interface MealPlanSuggestion {
   generatedAt: string
   inputPreference: string
-  plannedTrainingType: PlannedTrainingType
   budgetSnapshot: MealPlanBudgetSnapshot
   summary: string
   plans: MealPlanOption[]
@@ -215,6 +211,7 @@ export interface DailyLog {
   dailyTotalExpenditure?: number // 今日总消耗 = baselineExpenditure + summary.totalCaloriesBurned
   tefAnalysis?: TEFAnalysis // TEF 分析结果
   dailyStatus?: DailyStatus // 每日状态记录
+  /** @deprecated 旧版「今天还能吃什么」训练强度字段。新流程不再写入或用于预算。 */
   plannedTrainingType?: PlannedTrainingType
   mealPlanSuggestion?: MealPlanSuggestion
 }

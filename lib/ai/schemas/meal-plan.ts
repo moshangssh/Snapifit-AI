@@ -5,6 +5,8 @@ import type {
   MealPlanSuggestion,
 } from "@/lib/types"
 
+const HIGH_PROTEIN_CALORIE_SHARE = 0.35
+
 const MealPlanNutritionEstimateSchema = z.object({
   calories: z.number().min(0).transform((value) => Math.round(value)),
   protein: z.number().min(0).transform((value) => Math.round(value)),
@@ -60,35 +62,102 @@ export const MealPlanResponseSchema = z
 
 export type MealPlanResponse = z.infer<typeof MealPlanResponseSchema>
 
+type MealPlanValidation = {
+  valid: boolean
+  maxAllowedCalories: number
+  minHighProteinGrams: number
+  invalidPlanTypes: MealPlanOption["type"][]
+  invalidCaloriePlanTypes: MealPlanOption["type"][]
+  invalidProteinPlanTypes: MealPlanOption["type"][]
+}
+
+function calculateMaxAllowedCalories(budget: MealPlanBudgetSnapshot): number {
+  return Math.round(Math.max(0, budget.remainingCalories) * 1.05)
+}
+
+function calculateMinHighProteinGrams(
+  budget: MealPlanBudgetSnapshot,
+  maxAllowedCalories: number,
+): number {
+  return Math.min(
+    Math.max(0, Math.round(budget.remainingMacros.protein)),
+    Math.floor((maxAllowedCalories * HIGH_PROTEIN_CALORIE_SHARE) / 4),
+  )
+}
+
+function getPlanBudgetCalories(plan: MealPlanOption): number {
+  const summedMealCalories = plan.meals.reduce(
+    (sum, meal) => sum + meal.nutrition.calories,
+    0,
+  )
+
+  return Math.max(plan.totalNutrition.calories, summedMealCalories)
+}
+
+function getPlanReliableProtein(plan: MealPlanOption): number {
+  const summedMealProtein = plan.meals.reduce(
+    (sum, meal) => sum + meal.nutrition.protein,
+    0,
+  )
+
+  return Math.min(plan.totalNutrition.protein, summedMealProtein)
+}
+
+function getInvalidCaloriePlanTypes(
+  response: MealPlanResponse,
+  maxAllowedCalories: number,
+): MealPlanOption["type"][] {
+  return response.plans
+    .filter((plan) => getPlanBudgetCalories(plan) > maxAllowedCalories)
+    .map((plan) => plan.type)
+}
+
+function getInvalidProteinPlanTypes(
+  response: MealPlanResponse,
+  minHighProteinGrams: number,
+): MealPlanOption["type"][] {
+  return response.plans
+    .filter((plan) => {
+      if (plan.type !== "high_protein" || minHighProteinGrams <= 0) {
+        return false
+      }
+      return getPlanReliableProtein(plan) < minHighProteinGrams
+    })
+    .map((plan) => plan.type)
+}
+
 export function validateMealPlanBudget(
   response: MealPlanResponse,
   budget: MealPlanBudgetSnapshot,
-): {
-  valid: boolean
-  maxAllowedCalories: number
-  invalidPlanTypes: MealPlanOption["type"][]
-} {
-  const maxAllowedCalories = Math.round(
-    Math.max(0, budget.remainingCalories) * 1.05,
+): MealPlanValidation {
+  const maxAllowedCalories = calculateMaxAllowedCalories(budget)
+  const minHighProteinGrams = calculateMinHighProteinGrams(
+    budget,
+    maxAllowedCalories,
+  )
+  const invalidCaloriePlanTypes = getInvalidCaloriePlanTypes(
+    response,
+    maxAllowedCalories,
+  )
+  const invalidProteinPlanTypes = getInvalidProteinPlanTypes(
+    response,
+    minHighProteinGrams,
   )
   const invalidPlanTypes = response.plans
-    .filter((plan) => {
-      const summedMealCalories = plan.meals.reduce(
-        (sum, meal) => sum + meal.nutrition.calories,
-        0,
-      )
-      const budgetCalories = Math.max(
-        plan.totalNutrition.calories,
-        summedMealCalories,
-      )
-      return budgetCalories > maxAllowedCalories
-    })
+    .filter(
+      (plan) =>
+        invalidCaloriePlanTypes.includes(plan.type) ||
+        invalidProteinPlanTypes.includes(plan.type),
+    )
     .map((plan) => plan.type)
 
   return {
     valid: invalidPlanTypes.length === 0,
     maxAllowedCalories,
+    minHighProteinGrams,
     invalidPlanTypes,
+    invalidCaloriePlanTypes,
+    invalidProteinPlanTypes,
   }
 }
 
@@ -101,7 +170,6 @@ export function toMealPlanSuggestion(input: {
   return {
     generatedAt: input.generatedAt,
     inputPreference: input.inputPreference,
-    plannedTrainingType: input.budgetSnapshot.plannedTrainingType,
     budgetSnapshot: input.budgetSnapshot,
     summary: input.response.summary,
     plans: input.response.plans,

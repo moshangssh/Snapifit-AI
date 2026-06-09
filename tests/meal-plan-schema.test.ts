@@ -8,11 +8,8 @@ import type { MealPlanBudgetSnapshot } from "@/lib/types"
 
 const budget: MealPlanBudgetSnapshot = {
   date: "2026-05-28",
-  plannedTrainingType: "strength_cardio",
   baselineExpenditure: 2000,
   recordedExerciseCalories: 180,
-  plannedTrainingCalories: 300,
-  effectiveExerciseCalories: 300,
   targetCalories: 2550,
   consumedCalories: 1900,
   remainingCalories: 650,
@@ -81,7 +78,7 @@ function makeResponse(calories: number) {
       {
         type: "high_protein",
         title: "高蛋白方案",
-        rationale: "训练日优先补蛋白。",
+        rationale: "优先补足剩余蛋白。",
         meals: [
           {
             mealType: "snack",
@@ -90,7 +87,7 @@ function makeResponse(calories: number) {
             portionHint: "酸奶 200g，香蕉半根",
             nutrition: {
               calories: 260,
-              protein: 25,
+              protein: 45,
               carbohydrates: 32,
               fat: 4,
             },
@@ -98,7 +95,7 @@ function makeResponse(calories: number) {
         ],
         totalNutrition: {
           calories: 260,
-          protein: 25,
+          protein: 45,
           carbohydrates: 32,
           fat: 4,
         },
@@ -114,7 +111,7 @@ function makeResponse(calories: number) {
         bestFor: "训练后加餐",
         nutrition: {
           calories: 260,
-          protein: 25,
+          protein: 45,
           carbohydrates: 32,
           fat: 4,
         },
@@ -159,7 +156,10 @@ describe("meal plan schema", () => {
     expect(validateMealPlanBudget(response, budget)).toEqual({
       valid: true,
       maxAllowedCalories: 683,
+      minHighProteinGrams: 45,
       invalidPlanTypes: [],
+      invalidCaloriePlanTypes: [],
+      invalidProteinPlanTypes: [],
     })
   })
 
@@ -169,7 +169,10 @@ describe("meal plan schema", () => {
     expect(validateMealPlanBudget(response, budget)).toEqual({
       valid: false,
       maxAllowedCalories: 683,
+      minHighProteinGrams: 45,
       invalidPlanTypes: ["steady"],
+      invalidCaloriePlanTypes: ["steady"],
+      invalidProteinPlanTypes: [],
     })
   })
 
@@ -181,7 +184,55 @@ describe("meal plan schema", () => {
     expect(validateMealPlanBudget(response, budget)).toEqual({
       valid: false,
       maxAllowedCalories: 683,
+      minHighProteinGrams: 45,
       invalidPlanTypes: ["steady"],
+      invalidCaloriePlanTypes: ["steady"],
+      invalidProteinPlanTypes: [],
+    })
+  })
+
+  it("rejects the high protein plan when it misses the protein floor", () => {
+    const response = MealPlanResponseSchema.parse(makeResponse(620))
+    const highProtein = response.plans.find(
+      (plan) => plan.type === "high_protein",
+    )
+
+    if (!highProtein) throw new Error("missing high_protein plan")
+    highProtein.totalNutrition.protein = 20
+    highProtein.meals[0].nutrition.protein = 20
+
+    expect(validateMealPlanBudget(response, budget)).toEqual({
+      valid: false,
+      maxAllowedCalories: 683,
+      minHighProteinGrams: 45,
+      invalidPlanTypes: ["high_protein"],
+      invalidCaloriePlanTypes: [],
+      invalidProteinPlanTypes: ["high_protein"],
+    })
+  })
+
+  it("caps the protein floor by available calories", () => {
+    const response = MealPlanResponseSchema.parse(makeResponse(180))
+    response.plans.forEach((plan) => {
+      plan.meals[0].nutrition.calories = 180
+      plan.totalNutrition.calories = 180
+    })
+    const constrainedBudget = {
+      ...budget,
+      remainingCalories: 200,
+      remainingMacros: {
+        ...budget.remainingMacros,
+        protein: 90,
+      },
+    }
+
+    expect(validateMealPlanBudget(response, constrainedBudget)).toEqual({
+      valid: true,
+      maxAllowedCalories: 210,
+      minHighProteinGrams: 18,
+      invalidPlanTypes: [],
+      invalidCaloriePlanTypes: [],
+      invalidProteinPlanTypes: [],
     })
   })
 
@@ -191,7 +242,10 @@ describe("meal plan schema", () => {
     expect(validateMealPlanBudget(response, makeBudget(0))).toEqual({
       valid: false,
       maxAllowedCalories: 0,
+      minHighProteinGrams: 0,
       invalidPlanTypes: ["steady", "craving", "high_protein"],
+      invalidCaloriePlanTypes: ["steady", "craving", "high_protein"],
+      invalidProteinPlanTypes: [],
     })
   })
 
@@ -201,7 +255,10 @@ describe("meal plan schema", () => {
     expect(validateMealPlanBudget(response, makeBudget(-120))).toEqual({
       valid: false,
       maxAllowedCalories: 0,
+      minHighProteinGrams: 0,
       invalidPlanTypes: ["steady", "craving", "high_protein"],
+      invalidCaloriePlanTypes: ["steady", "craving", "high_protein"],
+      invalidProteinPlanTypes: [],
     })
   })
 
@@ -211,7 +268,10 @@ describe("meal plan schema", () => {
     expect(validateMealPlanBudget(response, makeBudget(649))).toEqual({
       valid: false,
       maxAllowedCalories: 681,
+      minHighProteinGrams: 45,
       invalidPlanTypes: ["steady"],
+      invalidCaloriePlanTypes: ["steady"],
+      invalidProteinPlanTypes: [],
     })
   })
 
@@ -228,7 +288,6 @@ describe("meal plan schema", () => {
     ).toEqual({
       generatedAt: "2026-05-28T18:00:00+08:00",
       inputPreference: "想吃点高蛋白的",
-      plannedTrainingType: budget.plannedTrainingType,
       budgetSnapshot: budget,
       summary: response.summary,
       plans: response.plans,

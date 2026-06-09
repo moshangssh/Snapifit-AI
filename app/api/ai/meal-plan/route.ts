@@ -14,6 +14,7 @@ import {
 import type {
   DailyLog,
   MealPlanBudgetSnapshot,
+  MealPlanOption,
   UserProfile,
 } from "@/lib/types"
 
@@ -48,13 +49,15 @@ function buildPrompt(input: {
       : {}),
   }
   const preferenceText = JSON.stringify(
-    input.inputPreference || "未填写,请按预算和训练日类型给默认建议",
+    input.inputPreference || "未填写,请按预算和剩余餐次给默认建议",
   )
 
   return `你是 SnapFit AI 的饮食规划助手。请回答“今天还能吃什么”,并为用户规划今天剩余餐次。
 
 硬约束:
 - 预算优先。每个方案总热量不得超过剩余热量的 105%。
+- 优先补足今日剩余蛋白。参考今日预算快照中的 remainingMacros.protein,在热量预算内提高蛋白密度。
+- high_protein 方案必须是三个方案中蛋白最高的方案,并尽量达到今日剩余蛋白目标。
 - 如果用户想吃的类型与预算冲突,给接近口味的替代方案。
 - 过敏、疾病、宗教或明确饮食禁忌必须避开。
 - 不鼓励挨饿、惩罚性少吃或极低热量饮食。
@@ -82,6 +85,50 @@ ${preferenceText}
 ${input.correctionHint}`
 }
 
+function buildCorrectionHint(
+  validation: ReturnType<typeof validateMealPlanBudget>,
+): string {
+  const hints: string[] = []
+
+  if (validation.invalidCaloriePlanTypes.length > 0) {
+    hints.push(
+      `上次输出中这些方案超过 5% 热量容差: ${validation.invalidCaloriePlanTypes.join(
+        ", ",
+      )}。请降低份量或换成低热量替代方案。`,
+    )
+  }
+
+  if (validation.invalidProteinPlanTypes.length > 0) {
+    hints.push(
+      `上次输出中这些方案蛋白不足: ${validation.invalidProteinPlanTypes.join(
+        ", ",
+      )}。high_protein 方案蛋白至少 ${validation.minHighProteinGrams}g,请减少低蛋白热量来源并换成高蛋白食物。`,
+    )
+  }
+
+  return hints.join("\n")
+}
+
+function buildPlanWarning(
+  type: MealPlanOption["type"],
+  validation: ReturnType<typeof validateMealPlanBudget>,
+): string | undefined {
+  const calorieInvalid = validation.invalidCaloriePlanTypes.includes(type)
+  const proteinInvalid = validation.invalidProteinPlanTypes.includes(type)
+
+  if (calorieInvalid && !proteinInvalid) {
+    return "该方案可能超过今日剩余额度,记录前请确认份量。"
+  }
+  if (proteinInvalid && !calorieInvalid) {
+    return `该方案蛋白可能低于 ${validation.minHighProteinGrams}g,请优先选择高蛋白食材并确认份量。`
+  }
+  if (calorieInvalid && proteinInvalid) {
+    return `该方案可能超过今日剩余额度,且蛋白可能低于 ${validation.minHighProteinGrams}g,记录前请确认份量。`
+  }
+
+  return undefined
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as MealPlanRequestBody
@@ -106,9 +153,7 @@ export async function POST(req: Request) {
       const correctionHint =
         attempt === 0 || !lastValidation
           ? ""
-          : `上次输出中这些方案超过 5% 热量容差: ${lastValidation.invalidPlanTypes.join(
-              ", ",
-            )}。请降低份量或换成低热量替代方案。`
+          : buildCorrectionHint(lastValidation)
 
       const { object } = await generateObject({
         model: createAIClient(aiConfig.agentModel),
@@ -147,15 +192,19 @@ export async function POST(req: Request) {
       toMealPlanSuggestion({
         response: {
           ...lastObject,
-          plans: lastObject.plans.map((plan) =>
-            lastValidation.invalidPlanTypes.includes(plan.type)
-              ? {
-                  ...plan,
-                  slightlyOverBudget: true,
-                  warning: "该方案可能超过今日剩余额度,记录前请确认份量。",
-                }
-              : plan,
-          ),
+          plans: lastObject.plans.map((plan) => {
+            const warning = buildPlanWarning(plan.type, lastValidation)
+
+            if (!warning) return plan
+
+            return {
+              ...plan,
+              slightlyOverBudget:
+                plan.slightlyOverBudget ||
+                lastValidation.invalidCaloriePlanTypes.includes(plan.type),
+              warning,
+            }
+          }),
         },
         generatedAt: new Date().toISOString(),
         inputPreference,
