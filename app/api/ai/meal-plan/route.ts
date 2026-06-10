@@ -140,7 +140,7 @@ function buildCorrectionHint(
     return ""
   }
 
-  return `上次输出不符合要求:${hints.join("")}`
+  return `上次输出不符合要求:${hints.join("\n")}`
 }
 
 function buildItemWarning(
@@ -215,26 +215,23 @@ export async function POST(req: Request) {
 
     return Response.json(
       toMealPlanSuggestion({
-        response: {
-          ...lastObject,
-          items: markProteinPick(
-            {
-              ...lastObject,
-              items: lastObject.items.map((item, index): MealPlanItem => {
-                const warning = buildItemWarning(index, lastValidation)
+        response: markProteinPick(
+          {
+            ...lastObject,
+            items: lastObject.items.map((item, index): MealPlanItem => {
+              const warning = buildItemWarning(index, lastValidation)
 
-                if (!warning) return item
+              if (!warning) return item
 
-                return {
-                  ...item,
-                  slightlyOverBudget: true,
-                  warning,
-                }
-              }),
-            },
-            lastValidation.minProteinGrams,
-          ).items,
-        },
+              return {
+                ...item,
+                slightlyOverBudget: true,
+                warning,
+              }
+            }),
+          },
+          lastValidation.minProteinGrams,
+        ),
         generatedAt: new Date().toISOString(),
         inputPreference,
         budgetSnapshot,

@@ -241,6 +241,14 @@ describe("meal plan schema", () => {
     ).toBe(false)
   })
 
+  it("does not mark a protein pick when the floor is zero", () => {
+    const response = makeResponse([620, 560, 260], [20, 28, 32])
+
+    expect(
+      markProteinPick(response, 0).items.some((item) => item.isProteinPick),
+    ).toBe(false)
+  })
+
   it("maps parsed responses into meal plan suggestions without plans", () => {
     const response = MealPlanResponseSchema.parse(makeResponse([620, 560, 260]))
 

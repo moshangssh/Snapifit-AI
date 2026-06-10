@@ -6,6 +6,7 @@ import type {
 } from "@/lib/types"
 
 const SINGLE_MEAL_PROTEIN_CALORIE_SHARE = 0.55
+const CALORIES_PER_GRAM_PROTEIN = 4
 
 const MealPlanNutritionEstimateSchema = z.object({
   calories: z.number().min(0).transform((value) => Math.round(value)),
@@ -53,7 +54,10 @@ export function calculateMinProteinPickGrams(
 ): number {
   return Math.min(
     Math.max(0, Math.round(budget.remainingMacros.protein)),
-    Math.floor((maxAllowedCalories * SINGLE_MEAL_PROTEIN_CALORIE_SHARE) / 4),
+    Math.floor(
+      (maxAllowedCalories * SINGLE_MEAL_PROTEIN_CALORIE_SHARE) /
+        CALORIES_PER_GRAM_PROTEIN,
+    ),
   )
 }
 
@@ -89,10 +93,11 @@ export function markProteinPick<T extends { items: MealPlanItem[] }>(
   response: T,
   minProteinGrams: number,
 ): T {
-  const proteinPickIndex = selectProteinPickIndex(
-    response.items,
-    minProteinGrams,
-  )
+  // 保底线为 0 时人人达标,徽标失去意义(且常伴随超预算警告),不打标
+  const proteinPickIndex =
+    minProteinGrams > 0
+      ? selectProteinPickIndex(response.items, minProteinGrams)
+      : null
 
   return {
     ...response,
