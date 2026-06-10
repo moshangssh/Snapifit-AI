@@ -14,6 +14,11 @@ describe("what can I eat card component source", () => {
     expect(source).toContain("蛋白")
   })
 
+  it("renders the protein pick badge from the server marker", () => {
+    expect(source).toContain("item.isProteinPick")
+    expect(source).toContain("补蛋白之选")
+  })
+
   it("renders a single item list without plan or item mode switching", () => {
     expect(source).toContain("suggestionItems.map")
     expect(source).toContain("slice(0, 3)")
