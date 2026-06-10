@@ -6,6 +6,8 @@ import {
 } from "@/lib/ai/client"
 import { AIError, handleAIError } from "@/lib/ai/errors"
 import {
+  calculateMinProteinPickGrams,
+  markProteinPick,
   type MealPlanResponse,
   MealPlanResponseSchema,
   toMealPlanSuggestion,
@@ -76,6 +78,7 @@ function buildPrompt(input: {
     input.inputPreference || "未填写,请按预算和剩余餐次给默认建议",
   )
   const targetMealLabel = getTargetMealLabel(input.budgetSnapshot)
+  const minProteinGrams = calculateMinProteinPickGrams(input.budgetSnapshot)
 
   return `你是 SnapFit AI 的饮食建议助手。请回答“今天还能吃什么”,只给用户下一顿可以直接选择的一份简短清单。
 
@@ -84,6 +87,7 @@ function buildPrompt(input: {
 - 每个吃法只针对目标餐次:${targetMealLabel};不要重排全天剩余餐次,也不要把已记录餐次重新规划。
 - 预算优先。每个吃法总热量不得超过剩余热量的 105%。
 - 三个吃法要刻意拉开差异;有明确偏好时,多数吃法顺着用户口味。
+- 始终包含 1 个 protein-smart 吃法,蛋白至少 ${minProteinGrams}g;这条可以偏离用户口味,用于兜住今日剩余蛋白目标。
 - 如果用户想吃的类型与预算冲突,给接近口味的替代吃法。
 - 过敏、疾病、宗教或明确饮食禁忌必须避开。
 - 不鼓励挨饿、惩罚性少吃或极低热量饮食。
@@ -114,15 +118,29 @@ ${input.correctionHint}`
 function buildCorrectionHint(
   validation: ReturnType<typeof validateMealPlanBudget>,
 ): string {
-  if (validation.invalidItemIndexes.length === 0) {
+  const hints: string[] = []
+
+  if (validation.invalidItemIndexes.length > 0) {
+    const invalidItems = validation.invalidItemIndexes
+      .map((index) => `第 ${index + 1} 个吃法`)
+      .join("、")
+
+    hints.push(
+      `这些吃法超过 5% 热量容差(${validation.maxAllowedCalories} kcal): ${invalidItems}。请降低份量或换成低热量替代吃法,并确保每个吃法都不超过该上限。`,
+    )
+  }
+
+  if (!validation.proteinTargetMet) {
+    hints.push(
+      `没有任何吃法达到蛋白保底 ${validation.minProteinGrams}g。请保留多数吃法顺用户口味,但加入 1 个 protein-smart 吃法,蛋白至少 ${validation.minProteinGrams}g。`,
+    )
+  }
+
+  if (hints.length === 0) {
     return ""
   }
 
-  const invalidItems = validation.invalidItemIndexes
-    .map((index) => `第 ${index + 1} 个吃法`)
-    .join("、")
-
-  return `上次输出中这些吃法超过 5% 热量容差(${validation.maxAllowedCalories} kcal): ${invalidItems}。请降低份量或换成低热量替代吃法,并确保每个吃法都不超过该上限。`
+  return `上次输出不符合要求:${hints.join("")}`
 }
 
 function buildItemWarning(
@@ -182,7 +200,7 @@ export async function POST(req: Request) {
       if (lastValidation.valid) {
         return Response.json(
           toMealPlanSuggestion({
-            response: object,
+            response: markProteinPick(object, lastValidation.minProteinGrams),
             generatedAt: new Date().toISOString(),
             inputPreference,
             budgetSnapshot,
@@ -199,17 +217,23 @@ export async function POST(req: Request) {
       toMealPlanSuggestion({
         response: {
           ...lastObject,
-          items: lastObject.items.map((item, index): MealPlanItem => {
-            const warning = buildItemWarning(index, lastValidation)
+          items: markProteinPick(
+            {
+              ...lastObject,
+              items: lastObject.items.map((item, index): MealPlanItem => {
+                const warning = buildItemWarning(index, lastValidation)
 
-            if (!warning) return item
+                if (!warning) return item
 
-            return {
-              ...item,
-              slightlyOverBudget: true,
-              warning,
-            }
-          }),
+                return {
+                  ...item,
+                  slightlyOverBudget: true,
+                  warning,
+                }
+              }),
+            },
+            lastValidation.minProteinGrams,
+          ).items,
         },
         generatedAt: new Date().toISOString(),
         inputPreference,

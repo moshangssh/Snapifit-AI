@@ -160,6 +160,11 @@ export function WhatCanIEatCard({
                       <span className="truncate text-sm font-semibold">
                         {item.title}
                       </span>
+                      {item.isProteinPick ? (
+                        <span className="flex-none rounded-md bg-c-exercise/10 px-1.5 py-0.5 text-[10px] font-semibold text-c-exercise">
+                          补蛋白之选
+                        </span>
+                      ) : null}
                     </div>
                     <div className="flex flex-none items-center gap-1.5">
                       <span className="tag">

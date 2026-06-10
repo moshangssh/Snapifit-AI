@@ -5,6 +5,8 @@ import type {
   MealPlanSuggestion,
 } from "@/lib/types"
 
+const SINGLE_MEAL_PROTEIN_CALORIE_SHARE = 0.55
+
 const MealPlanNutritionEstimateSchema = z.object({
   calories: z.number().min(0).transform((value) => Math.round(value)),
   protein: z.number().min(0).transform((value) => Math.round(value)),
@@ -35,11 +37,24 @@ export type MealPlanResponse = z.infer<typeof MealPlanResponseSchema>
 type MealPlanValidation = {
   valid: boolean
   maxAllowedCalories: number
+  minProteinGrams: number
   invalidItemIndexes: number[]
+  proteinPickIndex: number | null
+  proteinTargetMet: boolean
 }
 
 function calculateMaxAllowedCalories(budget: MealPlanBudgetSnapshot): number {
   return Math.round(Math.max(0, budget.remainingCalories) * 1.05)
+}
+
+export function calculateMinProteinPickGrams(
+  budget: MealPlanBudgetSnapshot,
+  maxAllowedCalories = calculateMaxAllowedCalories(budget),
+): number {
+  return Math.min(
+    Math.max(0, Math.round(budget.remainingMacros.protein)),
+    Math.floor((maxAllowedCalories * SINGLE_MEAL_PROTEIN_CALORIE_SHARE) / 4),
+  )
 }
 
 function getInvalidItemIndexes(
@@ -51,17 +66,70 @@ function getInvalidItemIndexes(
   )
 }
 
+export function selectProteinPickIndex(
+  items: MealPlanItem[],
+  minProteinGrams: number,
+): number | null {
+  return items.reduce<number | null>((selectedIndex, item, index) => {
+    if (item.nutrition.protein < minProteinGrams) {
+      return selectedIndex
+    }
+
+    if (selectedIndex === null) {
+      return index
+    }
+
+    return item.nutrition.protein > items[selectedIndex].nutrition.protein
+      ? index
+      : selectedIndex
+  }, null)
+}
+
+export function markProteinPick<T extends { items: MealPlanItem[] }>(
+  response: T,
+  minProteinGrams: number,
+): T {
+  const proteinPickIndex = selectProteinPickIndex(
+    response.items,
+    minProteinGrams,
+  )
+
+  return {
+    ...response,
+    items: response.items.map((item, index) => {
+      const { isProteinPick: _discarded, ...itemWithoutMarker } = item
+
+      return {
+        ...itemWithoutMarker,
+        ...(index === proteinPickIndex ? { isProteinPick: true } : {}),
+      }
+    }),
+  }
+}
+
 export function validateMealPlanBudget(
   response: MealPlanResponse,
   budget: MealPlanBudgetSnapshot,
 ): MealPlanValidation {
   const maxAllowedCalories = calculateMaxAllowedCalories(budget)
+  const minProteinGrams = calculateMinProteinPickGrams(
+    budget,
+    maxAllowedCalories,
+  )
   const invalidItemIndexes = getInvalidItemIndexes(response, maxAllowedCalories)
+  const proteinPickIndex = selectProteinPickIndex(
+    response.items,
+    minProteinGrams,
+  )
+  const proteinTargetMet = proteinPickIndex !== null
 
   return {
-    valid: invalidItemIndexes.length === 0,
+    valid: invalidItemIndexes.length === 0 && proteinTargetMet,
     maxAllowedCalories,
+    minProteinGrams,
     invalidItemIndexes,
+    proteinPickIndex,
+    proteinTargetMet,
   }
 }
 

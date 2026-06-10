@@ -127,6 +127,7 @@ export interface MealPlanItem {
   portionHint: string
   bestFor: string
   nutrition: MealPlanNutritionEstimate
+  isProteinPick?: boolean
   slightlyOverBudget?: boolean
   warning?: string
 }
