@@ -14,7 +14,7 @@ import {
 import type {
   DailyLog,
   MealPlanBudgetSnapshot,
-  MealPlanOption,
+  MealPlanItem,
   UserProfile,
 } from "@/lib/types"
 
@@ -23,6 +23,30 @@ interface MealPlanRequestBody {
   userProfile?: UserProfile
   budgetSnapshot?: MealPlanBudgetSnapshot
   inputPreference?: string
+}
+
+type MealSlot = MealPlanBudgetSnapshot["remainingMealSlots"][number]
+
+const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
+  breakfast: "早餐",
+  lunch: "午餐",
+  dinner: "晚餐",
+  snack: "加餐",
+}
+
+const MAIN_MEAL_SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"]
+
+function getTargetMealLabel(budgetSnapshot: MealPlanBudgetSnapshot): string {
+  const targetSlot =
+    budgetSnapshot.remainingMealSlots.find((slot) =>
+      MAIN_MEAL_SLOTS.includes(slot),
+    ) ?? budgetSnapshot.remainingMealSlots[0]
+
+  if (!targetSlot) {
+    return "下一顿主餐"
+  }
+
+  return `${MEAL_SLOT_LABELS[targetSlot]}(${targetSlot})`
 }
 
 function buildPrompt(input: {
@@ -51,14 +75,16 @@ function buildPrompt(input: {
   const preferenceText = JSON.stringify(
     input.inputPreference || "未填写,请按预算和剩余餐次给默认建议",
   )
+  const targetMealLabel = getTargetMealLabel(input.budgetSnapshot)
 
-  return `你是 SnapFit AI 的饮食规划助手。请回答“今天还能吃什么”,并为用户规划今天剩余餐次。
+  return `你是 SnapFit AI 的饮食建议助手。请回答“今天还能吃什么”,只给用户下一顿可以直接选择的一份简短清单。
 
 硬约束:
-- 预算优先。每个方案总热量不得超过剩余热量的 105%。
-- 优先补足今日剩余蛋白。参考今日预算快照中的 remainingMacros.protein,在热量预算内提高蛋白密度。
-- high_protein 方案必须是三个方案中蛋白最高的方案,并尽量达到今日剩余蛋白目标。
-- 如果用户想吃的类型与预算冲突,给接近口味的替代方案。
+- 只输出 3 个互斥的「吃法」,用户会从中挑一个,不要让用户组合多个选项。
+- 每个吃法只针对目标餐次:${targetMealLabel};不要重排全天剩余餐次,也不要把已记录餐次重新规划。
+- 预算优先。每个吃法总热量不得超过剩余热量的 105%。
+- 三个吃法要刻意拉开差异;有明确偏好时,多数吃法顺着用户口味。
+- 如果用户想吃的类型与预算冲突,给接近口味的替代吃法。
 - 过敏、疾病、宗教或明确饮食禁忌必须避开。
 - 不鼓励挨饿、惩罚性少吃或极低热量饮食。
 - 营养数值是估算,但必须自洽。
@@ -77,10 +103,10 @@ ${JSON.stringify(input.budgetSnapshot)}
 ${preferenceText}
 
 输出要求:
-- summary: 一句话说明今天剩余餐次的规划策略。
-- plans: 必须恰好 3 个,类型分别是 steady、craving、high_protein。
-- 每个 plan 是今天剩余餐次的一整套计划,meals 按 breakfast/lunch/dinner/snack 标注。
-- items: 3 到 8 个,小组合优先,单品补充。
+- 只能输出 JSON 字段 summary 和 items,不要输出 plans、方案类型或整天计划。
+- summary: 一句话说明先把哪顿定下来,其余餐次或加餐余量只一句带过。
+- items: 必须恰好 3 个。每个 item 是一个带份量、可直接吃的下一顿主餐选择。
+- item.kind 只能是 combo 或 single;优先用 combo 表达可直接吃的搭配。
 - 所有 calories/protein/carbohydrates/fat 使用数字。
 ${input.correctionHint}`
 }
@@ -88,45 +114,26 @@ ${input.correctionHint}`
 function buildCorrectionHint(
   validation: ReturnType<typeof validateMealPlanBudget>,
 ): string {
-  const hints: string[] = []
-
-  if (validation.invalidCaloriePlanTypes.length > 0) {
-    hints.push(
-      `上次输出中这些方案超过 5% 热量容差: ${validation.invalidCaloriePlanTypes.join(
-        ", ",
-      )}。请降低份量或换成低热量替代方案。`,
-    )
+  if (validation.invalidItemIndexes.length === 0) {
+    return ""
   }
 
-  if (validation.invalidProteinPlanTypes.length > 0) {
-    hints.push(
-      `上次输出中这些方案蛋白不足: ${validation.invalidProteinPlanTypes.join(
-        ", ",
-      )}。high_protein 方案蛋白至少 ${validation.minHighProteinGrams}g,请减少低蛋白热量来源并换成高蛋白食物。`,
-    )
-  }
+  const invalidItems = validation.invalidItemIndexes
+    .map((index) => `第 ${index + 1} 个吃法`)
+    .join("、")
 
-  return hints.join("\n")
+  return `上次输出中这些吃法超过 5% 热量容差(${validation.maxAllowedCalories} kcal): ${invalidItems}。请降低份量或换成低热量替代吃法,并确保每个吃法都不超过该上限。`
 }
 
-function buildPlanWarning(
-  type: MealPlanOption["type"],
+function buildItemWarning(
+  index: number,
   validation: ReturnType<typeof validateMealPlanBudget>,
 ): string | undefined {
-  const calorieInvalid = validation.invalidCaloriePlanTypes.includes(type)
-  const proteinInvalid = validation.invalidProteinPlanTypes.includes(type)
-
-  if (calorieInvalid && !proteinInvalid) {
-    return "该方案可能超过今日剩余额度,记录前请确认份量。"
-  }
-  if (proteinInvalid && !calorieInvalid) {
-    return `该方案蛋白可能低于 ${validation.minHighProteinGrams}g,请优先选择高蛋白食材并确认份量。`
-  }
-  if (calorieInvalid && proteinInvalid) {
-    return `该方案可能超过今日剩余额度,且蛋白可能低于 ${validation.minHighProteinGrams}g,记录前请确认份量。`
+  if (!validation.invalidItemIndexes.includes(index)) {
+    return undefined
   }
 
-  return undefined
+  return `这个吃法可能超过今日剩余额度(${validation.maxAllowedCalories} kcal),记录前请确认份量。`
 }
 
 export async function POST(req: Request) {
@@ -192,16 +199,14 @@ export async function POST(req: Request) {
       toMealPlanSuggestion({
         response: {
           ...lastObject,
-          plans: lastObject.plans.map((plan) => {
-            const warning = buildPlanWarning(plan.type, lastValidation)
+          items: lastObject.items.map((item, index): MealPlanItem => {
+            const warning = buildItemWarning(index, lastValidation)
 
-            if (!warning) return plan
+            if (!warning) return item
 
             return {
-              ...plan,
-              slightlyOverBudget:
-                plan.slightlyOverBudget ||
-                lastValidation.invalidCaloriePlanTypes.includes(plan.type),
+              ...item,
+              slightlyOverBudget: true,
               warning,
             }
           }),
