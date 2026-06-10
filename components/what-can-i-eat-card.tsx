@@ -48,7 +48,7 @@ export function WhatCanIEatCard({
     suggestion?.inputPreference ?? "",
   )
   const [isPlanning, setIsPlanning] = useState(false)
-  const suggestionItems = suggestion?.items.slice(0, 3) ?? []
+  const suggestionItems = suggestion?.items?.slice(0, 3) ?? []
 
   useEffect(() => {
     setPreference(suggestion?.inputPreference ?? "")
