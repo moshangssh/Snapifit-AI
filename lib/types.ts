@@ -113,33 +113,11 @@ export type PlannedTrainingType =
   | "strength_cardio"
   | "high_output"
 
-export type MealPlanDisplayMode = "plans" | "items"
-
-export type MealPlanType = "steady" | "craving" | "high_protein"
-
 export interface MealPlanNutritionEstimate {
   calories: number
   protein: number
   carbohydrates: number
   fat: number
-}
-
-export interface MealPlanMeal {
-  mealType: "breakfast" | "lunch" | "dinner" | "snack"
-  title: string
-  foods: string[]
-  portionHint: string
-  nutrition: MealPlanNutritionEstimate
-}
-
-export interface MealPlanOption {
-  type: MealPlanType
-  title: string
-  rationale: string
-  meals: MealPlanMeal[]
-  totalNutrition: MealPlanNutritionEstimate
-  slightlyOverBudget: boolean
-  warning?: string
 }
 
 export interface MealPlanItem {
@@ -149,6 +127,8 @@ export interface MealPlanItem {
   portionHint: string
   bestFor: string
   nutrition: MealPlanNutritionEstimate
+  slightlyOverBudget?: boolean
+  warning?: string
 }
 
 export interface MealPlanBudgetSnapshot {
@@ -177,7 +157,6 @@ export interface MealPlanSuggestion {
   inputPreference: string
   budgetSnapshot: MealPlanBudgetSnapshot
   summary: string
-  plans: MealPlanOption[]
   items: MealPlanItem[]
 }
 

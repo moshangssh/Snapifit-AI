@@ -1,11 +1,9 @@
 import { z } from "zod"
 import type {
   MealPlanBudgetSnapshot,
-  MealPlanOption,
+  MealPlanItem,
   MealPlanSuggestion,
 } from "@/lib/types"
-
-const HIGH_PROTEIN_CALORIE_SHARE = 0.35
 
 const MealPlanNutritionEstimateSchema = z.object({
   calories: z.number().min(0).transform((value) => Math.round(value)),
@@ -14,116 +12,43 @@ const MealPlanNutritionEstimateSchema = z.object({
   fat: z.number().min(0).transform((value) => Math.round(value)),
 })
 
-const MealPlanMealSchema = z.object({
-  mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]),
-  title: z.string().min(1),
-  foods: z.array(z.string().min(1)).min(1).max(6),
-  portionHint: z.string().min(1),
-  nutrition: MealPlanNutritionEstimateSchema,
-})
-
-const MealPlanOptionSchema = z.object({
-  type: z.enum(["steady", "craving", "high_protein"]),
-  title: z.string().min(1),
-  rationale: z.string().min(1),
-  meals: z.array(MealPlanMealSchema).min(1).max(4),
-  totalNutrition: MealPlanNutritionEstimateSchema,
-  slightlyOverBudget: z.boolean().default(false),
-  warning: z.string().optional(),
-})
-
-const MealPlanItemSchema = z.object({
-  title: z.string().min(1),
-  kind: z.enum(["combo", "single"]),
-  foods: z.array(z.string().min(1)).min(1).max(5),
-  portionHint: z.string().min(1),
-  bestFor: z.string().min(1),
-  nutrition: MealPlanNutritionEstimateSchema,
-})
+const MealPlanItemSchema = z
+  .object({
+    title: z.string().min(1),
+    kind: z.enum(["combo", "single"]),
+    foods: z.array(z.string().min(1)).min(1).max(5),
+    portionHint: z.string().min(1),
+    bestFor: z.string().min(1),
+    nutrition: MealPlanNutritionEstimateSchema,
+  })
+  .strict()
 
 export const MealPlanResponseSchema = z
   .object({
     summary: z.string().min(1),
-    plans: z.array(MealPlanOptionSchema).length(3),
-    items: z.array(MealPlanItemSchema).min(1).max(8),
+    items: z.array(MealPlanItemSchema).length(3),
   })
-  .superRefine((value, ctx) => {
-    const types = value.plans.map((plan) => plan.type)
-    for (const required of ["steady", "craving", "high_protein"] as const) {
-      if (!types.includes(required)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `missing ${required} plan`,
-          path: ["plans"],
-        })
-      }
-    }
-  })
+  .strict()
 
 export type MealPlanResponse = z.infer<typeof MealPlanResponseSchema>
 
 type MealPlanValidation = {
   valid: boolean
   maxAllowedCalories: number
-  minHighProteinGrams: number
-  invalidPlanTypes: MealPlanOption["type"][]
-  invalidCaloriePlanTypes: MealPlanOption["type"][]
-  invalidProteinPlanTypes: MealPlanOption["type"][]
+  invalidItemIndexes: number[]
 }
 
 function calculateMaxAllowedCalories(budget: MealPlanBudgetSnapshot): number {
   return Math.round(Math.max(0, budget.remainingCalories) * 1.05)
 }
 
-function calculateMinHighProteinGrams(
-  budget: MealPlanBudgetSnapshot,
-  maxAllowedCalories: number,
-): number {
-  return Math.min(
-    Math.max(0, Math.round(budget.remainingMacros.protein)),
-    Math.floor((maxAllowedCalories * HIGH_PROTEIN_CALORIE_SHARE) / 4),
-  )
-}
-
-function getPlanBudgetCalories(plan: MealPlanOption): number {
-  const summedMealCalories = plan.meals.reduce(
-    (sum, meal) => sum + meal.nutrition.calories,
-    0,
-  )
-
-  return Math.max(plan.totalNutrition.calories, summedMealCalories)
-}
-
-function getPlanReliableProtein(plan: MealPlanOption): number {
-  const summedMealProtein = plan.meals.reduce(
-    (sum, meal) => sum + meal.nutrition.protein,
-    0,
-  )
-
-  return Math.min(plan.totalNutrition.protein, summedMealProtein)
-}
-
-function getInvalidCaloriePlanTypes(
+function getInvalidItemIndexes(
   response: MealPlanResponse,
   maxAllowedCalories: number,
-): MealPlanOption["type"][] {
-  return response.plans
-    .filter((plan) => getPlanBudgetCalories(plan) > maxAllowedCalories)
-    .map((plan) => plan.type)
-}
-
-function getInvalidProteinPlanTypes(
-  response: MealPlanResponse,
-  minHighProteinGrams: number,
-): MealPlanOption["type"][] {
-  return response.plans
-    .filter((plan) => {
-      if (plan.type !== "high_protein" || minHighProteinGrams <= 0) {
-        return false
-      }
-      return getPlanReliableProtein(plan) < minHighProteinGrams
-    })
-    .map((plan) => plan.type)
+): number[] {
+  return response.items.flatMap((item, index) =>
+    item.nutrition.calories > maxAllowedCalories ? [index] : [],
+  )
 }
 
 export function validateMealPlanBudget(
@@ -131,38 +56,20 @@ export function validateMealPlanBudget(
   budget: MealPlanBudgetSnapshot,
 ): MealPlanValidation {
   const maxAllowedCalories = calculateMaxAllowedCalories(budget)
-  const minHighProteinGrams = calculateMinHighProteinGrams(
-    budget,
-    maxAllowedCalories,
-  )
-  const invalidCaloriePlanTypes = getInvalidCaloriePlanTypes(
-    response,
-    maxAllowedCalories,
-  )
-  const invalidProteinPlanTypes = getInvalidProteinPlanTypes(
-    response,
-    minHighProteinGrams,
-  )
-  const invalidPlanTypes = response.plans
-    .filter(
-      (plan) =>
-        invalidCaloriePlanTypes.includes(plan.type) ||
-        invalidProteinPlanTypes.includes(plan.type),
-    )
-    .map((plan) => plan.type)
+  const invalidItemIndexes = getInvalidItemIndexes(response, maxAllowedCalories)
 
   return {
-    valid: invalidPlanTypes.length === 0,
+    valid: invalidItemIndexes.length === 0,
     maxAllowedCalories,
-    minHighProteinGrams,
-    invalidPlanTypes,
-    invalidCaloriePlanTypes,
-    invalidProteinPlanTypes,
+    invalidItemIndexes,
   }
 }
 
 export function toMealPlanSuggestion(input: {
-  response: MealPlanResponse
+  response: {
+    summary: string
+    items: MealPlanItem[]
+  }
   generatedAt: string
   inputPreference: string
   budgetSnapshot: MealPlanBudgetSnapshot
@@ -172,7 +79,6 @@ export function toMealPlanSuggestion(input: {
     inputPreference: input.inputPreference,
     budgetSnapshot: input.budgetSnapshot,
     summary: input.response.summary,
-    plans: input.response.plans,
     items: input.response.items,
   }
 }
