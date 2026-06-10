@@ -23,3 +23,11 @@ _Avoid_: 今日热量预算
 **热量平衡**:
 The neutral intake-versus-expenditure view that describes whether recorded intake is above or below maintenance for the day. It is not the primary name for the user-facing eating budget.
 _Avoid_: 今天还能吃多少
+
+**吃法**:
+A self-contained, ready-to-eat option for the user's next meal that fits within the remaining same-day budget. The "今天还能吃什么" card presents a few as mutually-exclusive picks, and the user chooses one — they are alternatives, not building blocks to combine.
+_Avoid_: 方案, 单品, 套餐
+
+**补蛋白之选**:
+The one 吃法 that is always present and visibly marked, chosen so the user can still reach the day's remaining protein target even when their stated craving would not.
+_Avoid_: 高蛋白方案, 蛋白保底项
