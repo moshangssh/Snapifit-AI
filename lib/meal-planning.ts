@@ -109,12 +109,10 @@ export function buildMealPlanBudgetSnapshot(input: {
   const baselineExpenditure =
     input.log.baselineExpenditure ?? input.log.calculatedTDEE ?? 0
   const recordedExerciseCalories = input.log.summary.totalCaloriesBurned ?? 0
+  const manualTargetCalories = input.userProfile.targetCalories
   const targetCalories =
-    input.userProfile.targetCalories && input.userProfile.targetCalories > 0
-      ? clampManualTargetCalories(
-          input.userProfile.targetCalories,
-          input.userProfile,
-        )
+    manualTargetCalories && manualTargetCalories > 0
+      ? clampManualTargetCalories(manualTargetCalories, input.userProfile)
       : clampGoalAdjustedCalories(
           baselineExpenditure + recordedExerciseCalories,
           input.userProfile,
