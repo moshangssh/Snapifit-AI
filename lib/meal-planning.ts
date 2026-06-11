@@ -38,6 +38,13 @@ function clampGoalAdjustedCalories(
   return Math.max(adjusted, getSafetyFloor(userProfile))
 }
 
+function clampManualTargetCalories(
+  targetCalories: number,
+  userProfile: UserProfile,
+): number {
+  return Math.max(Math.round(targetCalories), getSafetyFloor(userProfile))
+}
+
 function buildMacroTargets(targetCalories: number, userProfile: UserProfile) {
   const proteinPerKg =
     PROTEIN_GRAMS_PER_KG[userProfile.goal] ?? PROTEIN_GRAMS_PER_KG.maintain
@@ -102,10 +109,14 @@ export function buildMealPlanBudgetSnapshot(input: {
   const baselineExpenditure =
     input.log.baselineExpenditure ?? input.log.calculatedTDEE ?? 0
   const recordedExerciseCalories = input.log.summary.totalCaloriesBurned ?? 0
-  const targetCalories = clampGoalAdjustedCalories(
-    baselineExpenditure + recordedExerciseCalories,
-    input.userProfile,
-  )
+  const manualTargetCalories = input.userProfile.targetCalories
+  const targetCalories =
+    manualTargetCalories && manualTargetCalories > 0
+      ? clampManualTargetCalories(manualTargetCalories, input.userProfile)
+      : clampGoalAdjustedCalories(
+          baselineExpenditure + recordedExerciseCalories,
+          input.userProfile,
+        )
   const consumedCalories = input.log.summary.totalCaloriesConsumed ?? 0
   const macroTargets = buildMacroTargets(targetCalories, input.userProfile)
   const consumedMacros = input.log.summary.macros ?? {
