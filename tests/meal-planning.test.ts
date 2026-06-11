@@ -86,6 +86,91 @@ describe("meal planning budget", () => {
     expect(snapshot.remainingCalories).toBe(1100)
   })
 
+  it("uses manual target calories when they are above the safety floor", () => {
+    const snapshot = buildMealPlanBudgetSnapshot({
+      log: makeLog(),
+      userProfile: { ...baseProfile, targetCalories: 2100 },
+      now: new Date("2026-05-28T09:00:00+08:00"),
+    })
+
+    expect(snapshot.targetCalories).toBe(2100)
+  })
+
+  it("does not stack weight-loss adjustment on top of manual target calories", () => {
+    const snapshot = buildMealPlanBudgetSnapshot({
+      log: makeLog(),
+      userProfile: {
+        ...baseProfile,
+        goal: "lose_weight",
+        targetCalories: 2000,
+      },
+      now: new Date("2026-05-28T09:00:00+08:00"),
+    })
+
+    expect(snapshot.targetCalories).toBe(2000)
+  })
+
+  it("raises manual target calories below the safety floor", () => {
+    const snapshot = buildMealPlanBudgetSnapshot({
+      log: makeLog(),
+      userProfile: { ...baseProfile, targetCalories: 1200 },
+      now: new Date("2026-05-28T09:00:00+08:00"),
+    })
+
+    expect(snapshot.targetCalories).toBe(1500)
+  })
+
+  it("falls back to inferred goal-adjusted budget when manual target calories are absent", () => {
+    const snapshot = buildMealPlanBudgetSnapshot({
+      log: makeLog({
+        baselineExpenditure: 2100,
+        summary: {
+          totalCaloriesConsumed: 0,
+          totalCaloriesBurned: 200,
+          macros: { carbs: 0, protein: 0, fat: 0 },
+          micronutrients: {},
+        },
+      }),
+      userProfile: { ...baseProfile, goal: "lose_weight" },
+      now: new Date("2026-05-28T09:00:00+08:00"),
+    })
+
+    expect(snapshot.targetCalories).toBe(1900)
+  })
+
+  it("keeps protein weight-based when manual target calories change", () => {
+    const emptyLog = makeLog({
+      summary: {
+        totalCaloriesConsumed: 0,
+        totalCaloriesBurned: 0,
+        macros: { carbs: 0, protein: 0, fat: 0 },
+        micronutrients: {},
+      },
+    })
+    const lowerBudget = buildMealPlanBudgetSnapshot({
+      log: emptyLog,
+      userProfile: { ...baseProfile, targetCalories: 1800 },
+      now: new Date("2026-05-28T09:00:00+08:00"),
+    })
+    const higherBudget = buildMealPlanBudgetSnapshot({
+      log: emptyLog,
+      userProfile: { ...baseProfile, targetCalories: 2400 },
+      now: new Date("2026-05-28T09:00:00+08:00"),
+    })
+
+    expect(lowerBudget.macroTargets.protein).toBe(
+      higherBudget.macroTargets.protein,
+    )
+    expect(higherBudget.macroTargets.fat).toBeGreaterThan(
+      lowerBudget.macroTargets.fat,
+    )
+    expect(higherBudget.macroTargets.carbohydrates).toBeGreaterThan(
+      lowerBudget.macroTargets.carbohydrates,
+    )
+    expect(lowerBudget.remainingMacros).toEqual(lowerBudget.macroTargets)
+    expect(higherBudget.remainingMacros).toEqual(higherBudget.macroTargets)
+  })
+
   it("prioritizes protein, keeps a fat floor, and assigns remaining calories to carbs", () => {
     const snapshot = buildMealPlanBudgetSnapshot({
       log: makeLog(),
