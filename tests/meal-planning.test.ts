@@ -244,6 +244,34 @@ describe("meal planning budget", () => {
     expect(snapshot.summaryText).not.toContain("今天还可吃约 -")
   })
 
+  it("clamps carbohydrate target to zero when protein and fat already exhaust an aggressive target", () => {
+    // 体重大 + 高 g/kg 系数 + 手填目标贴健康下限时,蛋白与脂肪下限会吃光预算,
+    // 碳水目标被 clamp 到 0。这是「优先保蛋白」的刻意取舍,需固化而非回归成负数。
+    const snapshot = buildMealPlanBudgetSnapshot({
+      log: makeLog({
+        summary: {
+          totalCaloriesConsumed: 0,
+          totalCaloriesBurned: 0,
+          macros: { carbs: 0, protein: 0, fat: 0 },
+          micronutrients: {},
+        },
+      }),
+      userProfile: {
+        ...baseProfile,
+        weight: 95,
+        gender: "female",
+        goal: "build_muscle",
+        targetCalories: 1200,
+      },
+      now: new Date("2026-05-28T09:00:00+08:00"),
+    })
+
+    expect(snapshot.macroTargets.protein).toBeGreaterThan(0)
+    expect(snapshot.macroTargets.fat).toBeGreaterThan(0)
+    expect(snapshot.macroTargets.carbohydrates).toBe(0)
+    expect(snapshot.remainingMacros.carbohydrates).toBe(0)
+  })
+
   it("infers remaining meal slots from current time and already logged meals", () => {
     expect(
       inferRemainingMealSlots({

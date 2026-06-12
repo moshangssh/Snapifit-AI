@@ -579,10 +579,14 @@ function DashboardContent() {
       : "empty"
 
   const macroTargets = mealPlanBudgetSnapshot.macroTargets
-  const macroPctV2 = (g: number, target: number) =>
+  const hasMacroTarget = (target: number) =>
     mealPlanBudgetSnapshot.targetCalories > 0 && target > 0
+  const macroPctV2 = (g: number, target: number) =>
+    hasMacroTarget(target)
       ? Math.min(Math.max((g / target) * 100, 0), 100)
       : 0
+  const macroOver = (g: number, target: number) =>
+    hasMacroTarget(target) && g > target
 
   const handleMealPlanSuggestionSave = (suggestion: MealPlanSuggestion) => {
     if (
@@ -792,9 +796,12 @@ function DashboardContent() {
                     {Math.round(macros.carbs)}
                     {macroTargets.carbohydrates > 0 && <span className="target">/{macroTargets.carbohydrates} g</span>}
                     {macroTargets.carbohydrates === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.carbs, macroTargets.carbohydrates) && (
+                      <span className="over">超 {Math.round(macros.carbs - macroTargets.carbohydrates)}g</span>
+                    )}
                   </div>
                   <div className="hero-bar">
-                    <i style={{ width: `${macroPctV2(macros.carbs, macroTargets.carbohydrates)}%`, background: "hsl(var(--c-food))" }} />
+                    <i style={{ width: `${macroPctV2(macros.carbs, macroTargets.carbohydrates)}%`, background: macroOver(macros.carbs, macroTargets.carbohydrates) ? "hsl(var(--c-exercise))" : "hsl(var(--c-food))" }} />
                   </div>
                   <div className="macro-name">碳水化合物</div>
                 </div>
@@ -803,9 +810,12 @@ function DashboardContent() {
                     {Math.round(macros.protein)}
                     {macroTargets.protein > 0 && <span className="target">/{macroTargets.protein} g</span>}
                     {macroTargets.protein === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.protein, macroTargets.protein) && (
+                      <span className="over">超 {Math.round(macros.protein - macroTargets.protein)}g</span>
+                    )}
                   </div>
                   <div className="hero-bar">
-                    <i style={{ width: `${macroPctV2(macros.protein, macroTargets.protein)}%`, background: "hsl(var(--c-exercise))" }} />
+                    <i style={{ width: `${macroPctV2(macros.protein, macroTargets.protein)}%`, background: macroOver(macros.protein, macroTargets.protein) ? "hsl(var(--c-food))" : "hsl(var(--c-exercise))" }} />
                   </div>
                   <div className="macro-name">蛋白质</div>
                 </div>
@@ -814,9 +824,12 @@ function DashboardContent() {
                     {Math.round(macros.fat)}
                     {macroTargets.fat > 0 && <span className="target">/{macroTargets.fat} g</span>}
                     {macroTargets.fat === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.fat, macroTargets.fat) && (
+                      <span className="over">超 {Math.round(macros.fat - macroTargets.fat)}g</span>
+                    )}
                   </div>
                   <div className="hero-bar">
-                    <i style={{ width: `${macroPctV2(macros.fat, macroTargets.fat)}%`, background: "hsl(var(--c-status))" }} />
+                    <i style={{ width: `${macroPctV2(macros.fat, macroTargets.fat)}%`, background: macroOver(macros.fat, macroTargets.fat) ? "hsl(var(--c-exercise))" : "hsl(var(--c-status))" }} />
                   </div>
                   <div className="macro-name">脂肪</div>
                 </div>

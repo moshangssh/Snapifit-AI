@@ -207,6 +207,7 @@
   .macro-cell { @apply flex flex-col gap-1; }
   .macro-top  { @apply text-[13px] font-semibold tabular-nums tracking-tight; }
   .macro-top .target { @apply font-medium text-muted-foreground; }
+  .macro-top .over { @apply ml-1 text-[11px] font-semibold; color: hsl(var(--c-exercise)); }
   .macro-name { @apply text-[11px] tracking-wide text-muted-foreground; }
 
   /* 通用提醒 banner */

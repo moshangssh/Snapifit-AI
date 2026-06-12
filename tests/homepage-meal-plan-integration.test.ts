@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
+// 结构性断言:app/page.tsx 真渲染需要 IndexedDB / next-router / 一打 client hook,
+// 代价与收益不成比例。这里只锚定卡片接线(导入、渲染门槛、props、防陈旧保存),
+// 卡片自身的渲染行为由 what-can-i-eat-card.test.tsx 真渲染覆盖。
 describe("what can I eat homepage integration", () => {
   const source = readFileSync(join(process.cwd(), "app/page.tsx"), "utf8")
 

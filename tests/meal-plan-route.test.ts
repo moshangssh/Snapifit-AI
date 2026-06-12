@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { MealPlanResponseSchema } from "@/lib/ai/schemas/meal-plan"
 
 const {
   createAIClientMock,
@@ -23,11 +22,6 @@ vi.mock("@/lib/ai/client", () => ({
   extractAIConfig: extractAIConfigMock,
   validateModelConfig: validateModelConfigMock,
 }))
-
-const source = readFileSync(
-  join(process.cwd(), "app/api/ai/meal-plan/route.ts"),
-  "utf8",
-)
 
 const validAIConfig = {
   agentModel: {
@@ -121,7 +115,7 @@ function createBaseBody() {
   }
 }
 
-describe("meal plan route source", () => {
+describe("meal plan route", () => {
   beforeEach(() => {
     createAIClientMock.mockReset().mockReturnValue("mock-model")
     extractAIConfigMock.mockReset().mockReturnValue(validAIConfig)
@@ -129,33 +123,77 @@ describe("meal plan route source", () => {
     validateModelConfigMock.mockReset()
   })
 
-  it("uses structured generation with the meal plan schema", () => {
-    expect(source).toContain("generateObject")
-    expect(source).toContain("MealPlanResponseSchema")
+  it("calls generateObject with the meal plan schema in json mode", async () => {
+    const { POST } = await import("@/app/api/ai/meal-plan/route")
+
+    generateObjectMock.mockResolvedValueOnce({
+      object: createMealPlanResponse([500, 450, 430]),
+    })
+
+    await POST(createRequest(createBaseBody()))
+
+    const call = generateObjectMock.mock.calls[0]?.[0]
+    expect(call?.schema).toBe(MealPlanResponseSchema)
+    expect(call?.mode).toBe("json")
   })
 
-  it("validates budget and retries once", () => {
-    expect(source).toContain("validateMealPlanBudget")
-    expect(source).toContain("attempt < 2")
+  it("does not retry once the first response already fits the budget", async () => {
+    const { POST } = await import("@/app/api/ai/meal-plan/route")
+
+    generateObjectMock.mockResolvedValueOnce({
+      object: createMealPlanResponse([500, 450, 430]),
+    })
+
+    const response = await POST(createRequest(createBaseBody()))
+
+    expect(response.status).toBe(200)
+    expect(generateObjectMock).toHaveBeenCalledTimes(1)
   })
 
-  it("selects the protein pick on the server", () => {
-    expect(source).toContain("markProteinPick")
-    expect(source).toContain("calculateMinProteinPickGrams")
-    expect(source).toContain("protein-smart")
-    expect(source).toContain("蛋白至少")
+  it("asks the model for a protein-smart option at the scaled floor", async () => {
+    const { POST } = await import("@/app/api/ai/meal-plan/route")
+
+    generateObjectMock.mockResolvedValueOnce({
+      object: createMealPlanResponse([500, 450, 430]),
+    })
+
+    await POST(createRequest(createBaseBody()))
+
+    const prompt = generateObjectMock.mock.calls[0]?.[0]?.prompt as string
+    // 剩余蛋白 30g,maxAllowed 525,缩放上限远高于 30,故保底取 30
+    expect(prompt).toContain("protein-smart")
+    expect(prompt).toContain("蛋白至少 30g")
   })
 
-  it("asks for three eating options instead of meal plans", () => {
-    expect(source).toContain("3 个互斥的「吃法」")
-    expect(source).toContain("不要输出 plans")
-    expect(source).not.toContain("high_protein 方案")
+  it("asks for three mutually exclusive eating options and forbids whole-day plans", async () => {
+    const { POST } = await import("@/app/api/ai/meal-plan/route")
+
+    generateObjectMock.mockResolvedValueOnce({
+      object: createMealPlanResponse([500, 450, 430]),
+    })
+
+    await POST(createRequest(createBaseBody()))
+
+    const prompt = generateObjectMock.mock.calls[0]?.[0]?.prompt as string
+    expect(prompt).toContain("3 个互斥的「吃法」")
+    expect(prompt).toContain("不要输出 plans")
+    expect(prompt).not.toContain("high_protein 方案")
   })
 
-  it("uses agent model configuration from request headers", () => {
-    expect(source).toContain("extractAIConfig")
-    expect(source).toContain("validateModelConfig(aiConfig.agentModel)")
-    expect(source).toContain("createAIClient(aiConfig.agentModel)")
+  it("validates the model config and builds the client from the request agent model", async () => {
+    const { POST } = await import("@/app/api/ai/meal-plan/route")
+
+    generateObjectMock.mockResolvedValueOnce({
+      object: createMealPlanResponse([500, 450, 430]),
+    })
+
+    await POST(createRequest(createBaseBody()))
+
+    expect(extractAIConfigMock).toHaveBeenCalledTimes(1)
+    expect(validateModelConfigMock).toHaveBeenCalledWith(
+      validAIConfig.agentModel,
+    )
+    expect(createAIClientMock).toHaveBeenCalledWith(validAIConfig.agentModel)
   })
 
   it("returns INVALID_INPUT when required fields are missing", async () => {

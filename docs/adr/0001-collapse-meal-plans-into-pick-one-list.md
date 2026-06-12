@@ -14,5 +14,5 @@
 ## Consequences
 
 - 持久化结构 `MealPlanSuggestion` 移除 `plans`;`MealPlanType` / `MealPlanOption` / `MealPlanMeal` / `MealPlanDisplayMode` 退役。历史 `DailyLog.mealPlanSuggestion` 中的旧 `plans` 视为当天临时数据,读取时容忍、不渲染,不做迁移。
-- `validateMealPlanBudget` 从「按 plan 类型校验」改为「每条 ≤ 剩余×1.05 且至少一条蛋白达标」。`calculateMinHighProteinGrams` 中按整套热量定的 0.35 上限需按单顿重新调参。
+- `validateMealPlanBudget` 从「按 plan 类型校验」改为「每条 ≤ 剩余×1.05 且至少一条蛋白达标」。蛋白保底改由 `calculateMinProteinPickGrams` 按单顿口径计算:取「当日剩余蛋白」与「单顿热量上限 × `SINGLE_MEAL_PROTEIN_CALORIE_SHARE`(0.55)÷ 4」的较小值;旧整套热量 0.35 上限已据此调参完成。
 - 放弃了「全天编排 / 多套完整方案」的能力——这是刻意的取舍,换取简洁与预算口径的一致性。
