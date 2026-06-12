@@ -107,6 +107,60 @@ export interface PeriodSmartAnalysisResponse {
   suggestions: SmartSuggestionCategory[]
 }
 
+export type PlannedTrainingType =
+  | "rest"
+  | "strength"
+  | "strength_cardio"
+  | "high_output"
+
+export interface MealPlanNutritionEstimate {
+  calories: number
+  protein: number
+  carbohydrates: number
+  fat: number
+}
+
+export interface MealPlanItem {
+  title: string
+  kind: "combo" | "single"
+  foods: string[]
+  portionHint: string
+  bestFor: string
+  nutrition: MealPlanNutritionEstimate
+  isProteinPick?: boolean
+  slightlyOverBudget?: boolean
+  warning?: string
+}
+
+export interface MealPlanBudgetSnapshot {
+  date: string
+  baselineExpenditure: number
+  recordedExerciseCalories: number
+  targetCalories: number
+  consumedCalories: number
+  remainingCalories: number
+  macroTargets: {
+    protein: number
+    carbohydrates: number
+    fat: number
+  }
+  remainingMacros: {
+    protein: number
+    carbohydrates: number
+    fat: number
+  }
+  remainingMealSlots: Array<"breakfast" | "lunch" | "dinner" | "snack">
+  summaryText: string
+}
+
+export interface MealPlanSuggestion {
+  generatedAt: string
+  inputPreference: string
+  budgetSnapshot: MealPlanBudgetSnapshot
+  summary: string
+  items: MealPlanItem[]
+}
+
 // 每日状态记录类型
 export interface DailyStatus {
   stress: number // 压力水平 1-6
@@ -137,6 +191,9 @@ export interface DailyLog {
   dailyTotalExpenditure?: number // 今日总消耗 = baselineExpenditure + summary.totalCaloriesBurned
   tefAnalysis?: TEFAnalysis // TEF 分析结果
   dailyStatus?: DailyStatus // 每日状态记录
+  /** @deprecated 旧版「今天还能吃什么」训练强度字段。新流程不再写入或用于预算。 */
+  plannedTrainingType?: PlannedTrainingType
+  mealPlanSuggestion?: MealPlanSuggestion
 }
 
 // 用户配置类型

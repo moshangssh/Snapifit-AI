@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { Suspense, useState, useEffect, useMemo } from "react"
+import { Suspense, useState, useEffect, useMemo, useRef } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import Link from "next/link"
@@ -32,10 +32,20 @@ import { Tile } from "@/components/ui/tile"
 import { Ring } from "@/components/ui/ring"
 import { ProgressBar } from "@/components/ui/progress-bar"
 import { useToast } from "@/hooks/use-toast"
-import type { FoodEntry, ExerciseEntry, DailyLog, AIConfig, DailyStatus, UserProfile } from "@/lib/types"
+import type {
+  FoodEntry,
+  ExerciseEntry,
+  DailyLog,
+  AIConfig,
+  DailyStatus,
+  UserProfile,
+  MealPlanSuggestion,
+  SmartSuggestionsResponse,
+} from "@/lib/types"
 import { FoodEntryCard } from "@/components/food-entry-card"
 import { ExerciseEntryCard } from "@/components/exercise-entry-card"
 import { MuscleFatigueCard } from "@/components/muscle-fatigue-card"
+import { WhatCanIEatCard } from "@/components/what-can-i-eat-card"
 import { ManagementCharts } from "@/components/management-charts"
 import { SmartSuggestions } from "@/components/smart-suggestions"
 import { DailyStatusSummary } from "@/components/daily-status-summary"
@@ -45,12 +55,12 @@ import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useDateRecords } from "@/hooks/use-date-records"
 import { calculateMetabolicRates } from "@/lib/health-utils"
+import { buildMealPlanBudgetSnapshot } from "@/lib/meal-planning"
 import { syncProfileWeightFromDailyLog } from "@/lib/profile-weight"
 import { scheduleTEFAnalysisForLog } from "@/lib/tef-background-analysis"
 import { formatDateParam, parseDateParam } from "@/lib/date-params"
 import { resolveSmartSuggestionsForDate } from "@/lib/smart-suggestions-history"
 import { cn } from "@/lib/utils"
-import type { SmartSuggestionsResponse } from "@/lib/types"
 
 function DashboardContent() {
   const searchParams = useSearchParams()
@@ -59,6 +69,11 @@ function DashboardContent() {
   const dateParamRaw = searchParams.get("date")
   const selectedDate = useMemo(() => parseDateParam(dateParamRaw), [dateParamRaw])
   const dateParam = formatDateParam(selectedDate)
+  const currentDateParamRef = useRef(dateParam)
+
+  useEffect(() => {
+    currentDateParamRef.current = dateParam
+  }, [dateParam])
 
   const setSelectedDate = (date: Date) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -453,6 +468,13 @@ function DashboardContent() {
   const dailyTotalExpenditure = baselineExpenditure + totalCaloriesBurned
   const calorieDelta = totalCaloriesConsumed - dailyTotalExpenditure // 负数 = 缺口，正数 = 盈余
   const macros = dailyLog.summary.macros ?? { carbs: 0, protein: 0, fat: 0 }
+  const isCurrentLogReady =
+    isLogLoaded && !dbInitializing && dailyLog.date === dateParam
+  const mealPlanBudgetSnapshot = buildMealPlanBudgetSnapshot({
+    log: dailyLog,
+    userProfile,
+    now: new Date(),
+  })
 
   // TEF 状态展示
   const tef = dailyLog.tefAnalysis
@@ -556,17 +578,30 @@ function DashboardContent() {
       ? "done"
       : "empty"
 
-  const totalKcalTarget =
-    (userProfile.targetCalories && userProfile.targetCalories > 0)
-      ? userProfile.targetCalories
-      : baselineExpenditure
-  const macroTargets = {
-    carbs:   totalKcalTarget > 0 ? Math.round(totalKcalTarget * 0.5 / 4) : 0,
-    protein: totalKcalTarget > 0 ? Math.round(totalKcalTarget * 0.2 / 4) : 0,
-    fat:     totalKcalTarget > 0 ? Math.round(totalKcalTarget * 0.3 / 9) : 0,
-  }
+  const macroTargets = mealPlanBudgetSnapshot.macroTargets
+  const hasMacroTarget = (target: number) =>
+    mealPlanBudgetSnapshot.targetCalories > 0 && target > 0
   const macroPctV2 = (g: number, target: number) =>
-    target > 0 ? Math.min(Math.max((g / target) * 100, 0), 100) : 0
+    hasMacroTarget(target)
+      ? Math.min(Math.max((g / target) * 100, 0), 100)
+      : 0
+  const macroOver = (g: number, target: number) =>
+    hasMacroTarget(target) && g > target
+
+  const handleMealPlanSuggestionSave = (suggestion: MealPlanSuggestion) => {
+    if (
+      !isCurrentLogReady ||
+      dailyLog.date !== currentDateParamRef.current ||
+      suggestion.budgetSnapshot.date !== currentDateParamRef.current
+    ) {
+      return
+    }
+
+    const updatedLog = { ...dailyLog, mealPlanSuggestion: suggestion }
+    setDailyLog(updatedLog)
+    saveDailyLog(updatedLog.date, updatedLog)
+    refreshRecords()
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -759,11 +794,14 @@ function DashboardContent() {
                 <div className="macro-cell">
                   <div className="macro-top">
                     {Math.round(macros.carbs)}
-                    {macroTargets.carbs > 0 && <span className="target">/{macroTargets.carbs} g</span>}
-                    {macroTargets.carbs === 0 && <span className="target"> g</span>}
+                    {macroTargets.carbohydrates > 0 && <span className="target">/{macroTargets.carbohydrates} g</span>}
+                    {macroTargets.carbohydrates === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.carbs, macroTargets.carbohydrates) && (
+                      <span className="over">超 {Math.round(macros.carbs - macroTargets.carbohydrates)}g</span>
+                    )}
                   </div>
                   <div className="hero-bar">
-                    <i style={{ width: `${macroPctV2(macros.carbs, macroTargets.carbs)}%`, background: "hsl(var(--c-food))" }} />
+                    <i style={{ width: `${macroPctV2(macros.carbs, macroTargets.carbohydrates)}%`, background: macroOver(macros.carbs, macroTargets.carbohydrates) ? "hsl(var(--c-exercise))" : "hsl(var(--c-food))" }} />
                   </div>
                   <div className="macro-name">碳水化合物</div>
                 </div>
@@ -772,9 +810,12 @@ function DashboardContent() {
                     {Math.round(macros.protein)}
                     {macroTargets.protein > 0 && <span className="target">/{macroTargets.protein} g</span>}
                     {macroTargets.protein === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.protein, macroTargets.protein) && (
+                      <span className="over">超 {Math.round(macros.protein - macroTargets.protein)}g</span>
+                    )}
                   </div>
                   <div className="hero-bar">
-                    <i style={{ width: `${macroPctV2(macros.protein, macroTargets.protein)}%`, background: "hsl(var(--c-exercise))" }} />
+                    <i style={{ width: `${macroPctV2(macros.protein, macroTargets.protein)}%`, background: macroOver(macros.protein, macroTargets.protein) ? "hsl(var(--c-food))" : "hsl(var(--c-exercise))" }} />
                   </div>
                   <div className="macro-name">蛋白质</div>
                 </div>
@@ -783,15 +824,30 @@ function DashboardContent() {
                     {Math.round(macros.fat)}
                     {macroTargets.fat > 0 && <span className="target">/{macroTargets.fat} g</span>}
                     {macroTargets.fat === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.fat, macroTargets.fat) && (
+                      <span className="over">超 {Math.round(macros.fat - macroTargets.fat)}g</span>
+                    )}
                   </div>
                   <div className="hero-bar">
-                    <i style={{ width: `${macroPctV2(macros.fat, macroTargets.fat)}%`, background: "hsl(var(--c-status))" }} />
+                    <i style={{ width: `${macroPctV2(macros.fat, macroTargets.fat)}%`, background: macroOver(macros.fat, macroTargets.fat) ? "hsl(var(--c-exercise))" : "hsl(var(--c-status))" }} />
                   </div>
                   <div className="macro-name">脂肪</div>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {checkAIConfig() && isCurrentLogReady && (
+            <WhatCanIEatCard
+              dailyLog={dailyLog}
+              userProfile={userProfile}
+              aiConfig={aiConfig}
+              budgetSnapshot={mealPlanBudgetSnapshot}
+              suggestion={dailyLog.mealPlanSuggestion}
+              workbenchHref={`/workbench?date=${dateParam}`}
+              onSuggestionSave={handleMealPlanSuggestionSave}
+            />
+          )}
 
           {/* Card 3 — 今日恢复状态 (MuscleFatigueCard 自带 card chrome) */}
           <MuscleFatigueCard selectedDate={selectedDate} refreshTrigger={chartRefreshTrigger} />

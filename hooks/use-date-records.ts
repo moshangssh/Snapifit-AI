@@ -46,6 +46,8 @@ export function useDateRecords(): DateRecordsHook {
                   (log.exerciseEntries && log.exerciseEntries.length > 0) ||
                   log.weight !== undefined ||
                   log.dailyStatus ||
+                  log.plannedTrainingType ||
+                  log.mealPlanSuggestion ||
                   log.calculatedBMR ||
                   log.calculatedTDEE ||
                   log.tefAnalysis)
