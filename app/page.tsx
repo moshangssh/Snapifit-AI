@@ -578,17 +578,11 @@ function DashboardContent() {
       ? "done"
       : "empty"
 
-  const totalKcalTarget =
-    (userProfile.targetCalories && userProfile.targetCalories > 0)
-      ? userProfile.targetCalories
-      : baselineExpenditure
-  const macroTargets = {
-    carbs:   totalKcalTarget > 0 ? Math.round(totalKcalTarget * 0.5 / 4) : 0,
-    protein: totalKcalTarget > 0 ? Math.round(totalKcalTarget * 0.2 / 4) : 0,
-    fat:     totalKcalTarget > 0 ? Math.round(totalKcalTarget * 0.3 / 9) : 0,
-  }
+  const macroTargets = mealPlanBudgetSnapshot.macroTargets
   const macroPctV2 = (g: number, target: number) =>
-    target > 0 ? Math.min(Math.max((g / target) * 100, 0), 100) : 0
+    mealPlanBudgetSnapshot.targetCalories > 0 && target > 0
+      ? Math.min(Math.max((g / target) * 100, 0), 100)
+      : 0
 
   const handleMealPlanSuggestionSave = (suggestion: MealPlanSuggestion) => {
     if (
@@ -796,11 +790,11 @@ function DashboardContent() {
                 <div className="macro-cell">
                   <div className="macro-top">
                     {Math.round(macros.carbs)}
-                    {macroTargets.carbs > 0 && <span className="target">/{macroTargets.carbs} g</span>}
-                    {macroTargets.carbs === 0 && <span className="target"> g</span>}
+                    {macroTargets.carbohydrates > 0 && <span className="target">/{macroTargets.carbohydrates} g</span>}
+                    {macroTargets.carbohydrates === 0 && <span className="target"> g</span>}
                   </div>
                   <div className="hero-bar">
-                    <i style={{ width: `${macroPctV2(macros.carbs, macroTargets.carbs)}%`, background: "hsl(var(--c-food))" }} />
+                    <i style={{ width: `${macroPctV2(macros.carbs, macroTargets.carbohydrates)}%`, background: "hsl(var(--c-food))" }} />
                   </div>
                   <div className="macro-name">碳水化合物</div>
                 </div>
