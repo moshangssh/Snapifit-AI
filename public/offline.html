@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FAFAF7" />
+  <title>离线 · SnapFit AI</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #FAFAF7;
+      color: #1C1C1E;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Source Han Sans SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+    main {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: #fff;
+      border: 1px solid #E7E5DE;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
+    }
+    p {
+      font-size: 14px;
+      color: #6B6B6F;
+      margin: 0 0 24px;
+      max-width: 320px;
+    }
+    button {
+      appearance: none;
+      border: 1px solid #1C1C1E;
+      background: #1C1C1E;
+      color: #fff;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 10px 20px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    button:active { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="logo" aria-hidden="true">S</div>
+    <h1>暂时连不上网</h1>
+    <p>请检查网络后重试。已缓存的页面仍可访问。</p>
+    <button onclick="location.reload()">重新加载</button>
+  </main>
+</body>
+</html>

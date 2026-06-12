@@ -2,81 +2,117 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { Suspense, useState, useEffect, useMemo, useRef } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import Link from "next/link"
-import { CalendarIcon, X, ImageIcon, Brain, ClipboardPenLine, Utensils, Dumbbell, Weight, Activity, AlertCircle, CheckCircle2, Info, Settings2, UploadCloud, Trash2, Edit3, TrendingUp, TrendingDown, Sigma, Flame, BedDouble, Target, PieChart, ListChecks, Sparkles, Save, CalendarDays, UserCheck, AlertTriangle, Clock } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import {
+  ClipboardPenLine,
+  Utensils,
+  Flame,
+  CalendarDays,
+  ChevronRight,
+  ChevronDown,
+  RotateCcw,
+  Trash2,
+  Edit3,
+  CheckCircle2,
+  AlertCircle,
+  Settings as SettingsIcon,
+  Loader2,
+  Zap,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Progress } from "@/components/ui/progress"
+import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/ui/page-header"
+import { Tile } from "@/components/ui/tile"
+import { Ring } from "@/components/ui/ring"
+import { ProgressBar } from "@/components/ui/progress-bar"
 import { useToast } from "@/hooks/use-toast"
-import type { FoodEntry, ExerciseEntry, DailyLog, AIConfig, DailyStatus } from "@/lib/types"
+import type {
+  FoodEntry,
+  ExerciseEntry,
+  DailyLog,
+  AIConfig,
+  DailyStatus,
+  UserProfile,
+  MealPlanSuggestion,
+  SmartSuggestionsResponse,
+} from "@/lib/types"
 import { FoodEntryCard } from "@/components/food-entry-card"
 import { ExerciseEntryCard } from "@/components/exercise-entry-card"
 import { MuscleFatigueCard } from "@/components/muscle-fatigue-card"
-import { DailySummary } from "@/components/daily-summary"
+import { WhatCanIEatCard } from "@/components/what-can-i-eat-card"
 import { ManagementCharts } from "@/components/management-charts"
 import { SmartSuggestions } from "@/components/smart-suggestions"
-import { DailyStatusCard } from "@/components/DailyStatusCard"
+import { DailyStatusSummary } from "@/components/daily-status-summary"
+import { TodayWeightCard } from "@/components/today-weight-card"
+import { BackupAlert } from "@/components/backup-alert"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
-import { useExportReminder } from "@/hooks/use-export-reminder"
 import { useDateRecords } from "@/hooks/use-date-records"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { compressImage } from "@/lib/image-utils"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { calculateMetabolicRates } from "@/lib/health-utils"
-import { generateTEFAnalysis } from "@/lib/tef-utils"
-import { tefCacheManager } from "@/lib/tef-cache"
-import type { SmartSuggestionsResponse } from "@/lib/types"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { buildMealPlanBudgetSnapshot } from "@/lib/meal-planning"
+import { syncProfileWeightFromDailyLog } from "@/lib/profile-weight"
+import { scheduleTEFAnalysisForLog } from "@/lib/tef-background-analysis"
+import { formatDateParam, parseDateParam } from "@/lib/date-params"
+import { resolveSmartSuggestionsForDate } from "@/lib/smart-suggestions-history"
+import { cn } from "@/lib/utils"
 
-// 图片预览类型
-interface ImagePreview {
-  file: File
-  url: string
-  compressedFile?: File
-}
+function DashboardContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const dateParamRaw = searchParams.get("date")
+  const selectedDate = useMemo(() => parseDateParam(dateParamRaw), [dateParamRaw])
+  const dateParam = formatDateParam(selectedDate)
+  const currentDateParamRef = useRef(dateParam)
 
-export default function Dashboard() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  useEffect(() => {
+    currentDateParamRef.current = dateParam
+  }, [dateParam])
+
+  const setSelectedDate = (date: Date) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("date", formatDateParam(date))
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  const jumpToToday = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("date")
+    const queryStr = params.toString()
+    router.replace(queryStr ? `${pathname}?${queryStr}` : pathname, { scroll: false })
+  }
+
+  const isToday = dateParam === formatDateParam(new Date())
 
   const currentLocale = zhCN
-  const [inputText, setInputText] = useState("")
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [activeTab, setActiveTab] = useState("food")
   const { toast } = useToast()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [currentDayWeight, setCurrentDayWeight] = useState<string>("")
-  const [currentDayActivityLevelForSelect, setCurrentDayActivityLevelForSelect] = useState<string>("")
   const [chartRefreshTrigger, setChartRefreshTrigger] = useState<number>(0)
   const [tefAnalysisCountdown, setTEFAnalysisCountdown] = useState(0)
   const [smartSuggestionsLoading, setSmartSuggestionsLoading] = useState(false)
-
-  // 图片上传状态
-  const [uploadedImages, setUploadedImages] = useState<ImagePreview[]>([])
-  const [isCompressing, setIsCompressing] = useState(false)
+  const [foodListExpanded, setFoodListExpanded] = useState(false)
+  const [exerciseListExpanded, setExerciseListExpanded] = useState(false)
+  const ENTRY_PREVIEW = 3
 
   // 使用本地存储钩子获取用户配置
-  const [userProfile] = useLocalStorage("userProfile", {
-    weight: 70,
-    height: 170,
-    age: 30,
-    gender: "male",
-    activityLevel: "moderate",
-    goal: "maintain",
-    bmrFormula: "mifflin-st-jeor" as "mifflin-st-jeor",
-  })
+  const [userProfile, setUserProfile, isUserProfileHydrated] =
+    useLocalStorage<UserProfile>("userProfile", {
+      weight: 70,
+      height: 170,
+      age: 30,
+      gender: "male",
+      activityLevel: "moderate",
+      goal: "maintain",
+      bmrFormula: "mifflin-st-jeor" as "mifflin-st-jeor",
+    })
 
   // 获取AI配置
-  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", {
+  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
     agentModel: {
       name: "gpt-4o",
       baseUrl: "https://api.openai.com",
@@ -95,16 +131,10 @@ export default function Dashboard() {
   })
 
   // 使用 IndexedDB 钩子获取日志数据
-  const { getData: getDailyLog, saveData: saveDailyLog, isLoading } = useIndexedDB("healthLogs")
-
-  // 使用导出提醒Hook
-  const exportReminder = useExportReminder()
+  const { getData: getDailyLog, saveData: saveDailyLog, isInitializing: dbInitializing } = useIndexedDB("healthLogs")
 
   // 使用日期记录检查Hook
   const { hasRecord, refreshRecords } = useDateRecords()
-
-  // 使用移动端检测Hook
-  const isMobile = useIsMobile()
 
   const [dailyLog, setDailyLog] = useState<DailyLog>(() => ({
     date: format(selectedDate, "yyyy-MM-dd"),
@@ -117,21 +147,23 @@ export default function Dashboard() {
       micronutrients: {},
     },
     weight: undefined,
-    activityLevel: userProfile.activityLevel || "moderate",
     calculatedBMR: undefined,
-    calculatedTDEE: undefined,
+    baselineExpenditure: undefined,
   }))
+
+  // 守卫:dailyLog 是否已从 IndexedDB 加载完毕。
+  // 用于阻止依赖 saveDailyLog 的派生 effect 在数据加载完成前
+  // 用空骨架 state 覆盖 IndexedDB 中的真实数据。
+  const [isLogLoaded, setIsLogLoaded] = useState(false)
 
   // 当选择的日期变化时，加载对应日期的数据
   useEffect(() => {
+    if (dbInitializing) return
     const dateKey = format(selectedDate, "yyyy-MM-dd")
+    setIsLogLoaded(false)
     getDailyLog(dateKey).then((data) => {
-      console.log("从IndexedDB读取到的数据：", data)
-      const defaultActivity = userProfile.activityLevel || "moderate"
       if (data) {
         setDailyLog(data)
-        setCurrentDayWeight(data.weight ? data.weight.toString() : "")
-        setCurrentDayActivityLevelForSelect(data.activityLevel || defaultActivity)
       } else {
         setDailyLog({
           date: dateKey,
@@ -144,74 +176,85 @@ export default function Dashboard() {
             micronutrients: {},
           },
           weight: undefined,
-          activityLevel: defaultActivity,
           calculatedBMR: undefined,
-          calculatedTDEE: undefined,
+          baselineExpenditure: undefined,
         })
-        setCurrentDayWeight("")
-        setCurrentDayActivityLevelForSelect(defaultActivity)
       }
+      setIsLogLoaded(true)
     })
-  }, [selectedDate, getDailyLog, userProfile.activityLevel])
+  }, [selectedDate, getDailyLog, dbInitializing])
 
-  // 辅助 useEffect 来监控 dailyLog 状态的变化
-  // useEffect(() => {
-  //   console.log("[State Monitor] dailyLog state has changed to:", JSON.parse(JSON.stringify(dailyLog)));
-  // }, [dailyLog]);
+  // 检查AI配置是否完整(仅在自动 TEF / 智能建议流程中使用,均不涉及视觉模型)
+  const checkAIConfig = () => {
+    const modelConfig = aiConfig.agentModel
 
-  // TEF 分析功能
-  const performTEFAnalysis = async (foodEntries: FoodEntry[]) => {
-    if (!foodEntries.length || !checkAIConfig()) return null;
-
-    try {
-      const response = await fetch("/api/ai/tef-analysis", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-ai-config": JSON.stringify(aiConfig),
-        },
-        body: JSON.stringify({ foodEntries }),
-      });
-
-      if (!response.ok) {
-        console.warn("TEF analysis failed:", response.statusText);
-        return null;
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.warn("TEF analysis error:", error);
-      return null;
+    if (!modelConfig.name || !modelConfig.baseUrl || !modelConfig.apiKey) {
+      return false
     }
-  };
+    return true
+  }
+
+  const prepareLogWithMetabolicRates = (log: DailyLog): DailyLog => {
+    const additionalTEF = log.tefAnalysis
+      ? log.tefAnalysis.enhancedTEF - log.tefAnalysis.baseTEF
+      : undefined
+    const rates = calculateMetabolicRates(userProfile, {
+      weight: log.weight,
+      additionalTEF,
+    })
+
+    if (!rates) return log
+    return {
+      ...log,
+      calculatedBMR: rates.bmr,
+      baselineExpenditure: rates.baselineExpenditure,
+    }
+  }
 
   // 智能建议localStorage存储
-  const [smartSuggestions, setSmartSuggestions] = useLocalStorage<Record<string, SmartSuggestionsResponse>>('smartSuggestions', {});
+  const [smartSuggestions, setSmartSuggestions] = useLocalStorage<Record<string, SmartSuggestionsResponse>>('smartSuggestions', {})
+  const resolvedSmartSuggestions = useMemo(
+    () => resolveSmartSuggestionsForDate(smartSuggestions, dailyLog.date),
+    [smartSuggestions, dailyLog.date],
+  )
 
   // 智能建议功能
   const generateSmartSuggestions = async (targetDate?: string) => {
-    if (!checkAIConfig()) return;
+    if (!aiConfig.agentModel.name || !aiConfig.agentModel.baseUrl || !aiConfig.agentModel.apiKey) {
+      toast({
+        title: (
+          <span className="flex items-center">
+            <AlertCircle className="mr-2 h-5 w-5 text-c-exercise" />
+            AI 未配置
+          </span>
+        ),
+        description: "请先在设置中配置代理模型(agentModel)的 API key 和地址。",
+        variant: "destructive",
+      })
+      return
+    }
+    if (!checkAIConfig()) return
 
-    const analysisDate = targetDate || dailyLog.date;
-    const targetLog = targetDate ? await getDailyLog(targetDate) : dailyLog;
+    const analysisDate = targetDate || dailyLog.date
+    const targetLog = targetDate ? await getDailyLog(targetDate) : dailyLog
 
     if (!targetLog || targetLog.foodEntries.length === 0) {
-      console.warn("No data available for smart suggestions on", analysisDate);
-      return;
+      console.warn("No data available for smart suggestions on", analysisDate)
+      return
     }
 
-    setSmartSuggestionsLoading(true);
+    setSmartSuggestionsLoading(true)
     try {
       // 获取目标日期前7天的数据
-      const recentLogs = [];
-      const targetDateObj = new Date(analysisDate);
+      const recentLogs = []
+      const targetDateObj = new Date(analysisDate)
       for (let i = 0; i < 7; i++) {
-        const date = new Date(targetDateObj);
-        date.setDate(date.getDate() - i);
-        const dateKey = date.toISOString().split('T')[0];
-        const log = await getDailyLog(dateKey);
+        const date = new Date(targetDateObj)
+        date.setDate(date.getDate() - i)
+        const dateKey = date.toISOString().split('T')[0]
+        const log = await getDailyLog(dateKey)
         if (log && log.foodEntries.length > 0) {
-          recentLogs.push(log);
+          recentLogs.push(log)
         }
       }
 
@@ -226,427 +269,84 @@ export default function Dashboard() {
           userProfile,
           recentLogs
         }),
-      });
+      })
 
       if (!response.ok) {
-        console.warn("Smart suggestions failed:", response.statusText);
-        return;
+        console.warn("Smart suggestions failed:", response.statusText)
+        return
       }
 
-      const suggestions = await response.json();
+      const suggestions = await response.json()
 
       // 保存到localStorage
-      const newSuggestions = { ...smartSuggestions };
-      newSuggestions[analysisDate] = suggestions as SmartSuggestionsResponse;
-      setSmartSuggestions(newSuggestions);
+      const newSuggestions = { ...smartSuggestions }
+      newSuggestions[analysisDate] = suggestions as SmartSuggestionsResponse
+      setSmartSuggestions(newSuggestions)
 
     } catch (error) {
-      console.warn("Smart suggestions error:", error);
+      console.warn("Smart suggestions error:", error)
     } finally {
-      setSmartSuggestionsLoading(false);
+      setSmartSuggestionsLoading(false)
     }
-  };
+  }
 
-  // TEF 分析防抖定时器
-  const tefAnalysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // 用于跟踪食物条目的实际内容变化
-  const previousFoodEntriesHashRef = useRef<string>('');
-
-  // 当食物条目变化时，使用防抖机制重新分析TEF
+  // 当食物条目变化时，调度共享后台 TEF 分析。
   useEffect(() => {
-    const currentHash = tefCacheManager.generateFoodEntriesHash(dailyLog.foodEntries);
+    if (!isLogLoaded || !isUserProfileHydrated || !isAIConfigHydrated) return
 
-    // 检查是否已有缓存的分析结果
-    const cachedAnalysis = tefCacheManager.getCachedAnalysis(dailyLog.foodEntries);
-    if (cachedAnalysis && dailyLog.foodEntries.length > 0) {
-      // 使用缓存的分析结果
-      if (!dailyLog.tefAnalysis || JSON.stringify(dailyLog.tefAnalysis) !== JSON.stringify(cachedAnalysis)) {
-        console.log('Applying cached TEF analysis');
-        setDailyLog(currentLog => {
-          const updatedLog = {
-            ...currentLog,
-            tefAnalysis: cachedAnalysis
-          };
-          saveDailyLog(updatedLog.date, updatedLog);
-          return updatedLog;
-        });
-      }
-      previousFoodEntriesHashRef.current = currentHash;
-      return;
-    }
+    const scheduleResult = scheduleTEFAnalysisForLog({
+      log: dailyLog,
+      aiConfig,
+      saveDailyLog,
+      getDailyLog,
+      prepareLogForSave: prepareLogWithMetabolicRates,
+      onCountdownChange: setTEFAnalysisCountdown,
+      onLogUpdated: (updatedLog) => {
+        setDailyLog((currentLog) => (
+          currentLog.date === updatedLog.date ? updatedLog : currentLog
+        ))
+      },
+    })
 
-    // 检查是否需要重新分析
-    if (!tefCacheManager.shouldAnalyzeTEF(dailyLog.foodEntries, previousFoodEntriesHashRef.current)) {
-      return;
-    }
-
-    // 更新哈希引用
-    previousFoodEntriesHashRef.current = currentHash;
-
-    console.log('Food entries changed significantly, starting TEF analysis countdown...');
-
-    // 清除之前的定时器
-    if (tefAnalysisTimeoutRef.current) {
-      clearTimeout(tefAnalysisTimeoutRef.current);
-    }
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-    }
-
-    // 只有当有食物条目时才设置分析
-    if (dailyLog.foodEntries.length > 0) {
-      // 开始倒计时
-      setTEFAnalysisCountdown(15);
-
-      // 每秒更新倒计时
-      countdownIntervalRef.current = setInterval(() => {
-        setTEFAnalysisCountdown(prev => {
-          if (prev <= 1) {
-            if (countdownIntervalRef.current) {
-              clearInterval(countdownIntervalRef.current);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      // 设置15秒的防抖延迟
-      tefAnalysisTimeoutRef.current = setTimeout(() => {
-        console.log('Starting TEF analysis after 15 seconds delay...');
-        setTEFAnalysisCountdown(0);
-        performTEFAnalysis(dailyLog.foodEntries).then(tefResult => {
-          if (tefResult) {
-            // 使用本地工具计算基础TEF，并结合AI分析的乘数和因素
-            const localTEFAnalysis = generateTEFAnalysis(
-              dailyLog.foodEntries,
-              tefResult.enhancementMultiplier
-            );
-
-            const finalAnalysis = {
-              ...localTEFAnalysis,
-              // 使用AI分析的因素，如果AI没有提供则使用本地识别的
-              enhancementFactors: tefResult.enhancementFactors && tefResult.enhancementFactors.length > 0
-                ? tefResult.enhancementFactors
-                : localTEFAnalysis.enhancementFactors,
-              analysisTimestamp: tefResult.analysisTimestamp || localTEFAnalysis.analysisTimestamp,
-            };
-
-            // 缓存分析结果
-            tefCacheManager.setCachedAnalysis(dailyLog.foodEntries, finalAnalysis);
-
-            console.log('AI enhancementFactors:', tefResult.enhancementFactors);
-            console.log('Local enhancementFactors:', localTEFAnalysis.enhancementFactors);
-
-            setDailyLog(currentLog => {
-              const updatedLog = {
-                ...currentLog,
-                tefAnalysis: finalAnalysis
-              };
-              saveDailyLog(updatedLog.date, updatedLog);
-              return updatedLog;
-            });
-          }
-        }).catch(error => {
-          console.warn('TEF analysis failed:', error);
-        });
-      }, 15000); // 15秒
-    } else {
-      // 如果没有食物条目，清除TEF分析和倒计时
-      setTEFAnalysisCountdown(0);
-      if (dailyLog.tefAnalysis) {
-        setDailyLog(currentLog => {
-          const updatedLog = { ...currentLog, tefAnalysis: undefined };
-          saveDailyLog(updatedLog.date, updatedLog);
-          return updatedLog;
-        });
-      }
-    }
-
-    // 清理函数
-    return () => {
-      if (tefAnalysisTimeoutRef.current) {
-        clearTimeout(tefAnalysisTimeoutRef.current);
-      }
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
-    };
-  }, [dailyLog.foodEntries, aiConfig, saveDailyLog]);
-
-  // 当日期变化时，检查是否有该日期的智能建议
-  useEffect(() => {
-    const currentDateSuggestions = smartSuggestions[dailyLog.date];
-
-    // 如果当前日期没有建议，且有足够的数据，可以提示用户生成建议
-    if (!currentDateSuggestions && dailyLog.foodEntries.length > 0 && checkAIConfig()) {
-      console.log(`No smart suggestions found for ${dailyLog.date}, user can generate new ones`);
-    }
-  }, [dailyLog.date, smartSuggestions, dailyLog.foodEntries.length]);
+    return scheduleResult.unsubscribe
+  }, [isLogLoaded, isUserProfileHydrated, isAIConfigHydrated, dailyLog.date, dailyLog.foodEntries, dailyLog.tefAnalysis, aiConfig, saveDailyLog, getDailyLog])
 
   // 当用户配置或每日日志（特别是体重、日期和活动水平）变化时，重新计算BMR和TDEE
   useEffect(() => {
+    // 必须等真实数据和本地 profile 加载完才能算/写,否则会用默认 profile 覆盖派生值。
+    if (!isLogLoaded || !isUserProfileHydrated) return
     if (userProfile && dailyLog.date) {
-      // 计算额外的TEF增强
       const additionalTEF = dailyLog.tefAnalysis
         ? dailyLog.tefAnalysis.enhancedTEF - dailyLog.tefAnalysis.baseTEF
-        : undefined;
+        : undefined
 
       const rates = calculateMetabolicRates(userProfile, {
         weight: dailyLog.weight,
-        activityLevel: dailyLog.activityLevel,
         additionalTEF
       })
 
-      const newBmr = rates?.bmr;
-      const newTdee = rates?.tdee;
+      const newBmr = rates?.bmr
+      const newBaseline = rates?.baselineExpenditure
 
       if (
         dailyLog.calculatedBMR !== newBmr ||
-        dailyLog.calculatedTDEE !== newTdee ||
-        (rates && !dailyLog.calculatedBMR && !dailyLog.calculatedTDEE)
+        dailyLog.baselineExpenditure !== newBaseline ||
+        (rates && !dailyLog.calculatedBMR && !dailyLog.baselineExpenditure)
       ) {
         setDailyLog(currentLogState => {
           const updatedLogWithNewRates = {
             ...currentLogState,
             calculatedBMR: newBmr,
-            calculatedTDEE: newTdee,
-          };
-          // 只有在实际值发生变化时才保存，避免不必要的写入
-          if (currentLogState.calculatedBMR !== newBmr || currentLogState.calculatedTDEE !== newTdee || (rates && (!currentLogState.calculatedBMR || !currentLogState.calculatedTDEE))){
-            saveDailyLog(updatedLogWithNewRates.date, updatedLogWithNewRates);
+            baselineExpenditure: newBaseline,
           }
-          return updatedLogWithNewRates;
-        });
-      }
-    }
-  }, [userProfile, dailyLog.date, dailyLog.weight, dailyLog.activityLevel, dailyLog.tefAnalysis, saveDailyLog, dailyLog.calculatedBMR, dailyLog.calculatedTDEE]); // Added dependencies
-
-  // 处理每日活动水平变化
-  const handleDailyActivityLevelChange = (newValue: string) => {
-    setCurrentDayActivityLevelForSelect(newValue);
-    setDailyLog(prevLog => ({
-      ...prevLog,
-      activityLevel: newValue,
-    }));
-    // 触发图表刷新（因为活动水平影响TDEE计算）
-    setChartRefreshTrigger(prev => prev + 1);
-  };
-
-  // 检查AI配置是否完整
-  const checkAIConfig = () => {
-    const modelType = uploadedImages.length > 0 ? "visionModel" : "agentModel"
-    const modelConfig = aiConfig[modelType]
-
-    if (!modelConfig.name || !modelConfig.baseUrl || !modelConfig.apiKey) {
-      toast({
-        title: (
-          <span className="flex items-center">
-            <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            {"AI 配置不完整"}
-          </span>
-        ),
-        description: `请先在设置页面配置 ${uploadedImages.length > 0 ? "视觉" : "工作"} 模型。`,
-        variant: "destructive",
-      })
-      return false
-    }
-    return true
-  }
-
-  // 处理图片上传
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (!files || files.length === 0) return
-
-    if (uploadedImages.length + files.length > 5) {
-      toast({
-        title: (
-          <span className="flex items-center">
-            <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            {"图片数量超限"}
-          </span>
-        ),
-        description: "最多只能上传5张图片。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsCompressing(true)
-
-    try {
-      const newImages: ImagePreview[] = []
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-
-        if (!file.type.startsWith("image/")) {
-          toast({
-            title: (
-              <span className="flex items-center">
-                <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-                {"文件类型错误"}
-              </span>
-            ),
-            description: `${file.name} 不是图片文件。`,
-            variant: "destructive",
-          })
-          continue
-        }
-
-        const previewUrl = URL.createObjectURL(file)
-        const compressedFile = await compressImage(file, 500 * 1024) // 500KB
-
-        newImages.push({
-          file,
-          url: previewUrl,
-          compressedFile,
+          if (currentLogState.calculatedBMR !== newBmr || currentLogState.baselineExpenditure !== newBaseline || (rates && (!currentLogState.calculatedBMR || !currentLogState.baselineExpenditure))) {
+            saveDailyLog(updatedLogWithNewRates.date, updatedLogWithNewRates)
+          }
+          return updatedLogWithNewRates
         })
       }
-
-      setUploadedImages((prev) => [...prev, ...newImages])
-    } catch (error) {
-      console.error("Error processing images:", error)
-      toast({
-        title: (
-          <span className="flex items-center">
-            <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            {"图片处理失败"}
-          </span>
-        ),
-        description: "无法处理上传的图片。",
-        variant: "destructive",
-      })
-    } finally {
-      setIsCompressing(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
     }
-  }
-
-  // 删除已上传的图片
-  const handleRemoveImage = (index: number) => {
-    setUploadedImages((prev) => {
-      const newImages = [...prev]
-      URL.revokeObjectURL(newImages[index].url)
-      newImages.splice(index, 1)
-      return newImages
-    })
-  }
-
-  // 处理提交（文本+可能的图片）
-  const handleSubmit = async () => {
-    if (!inputText.trim() && uploadedImages.length === 0) {
-      toast({
-        title: (
-          <span className="flex items-center">
-            <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            {"输入为空"}
-          </span>
-        ),
-        description: "请输入文本或上传图片。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!checkAIConfig()) return
-
-    setIsProcessing(true)
-    try {
-      let result
-      const effectiveWeight = dailyLog.weight || userProfile.weight
-
-      if (uploadedImages.length > 0) {
-        const formData = new FormData()
-        formData.append("text", inputText)
-        formData.append("type", activeTab)
-        formData.append("userWeight", effectiveWeight.toString())
-        formData.append("aiConfig", JSON.stringify(aiConfig))
-        uploadedImages.forEach((img, index) => {
-          formData.append(`image${index}`, img.compressedFile || img.file)
-        })
-
-        const response = await fetch("/api/ai/parse-with-images", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: "解析失败" }))
-          throw new Error(errorData.message || "解析失败")
-        }
-        result = await response.json()
-      } else {
-        const response = await fetch("/api/ai/parse", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-ai-config": JSON.stringify(aiConfig),
-          },
-          body: JSON.stringify({
-            text: inputText,
-            type: activeTab,
-            userWeight: effectiveWeight,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: "解析失败" }))
-          throw new Error(errorData.message || "解析失败")
-        }
-        result = await response.json()
-      }
-
-      const updatedLog = { ...dailyLog }
-
-      if (activeTab === "food" && result.food) {
-        updatedLog.foodEntries = [...updatedLog.foodEntries, ...result.food]
-        recalculateSummary(updatedLog)
-      } else if (activeTab === "exercise" && result.exercise) {
-        updatedLog.exerciseEntries = [...updatedLog.exerciseEntries, ...result.exercise]
-        recalculateSummary(updatedLog)
-      }
-
-      setDailyLog(updatedLog)
-      saveDailyLog(updatedLog.date, updatedLog)
-      // 触发图表刷新
-      setChartRefreshTrigger(prev => prev + 1)
-      // 刷新日期记录状态
-      refreshRecords()
-
-      setInputText("")
-      setUploadedImages([])
-
-      toast({
-        title: (
-          <span className="flex items-center">
-            <CheckCircle2 className="mr-2 h-5 w-5 text-green-500" />
-            {"记录成功"}
-          </span>
-        ),
-        description: activeTab === "food" ? "已添加食物记录。" : "已添加运动记录。",
-      })
-    } catch (error: any) {
-      console.error("Error:", error)
-      toast({
-        title: (
-          <span className="flex items-center">
-            <AlertCircle className="mr-2 h-5 w-5 text-destructive" />
-            处理失败
-          </span>
-        ),
-        description: error.message || "无法解析您的输入，请重试。",
-        variant: "destructive",
-      })
-    } finally {
-      setIsProcessing(false)
-    }
-  }
+  }, [isLogLoaded, isUserProfileHydrated, userProfile, dailyLog.date, dailyLog.weight, dailyLog.tefAnalysis, saveDailyLog, dailyLog.calculatedBMR, dailyLog.baselineExpenditure])
 
   // 删除条目
   const handleDeleteEntry = (id: string, type: "food" | "exercise") => {
@@ -661,15 +361,13 @@ export default function Dashboard() {
     recalculateSummary(updatedLog)
     setDailyLog(updatedLog)
     saveDailyLog(updatedLog.date, updatedLog)
-    // 触发图表刷新
     setChartRefreshTrigger(prev => prev + 1)
-    // 刷新日期记录状态
     refreshRecords()
 
     toast({
       title: (
         <span className="flex items-center">
-          <Trash2 className="mr-2 h-5 w-5 text-green-500" />
+          <Trash2 className="mr-2 h-5 w-5 text-c-weight" />
           {"删除成功"}
         </span>
       ),
@@ -694,15 +392,13 @@ export default function Dashboard() {
     recalculateSummary(updatedLog)
     setDailyLog(updatedLog)
     saveDailyLog(updatedLog.date, updatedLog)
-    // 触发图表刷新
     setChartRefreshTrigger(prev => prev + 1)
-    // 刷新日期记录状态
     refreshRecords()
 
     toast({
       title: (
         <span className="flex items-center">
-          <Edit3 className="mr-2 h-5 w-5 text-green-500" />
+          <Edit3 className="mr-2 h-5 w-5 text-c-weight" />
           {"更新成功"}
         </span>
       ),
@@ -744,566 +440,544 @@ export default function Dashboard() {
     }
   }
 
-  const handleSaveDailyWeight = () => {
-    const dateKey = format(selectedDate, "yyyy-MM-dd")
-    if (!currentDayWeight.trim()) {
-      const updatedLog = { ...dailyLog, weight: undefined }
-      setDailyLog(updatedLog)
-      saveDailyLog(dateKey, updatedLog)
-      // 刷新日期记录状态
-      refreshRecords()
-      toast({
-        title: <span className="flex items-center"><Info className="mr-2 h-5 w-5" />{"体重已清除"}</span>,
-        description: `已清除 ${dateKey} 的体重记录。`
-      })
-      return
-    }
-
-    const weightValue = parseFloat(currentDayWeight)
-    if (isNaN(weightValue) || weightValue <= 0) {
-      toast({
-        title: <span className="flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-destructive" />{"体重无效"}</span>,
-        description: "请输入一个有效的正数作为体重。",
-        variant: "destructive"
-      })
-      return
-    }
-
-    const updatedLog = { ...dailyLog, weight: weightValue }
-    setDailyLog(updatedLog)
-    saveDailyLog(dateKey, updatedLog)
-    // 触发图表刷新
-    setChartRefreshTrigger(prev => prev + 1)
-    // 刷新日期记录状态
-    refreshRecords()
-    toast({
-      title: <span className="flex items-center"><CheckCircle2 className="mr-2 h-5 w-5 text-green-500" />{"体重已保存"}</span>,
-      description: `已将 ${dateKey} 的体重记录为 ${weightValue} kg。`
-    })
-  }
-
   // 处理每日状态保存
   const handleSaveDailyStatus = (status: DailyStatus) => {
     const dateKey = format(selectedDate, "yyyy-MM-dd")
     const updatedLog = { ...dailyLog, dailyStatus: status }
     setDailyLog(updatedLog)
     saveDailyLog(dateKey, updatedLog)
-    // 刷新日期记录状态
     refreshRecords()
     toast({
-      title: <span className="flex items-center"><CheckCircle2 className="mr-2 h-5 w-5 text-green-500" />每日状态已保存</span>,
-      description: `已保存 ${dateKey} 的状态记录`
+      title: (
+        <span className="flex items-center">
+          <CheckCircle2 className="mr-2 h-5 w-5 text-c-weight" />
+          每日状态已保存
+        </span>
+      ),
+      description: `已保存 ${dateKey} 的状态记录`,
     })
   }
 
+  // 派生:今日热量平衡（B 方案 — NEAT 动态法）
+  // 基础消耗（BMR + NEAT + TEF，不含运动）+ 当日运动消耗 = 今日总消耗
+  // 缺口/盈余 = 摄入 − 今日总消耗
+  const totalCaloriesConsumed = dailyLog.summary.totalCaloriesConsumed ?? 0
+  const totalCaloriesBurned = dailyLog.summary.totalCaloriesBurned ?? 0
+  // 兼容历史日志：旧日志只有 calculatedTDEE，没有 baselineExpenditure
+  const baselineExpenditure = dailyLog.baselineExpenditure ?? dailyLog.calculatedTDEE ?? 0
+  const dailyTotalExpenditure = baselineExpenditure + totalCaloriesBurned
+  const calorieDelta = totalCaloriesConsumed - dailyTotalExpenditure // 负数 = 缺口，正数 = 盈余
+  const macros = dailyLog.summary.macros ?? { carbs: 0, protein: 0, fat: 0 }
+  const isCurrentLogReady =
+    isLogLoaded && !dbInitializing && dailyLog.date === dateParam
+  const mealPlanBudgetSnapshot = buildMealPlanBudgetSnapshot({
+    log: dailyLog,
+    userProfile,
+    now: new Date(),
+  })
+
+  // TEF 状态展示
+  const tef = dailyLog.tefAnalysis
+  const tefDone = !!tef
+  const tefRunning = (tefAnalysisCountdown ?? 0) > 0
+  const tefExtra = tef ? Math.round(tef.enhancedTEF - tef.baseTEF) : 0
+  const tefFactorText = tef?.enhancementFactors?.join("、") ?? ""
+
+  // ── Hero v3 派生 ───────────────────────────────────
+  type HeroState = "deficit" | "surplus" | "balanced" | "no-record" | "no-tdee"
+  const BALANCE_THRESHOLD = 20
+  const heroState: HeroState = (() => {
+    if (baselineExpenditure <= 0) return "no-tdee"
+    if (totalCaloriesConsumed === 0 && totalCaloriesBurned === 0) return "no-record"
+    if (Math.abs(calorieDelta) <= BALANCE_THRESHOLD) return "balanced"
+    return calorieDelta < 0 ? "deficit" : "surplus"
+  })()
+
+  const heroVisual = (() => {
+    const consumed = Math.round(totalCaloriesConsumed)
+    const expenditure = Math.round(dailyTotalExpenditure)
+    const absDelta = Math.abs(Math.round(calorieDelta))
+    switch (heroState) {
+      case "deficit":
+        return {
+          ringColorClass: "text-c-weight",
+          centerTop: "剩余",
+          centerMain: `${absDelta}`,
+          centerColorClass: "text-c-weight",
+          centerHint: (
+            <>已记录 <strong>{consumed.toLocaleString()}</strong> / 总消耗 <strong>{expenditure.toLocaleString()}</strong></>
+          ),
+          formulaFirstLabel: "热量缺口",
+          formulaFirstClass: "deficit",
+          formulaFirstNum: `${absDelta}`,
+        }
+      case "surplus":
+        return {
+          ringColorClass: "text-c-exercise",
+          centerTop: "已超",
+          centerMain: `−${absDelta}`,
+          centerColorClass: "text-c-exercise",
+          centerHint: (
+            <>摄入 <strong>{consumed.toLocaleString()}</strong> · 超出总消耗 <strong>{absDelta.toLocaleString()}</strong></>
+          ),
+          formulaFirstLabel: "热量盈余",
+          formulaFirstClass: "surplus",
+          formulaFirstNum: `−${absDelta}`,
+        }
+      case "balanced":
+        return {
+          ringColorClass: "text-foreground",
+          centerTop: "平衡",
+          centerMain: "0",
+          centerColorClass: "text-foreground",
+          centerHint: <>净摄入与消耗持平</>,
+          formulaFirstLabel: "热量平衡",
+          formulaFirstClass: "base",
+          formulaFirstNum: "0",
+        }
+      case "no-record":
+        return {
+          ringColorClass: "text-muted-foreground",
+          centerTop: "剩余",
+          centerMain: expenditure.toLocaleString(),
+          centerColorClass: "text-muted-foreground",
+          centerHint: (
+            <Link href={`/workbench?date=${dateParam}`} className="underline-offset-2 hover:text-foreground hover:underline transition-colors">
+              去记录开始一天 →
+            </Link>
+          ),
+          formulaFirstLabel: "缺口",
+          formulaFirstClass: "mute",
+          formulaFirstNum: expenditure.toLocaleString(),
+        }
+      case "no-tdee":
+      default:
+        return {
+          ringColorClass: "text-muted-foreground",
+          centerTop: "—",
+          centerMain: "—",
+          centerColorClass: "text-muted-foreground",
+          centerHint: (
+            <Link href="/settings" className="underline-offset-2 hover:text-foreground hover:underline transition-colors">
+              去快速配置 →
+            </Link>
+          ),
+          formulaFirstLabel: "缺口",
+          formulaFirstClass: "mute",
+          formulaFirstNum: "—",
+        }
+    }
+  })()
+
+  // 优先级:running > done > empty
+  // 食物清单变化触发新分析时,即使旧 tefAnalysis 还在(可能 multiplier=1.0 显示成 +0 kcal),
+  // 也应展示"分析中…"提示用户旧数值已作废、新分析在跑。
+  const tefCardState: "done" | "running" | "empty" = tefRunning
+    ? "running"
+    : tefDone
+      ? "done"
+      : "empty"
+
+  const macroTargets = mealPlanBudgetSnapshot.macroTargets
+  const hasMacroTarget = (target: number) =>
+    mealPlanBudgetSnapshot.targetCalories > 0 && target > 0
+  const macroPctV2 = (g: number, target: number) =>
+    hasMacroTarget(target)
+      ? Math.min(Math.max((g / target) * 100, 0), 100)
+      : 0
+  const macroOver = (g: number, target: number) =>
+    hasMacroTarget(target) && g > target
+
+  const handleMealPlanSuggestionSave = (suggestion: MealPlanSuggestion) => {
+    if (
+      !isCurrentLogReady ||
+      dailyLog.date !== currentDateParamRef.current ||
+      suggestion.budgetSnapshot.date !== currentDateParamRef.current
+    ) {
+      return
+    }
+
+    const updatedLog = { ...dailyLog, mealPlanSuggestion: suggestion }
+    setDailyLog(updatedLog)
+    saveDailyLog(updatedLog.date, updatedLog)
+    refreshRecords()
+  }
+
   return (
-    <div className="min-h-screen relative bg-white dark:bg-slate-900">
-      {/* 弥散绿色背景效果 - 带动画 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -left-40 top-20 w-96 h-96 bg-emerald-300/40 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -right-40 top-40 w-80 h-80 bg-emerald-400/35 rounded-full blur-3xl animate-bounce-slow"></div>
-        <div className="absolute left-20 bottom-20 w-72 h-72 bg-emerald-200/45 rounded-full blur-3xl animate-breathing"></div>
-        <div className="absolute right-32 bottom-40 w-64 h-64 bg-emerald-300/40 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute left-1/2 top-1/3 w-56 h-56 bg-emerald-200/30 rounded-full blur-3xl transform -translate-x-1/2 animate-glow"></div>
-      </div>
-
-      <style jsx>{`
-        @keyframes breathing {
-          0%, 100% {
-            transform: scale(1) rotate(0deg);
-            opacity: 0.45;
-          }
-          50% {
-            transform: scale(1.1) rotate(2deg);
-            opacity: 0.25;
-          }
-        }
-
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0px) translateX(0px) scale(1);
-          }
-          33% {
-            transform: translateY(-10px) translateX(5px) scale(1.05);
-          }
-          66% {
-            transform: translateY(5px) translateX(-3px) scale(0.98);
-          }
-        }
-
-        @keyframes glow {
-          0%, 100% {
-            transform: translateX(-50%) scale(1);
-            opacity: 0.3;
-          }
-          50% {
-            transform: translateX(-50%) scale(1.2);
-            opacity: 0.15;
-          }
-        }
-
-        @keyframes bounce-slow {
-          0%, 100% {
-            transform: translateY(0px) scale(1);
-            opacity: 0.35;
-          }
-          50% {
-            transform: translateY(-15px) scale(1.08);
-            opacity: 0.50;
-          }
-        }
-
-        .animate-breathing {
-          animation: breathing 6s ease-in-out infinite;
-        }
-
-        .animate-float {
-          animation: float 8s ease-in-out infinite;
-        }
-
-        .animate-glow {
-          animation: glow 5s ease-in-out infinite;
-        }
-
-        .animate-bounce-slow {
-          animation: bounce-slow 7s ease-in-out infinite;
-        }
-      `}</style>
-      <div className="relative z-10 container mx-auto py-12 px-6 sm:px-8 lg:px-12 max-w-6xl">
-        <header className="mb-16 fade-in">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-8">
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg">
-                <img
-                  src="/placeholder.svg"
-                  alt="SnapFit AI Logo"
-                  className="w-10 h-10 object-contain filter invert"
-                />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold tracking-tight mb-2">
-                  SnapFit AI
-                </h1>
-                <p className="text-muted-foreground text-lg">
-                  {"记录您的健康数据，获得智能建议"}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-              <div className="flex flex-col gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full sm:w-[280px] justify-start text-left font-normal text-base h-12"
-                    >
-                      <CalendarDays className="mr-3 h-5 w-5 text-primary" />
-                      {format(selectedDate, "PPP (eeee)", { locale: currentLocale })}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => date && setSelectedDate(date)}
-                      initialFocus
-                      locale={currentLocale}
-                      hasRecord={hasRecord}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <div className="flex flex-col items-end gap-1">
-                  <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                    <Settings2 className="h-3 w-3" />
-                    <Link
-                      href="/settings?tab=ai"
-                      className="hover:text-primary transition-colors underline-offset-2 hover:underline"
-                    >
-                      {"快速配置"}
-                    </Link>
-                    <span>/</span>
-                    <Link
-                      href="/settings?tab=data"
-                      className="hover:text-primary transition-colors underline-offset-2 hover:underline"
-                    >
-                      {"数据导出"}
-                    </Link>
-                  </div>
-
-                  {/* 导出提醒 */}
-                  {exportReminder.shouldRemind && exportReminder.hasEnoughData && (
-                    <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-800">
-                      <AlertTriangle className="h-3 w-3" />
-                      <span>
-                        {exportReminder.lastExportDate === null
-                          ? "建议备份数据"
-                          : `已${exportReminder.daysSinceLastExport}天未备份`
-                        }
-                      </span>
-                      <Clock className="h-3 w-3 ml-1" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 新布局：左侧图表，右侧体重和活动水平 */}
-          <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* 左侧：管理图表 (占2列) */}
-            <div className="lg:col-span-2">
-              <ManagementCharts selectedDate={selectedDate} refreshTrigger={chartRefreshTrigger} />
-            </div>
-
-            {/* 右侧：体重和活动水平 (占1列) */}
-            <div className="space-y-8">
-              <div className="health-card p-8 space-y-6">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-white">
-                    <Weight className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{"今日体重(Kg)"}</h3>
-                    <p className="text-muted-foreground">{"记录您的体重变化"}</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <Input
-                    id="daily-weight"
-                    type="number"
-                    placeholder={"例如: 70.5"}
-                    value={currentDayWeight}
-                    onChange={(e) => setCurrentDayWeight(e.target.value)}
-                    className="w-full h-12 text-base"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleSaveDailyWeight()
-                        // 聚焦到活动水平选择器
-                        const activitySelect = document.getElementById('daily-activity-level')
-                        if (activitySelect) {
-                          activitySelect.click()
-                        }
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={handleSaveDailyWeight}
-                    disabled={isProcessing}
-                    className="btn-gradient-primary w-full h-12"
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    {"保存体重"}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="health-card p-8 space-y-6">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-white">
-                    <UserCheck className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{"活动水平"}</h3>
-                    <p className="text-muted-foreground">{"设置今日的活动强度"}</p>
-                  </div>
-                </div>
-                <Select
-                  value={currentDayActivityLevelForSelect}
-                  onValueChange={(value) => {
-                    handleDailyActivityLevelChange(value)
-                    // 选择完活动水平后，聚焦到输入区域
-                    setTimeout(() => {
-                      const textarea = document.querySelector('textarea')
-                      if (textarea) {
-                        textarea.focus()
-                      }
-                    }, 100)
-                  }}
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm720:px-8 sm720:py-10">
+        <PageHeader
+          title="总览"
+          subtitle={
+            <span className="inline-flex flex-wrap items-center gap-x-2.5">
+              <span>{format(selectedDate, "PPP (eeee)", { locale: currentLocale })}</span>
+              {!isToday && (
+                <button
+                  type="button"
+                  onClick={jumpToToday}
+                  className="card-action"
                 >
-                  <SelectTrigger className="w-full h-12 text-base" id="daily-activity-level">
-                    <SelectValue placeholder={"选择活动水平"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sedentary">{"久坐不动 (办公室工作)"}</SelectItem>
-                    <SelectItem value="light">{"轻度活跃 (少量运动)"}</SelectItem>
-                    <SelectItem value="moderate">{"中度活跃 (规律运动)"}</SelectItem>
-                    <SelectItem value="active">{"高度活跃 (每日运动)"}</SelectItem>
-                    <SelectItem value="very_active">{"非常活跃 (高强度训练)"}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <MuscleFatigueCard
-                selectedDate={selectedDate}
-                refreshTrigger={chartRefreshTrigger}
-              />
-            </div>
-          </div>
-        </header>
-
-        {/* 输入区域 */}
-        <div className="health-card mb-16 slide-up">
-          <div className="p-8">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-white">
-                  <ClipboardPenLine className="h-6 w-6" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-semibold">{"记录健康数据"}</h2>
-                  <p className="text-muted-foreground text-lg">{"输入您的饮食或运动记录，智能识别营养和消耗"}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {!isMobile && <span className="text-sm text-muted-foreground">今日记录</span>}
-                <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                  {(() => {
-                    let count = 0
-                    if (dailyLog.foodEntries.length > 0) count++
-                    if (dailyLog.exerciseEntries.length > 0) count++
-                    if (dailyLog.dailyStatus) count++
-                    return `${count}/3`
-                  })()}
-                </span>
-              </div>
-            </div>
-
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-              <TabsList className="grid w-full grid-cols-3 h-14">
-                <TabsTrigger value="food" className="text-base py-4 px-8">
-                  <Utensils className="mr-2 h-5 w-5" />{"饮食记录"}
-                </TabsTrigger>
-                <TabsTrigger value="exercise" className="text-base py-4 px-8">
-                  <Dumbbell className="mr-2 h-5 w-5" />{"运动记录"}
-                </TabsTrigger>
-                <TabsTrigger value="status" className="text-base py-4 px-8">
-                  <Activity className="mr-2 h-5 w-5" />{"每日状态"}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <div className="space-y-6">
-              {activeTab === "status" ? (
-                <DailyStatusCard
-                  date={format(selectedDate, "yyyy-MM-dd")}
-                  initialStatus={dailyLog.dailyStatus}
-                  onSave={handleSaveDailyStatus}
-                />
-              ) : (
-                <Textarea
-                  placeholder={
-                    activeTab === "food"
-                      ? "例如：早餐 一碗小米粥，一个鸡蛋，5个小番茄；午餐 一份鸡胸肉沙拉，半个玉米..."
-                      : "例如：下午跑步30分钟5公里，晚上HIIT训练20分钟..."
-                  }
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  className="min-h-[140px] text-base p-6 rounded-xl"
-                />
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  返回今天
+                </button>
               )}
-
-              {activeTab !== "status" && uploadedImages.length > 0 && (
-                <div className="p-6 rounded-xl bg-muted/30 border">
-                  <p className="text-muted-foreground mb-4 flex items-center font-medium">
-                    <ImageIcon className="mr-2 h-5 w-5" /> {`已上传 ${uploadedImages.length} 张图片 (最多5张)`}
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    {uploadedImages.map((img, index) => (
-                      <div key={index} className="relative w-20 h-20 rounded-lg overflow-hidden border-2 border-white dark:border-slate-700 shadow-md hover:shadow-lg transition-all group">
-                        <img
-                          src={img.url || "/placeholder.svg"}
-                          alt={`预览 ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(index)}
-                          className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-600 shadow-lg"
-                          aria-label="删除图片"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {activeTab !== "status" && (
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-6">
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={handleImageUpload}
-                    disabled={isProcessing || isCompressing || uploadedImages.length >= 5}
-                    ref={fileInputRef}
-                  />
-                  <Button
-                    variant="outline"
-                    type="button"
-                    size="lg"
-                    disabled={isProcessing || isCompressing || uploadedImages.length >= 5}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="h-12 px-6"
-                  >
-                    <UploadCloud className="mr-2 h-5 w-5" />
-                    {isCompressing ? "图片处理中..." : `${"上传图片"} (${uploadedImages.length}/5)`}
+            </span>
+          }
+          actions={
+            <>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="font-normal">
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    切换日期
                   </Button>
-                  {uploadedImages.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="lg"
-                      onClick={() => setUploadedImages([])}
-                      className="text-destructive hover:text-destructive h-12"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> {"清空图片"}
-                    </Button>
-                  )}
-                </div>
-
-                <Button
-                  onClick={handleSubmit}
-                  size="lg"
-                  className="btn-gradient-primary w-full sm:w-auto px-12 h-12 text-base"
-                  disabled={isProcessing || isCompressing || (!inputText.trim() && uploadedImages.length === 0)}
-                >
-                  {isProcessing ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {"处理中..."}
-                    </>
-                  ) : (
-                    <>
-                      {activeTab === "food" ? <Utensils className="mr-2 h-5 w-5" /> : <Dumbbell className="mr-2 h-5 w-5" />}
-                      {"提交记录"}
-                    </>
-                  )}
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => date && setSelectedDate(date)}
+                    initialFocus
+                    locale={currentLocale}
+                    hasRecord={hasRecord}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Link href="/settings">
+                <Button variant="ghost" size="sm" className="font-normal text-muted-foreground">
+                  <SettingsIcon className="mr-1.5 h-4 w-4" />
+                  快速配置
                 </Button>
-              </div>
-              )}
-            </div>
-          </div>
-        </div>
+              </Link>
+              <Link href={`/workbench?date=${dateParam}`}>
+                <Button variant="ink" size="sm">
+                  <ClipboardPenLine className="mr-1.5 h-4 w-4" />
+                  去记录
+                </Button>
+              </Link>
+            </>
+          }
+        />
 
-        {isLoading && (
-          <div className="text-center py-16 fade-in">
-            <div className="flex justify-center items-center mb-4">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-full border-4 border-emerald-200 dark:border-emerald-800"></div>
-                <div className="absolute top-0 left-0 w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
-              </div>
-            </div>
-            <p className="text-lg text-slate-600 dark:text-slate-400 font-medium">{"加载数据中，请稍候..."}</p>
-          </div>
-        )}
+        {/* 备份提醒 */}
+        <BackupAlert />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-          <div className="health-card scale-in">
-            <div className="p-8">
-              <div className="flex items-center space-x-4 mb-8">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-white">
-                  <Utensils className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-semibold">{"我的膳食"}</h3>
-                  <p className="text-muted-foreground text-lg">{`今日共记录 ${dailyLog.foodEntries.length} 项食物`}</p>
+        <div className="space-y-4 sm720:space-y-6">
+          {/* Hero — 今日热量平衡 */}
+          <Card className="rounded-2xl border-border">
+            <CardContent className="p-5 sm720:p-7">
+              <div className="card-head">
+                <div className="card-title-row">
+                  <div className="card-title">今日热量平衡</div>
                 </div>
               </div>
 
+              {/* 段 1:双子卡 */}
+              <div className="twin-row">
+                <TodayWeightCard
+                  variant="twin"
+                  selectedDate={selectedDate}
+                  todayWeight={dailyLog.weight}
+                  defaultWeight={userProfile.weight}
+                  targetWeight={userProfile.targetWeight}
+                  disabled={!isUserProfileHydrated}
+                  onSave={(weight) => {
+                    const updated = { ...dailyLog, weight }
+                    setDailyLog(updated)
+                    saveDailyLog(updated.date, updated)
+                    const updatedProfile = syncProfileWeightFromDailyLog(userProfile, weight)
+                    if (updatedProfile !== userProfile) {
+                      setUserProfile(updatedProfile)
+                    }
+                    setChartRefreshTrigger(prev => prev + 1)
+                    refreshRecords()
+                  }}
+                />
+
+                {tefCardState === "done" ? (
+                  <div className={cn("twin tef", tefExtra === 0 && "empty")}>
+                    <div className="twin-icon"><Zap /></div>
+                    <div className="twin-body">
+                      <div className="twin-label">TEF 增强</div>
+                      {tefExtra > 0 ? (
+                        <>
+                          <div className="twin-main">+{tefExtra}<small>kcal</small></div>
+                          <div className="twin-sub">
+                            已分析
+                            {tefFactorText ? ` · ${tefFactorText}` : ""}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="twin-main">未检测到增强</div>
+                          <div className="twin-sub">加咖啡/辛辣/绿茶可提升</div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : tefCardState === "running" ? (
+                  <div className="twin tef">
+                    <div className="twin-icon"><Loader2 className="animate-spin" /></div>
+                    <div className="twin-body">
+                      <div className="twin-label">TEF 增强</div>
+                      <div className="twin-main">分析中…</div>
+                      <div className="twin-sub">约 {tefAnalysisCountdown}s</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="twin tef empty">
+                    <div className="twin-icon"><Zap /></div>
+                    <div className="twin-body">
+                      <div className="twin-label">TEF 增强</div>
+                      <div className="twin-main">未分析</div>
+                      <div className="twin-sub">添加食物记录后自动分析</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 段 2:大环 */}
+              <div className="flex flex-col items-center pt-1 pb-4">
+                <Ring
+                  value={totalCaloriesConsumed}
+                  max={dailyTotalExpenditure > 0 ? dailyTotalExpenditure : 1}
+                  colorClass={heroVisual.ringColorClass}
+                  diameter={160}
+                  centerNum={
+                    <div className="flex flex-col items-center leading-none">
+                      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        {heroVisual.centerTop}
+                      </div>
+                      <div className={cn("text-[30px] font-bold tabular-nums tracking-tight", heroVisual.centerColorClass)}>
+                        {heroVisual.centerMain}
+                      </div>
+                      <div className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        kcal
+                      </div>
+                    </div>
+                  }
+                />
+                <div className="ring-hint">{heroVisual.centerHint}</div>
+              </div>
+
+              {/* 段 3:横式公式条 */}
+              <div className="formula">
+                <div className="formula-cell">
+                  <div className={cn("formula-num", heroVisual.formulaFirstClass)}>{heroVisual.formulaFirstNum}</div>
+                  <div className="formula-label">{heroVisual.formulaFirstLabel}</div>
+                </div>
+                <div className="formula-op">=</div>
+                <div className="formula-cell">
+                  <div className={cn("formula-num", baselineExpenditure > 0 ? "base" : "mute")}>
+                    {baselineExpenditure > 0 ? Math.round(baselineExpenditure).toLocaleString() : "—"}
+                  </div>
+                  <div className="formula-label">基础消耗</div>
+                </div>
+                <div className="formula-op">+</div>
+                <div className="formula-cell">
+                  <div className={cn("formula-num", totalCaloriesBurned > 0 ? "activity" : "mute")}>
+                    {Math.round(totalCaloriesBurned).toLocaleString()}
+                  </div>
+                  <div className="formula-label">活动消耗</div>
+                </div>
+                <div className="formula-op">−</div>
+                <div className="formula-cell">
+                  <div className={cn("formula-num", totalCaloriesConsumed > 0 ? "intake" : "mute")}>
+                    {Math.round(totalCaloriesConsumed).toLocaleString()}
+                  </div>
+                  <div className="formula-label">摄入量</div>
+                </div>
+              </div>
+
+              {/* 段 4:三宏微条 */}
+              <div className="grid grid-cols-3 gap-3.5">
+                <div className="macro-cell">
+                  <div className="macro-top">
+                    {Math.round(macros.carbs)}
+                    {macroTargets.carbohydrates > 0 && <span className="target">/{macroTargets.carbohydrates} g</span>}
+                    {macroTargets.carbohydrates === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.carbs, macroTargets.carbohydrates) && (
+                      <span className="over">超 {Math.round(macros.carbs - macroTargets.carbohydrates)}g</span>
+                    )}
+                  </div>
+                  <div className="hero-bar">
+                    <i style={{ width: `${macroPctV2(macros.carbs, macroTargets.carbohydrates)}%`, background: macroOver(macros.carbs, macroTargets.carbohydrates) ? "hsl(var(--c-exercise))" : "hsl(var(--c-food))" }} />
+                  </div>
+                  <div className="macro-name">碳水化合物</div>
+                </div>
+                <div className="macro-cell">
+                  <div className="macro-top">
+                    {Math.round(macros.protein)}
+                    {macroTargets.protein > 0 && <span className="target">/{macroTargets.protein} g</span>}
+                    {macroTargets.protein === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.protein, macroTargets.protein) && (
+                      <span className="over">超 {Math.round(macros.protein - macroTargets.protein)}g</span>
+                    )}
+                  </div>
+                  <div className="hero-bar">
+                    <i style={{ width: `${macroPctV2(macros.protein, macroTargets.protein)}%`, background: macroOver(macros.protein, macroTargets.protein) ? "hsl(var(--c-food))" : "hsl(var(--c-exercise))" }} />
+                  </div>
+                  <div className="macro-name">蛋白质</div>
+                </div>
+                <div className="macro-cell">
+                  <div className="macro-top">
+                    {Math.round(macros.fat)}
+                    {macroTargets.fat > 0 && <span className="target">/{macroTargets.fat} g</span>}
+                    {macroTargets.fat === 0 && <span className="target"> g</span>}
+                    {macroOver(macros.fat, macroTargets.fat) && (
+                      <span className="over">超 {Math.round(macros.fat - macroTargets.fat)}g</span>
+                    )}
+                  </div>
+                  <div className="hero-bar">
+                    <i style={{ width: `${macroPctV2(macros.fat, macroTargets.fat)}%`, background: macroOver(macros.fat, macroTargets.fat) ? "hsl(var(--c-exercise))" : "hsl(var(--c-status))" }} />
+                  </div>
+                  <div className="macro-name">脂肪</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {checkAIConfig() && isCurrentLogReady && (
+            <WhatCanIEatCard
+              dailyLog={dailyLog}
+              userProfile={userProfile}
+              aiConfig={aiConfig}
+              budgetSnapshot={mealPlanBudgetSnapshot}
+              suggestion={dailyLog.mealPlanSuggestion}
+              workbenchHref={`/workbench?date=${dateParam}`}
+              onSuggestionSave={handleMealPlanSuggestionSave}
+            />
+          )}
+
+          {/* Card 3 — 今日恢复状态 (MuscleFatigueCard 自带 card chrome) */}
+          <MuscleFatigueCard selectedDate={selectedDate} refreshTrigger={chartRefreshTrigger} />
+
+          {/* Card 5 — 今日膳食 */}
+          <Card className="rounded-2xl border-border">
+            <CardContent className="p-5 sm720:p-7">
+              <div className="card-head">
+                <div className="card-title-row">
+                  <Tile variant="food" size={36}>
+                    <Utensils />
+                  </Tile>
+                  <div className="card-title">
+                    今日膳食 · {dailyLog.foodEntries.length} 项 · {Math.round(totalCaloriesConsumed)} kcal
+                  </div>
+                </div>
+                <Link href={`/workbench?date=${dateParam}`} className="card-action">
+                  编辑 <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
               {dailyLog.foodEntries.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                  <div className="flex items-center justify-center w-20 h-20 mx-auto mb-6 rounded-2xl bg-muted/50">
-                    <Utensils className="h-10 w-10" />
-                  </div>
-                  <p className="text-xl font-medium mb-3">{"暂无食物记录"}</p>
-                  <p className="text-lg opacity-75">{"请在上方添加您今天的饮食"}</p>
-                </div>
+                <p className="py-6 text-center text-sm text-muted-foreground">今日暂无饮食记录</p>
               ) : (
-                <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
-                  {dailyLog.foodEntries.map((entry) => (
-                    <FoodEntryCard
-                      key={entry.log_id}
-                      entry={entry}
-                      onDelete={() => handleDeleteEntry(entry.log_id, "food")}
-                      onUpdate={(updated) => handleUpdateEntry(updated, "food")}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="health-card scale-in">
-            <div className="p-8">
-              <div className="flex items-center space-x-4 mb-8">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-white">
-                  <Dumbbell className="h-6 w-6" />
-                </div>
                 <div>
-                  <h3 className="text-2xl font-semibold">{"我的运动"}</h3>
-                  <p className="text-muted-foreground text-lg">{`今日共记录 ${dailyLog.exerciseEntries.length} 项运动`}</p>
-                </div>
-              </div>
-
-              {dailyLog.exerciseEntries.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                  <div className="flex items-center justify-center w-20 h-20 mx-auto mb-6 rounded-2xl bg-muted/50">
-                    <Dumbbell className="h-10 w-10" />
-                  </div>
-                  <p className="text-xl font-medium mb-3">{"暂无运动记录"}</p>
-                  <p className="text-lg opacity-75">{"请在上方添加您今天的锻炼"}</p>
-                </div>
-              ) : (
-                <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
-                  {dailyLog.exerciseEntries.map((entry) => (
-                    <ExerciseEntryCard
-                      key={entry.log_id}
-                      entry={entry}
-                      onDelete={() => handleDeleteEntry(entry.log_id, "exercise")}
-                      onUpdate={(updated) => handleUpdateEntry(updated, "exercise")}
-                    />
+                  {(foodListExpanded
+                    ? dailyLog.foodEntries
+                    : dailyLog.foodEntries.slice(0, ENTRY_PREVIEW)
+                  ).map((entry) => (
+                    <FoodEntryCard key={entry.log_id} entry={entry} showActions={false} />
                   ))}
+                  {dailyLog.foodEntries.length > ENTRY_PREVIEW && (
+                    <button
+                      type="button"
+                      onClick={() => setFoodListExpanded((v) => !v)}
+                      className="mt-2 flex w-full items-center justify-center gap-1 border-t border-dashed border-border pt-2.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {foodListExpanded
+                        ? "收起"
+                        : `展开剩余 ${dailyLog.foodEntries.length - ENTRY_PREVIEW} 项`}
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform ${foodListExpanded ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  )}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
+            </CardContent>
+          </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div className="scale-in">
-            <DailySummary
-              summary={dailyLog.summary}
-              calculatedBMR={dailyLog.calculatedBMR}
-              calculatedTDEE={dailyLog.calculatedTDEE}
-              tefAnalysis={dailyLog.tefAnalysis}
-              tefAnalysisCountdown={tefAnalysisCountdown}
-              selectedDate={selectedDate}
-            />
-          </div>
-          <div className="scale-in">
-            <SmartSuggestions
-              suggestions={smartSuggestions[dailyLog.date]}
-              isLoading={smartSuggestionsLoading}
-              onRefresh={() => generateSmartSuggestions(dailyLog.date)}
-              currentDate={dailyLog.date}
-            />
-          </div>
+          {/* Card 6 — 今日运动 */}
+          <Card className="rounded-2xl border-border">
+            <CardContent className="p-5 sm720:p-7">
+              <div className="card-head">
+                <div className="card-title-row">
+                  <Tile variant="exercise" size={36}>
+                    <Flame />
+                  </Tile>
+                  <div className="card-title">
+                    今日运动 · {dailyLog.exerciseEntries.length} 项 · −{Math.round(totalCaloriesBurned)} kcal
+                  </div>
+                </div>
+                <Link href={`/workbench?date=${dateParam}`} className="card-action">
+                  编辑 <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+              {dailyLog.exerciseEntries.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">今日暂无运动记录</p>
+              ) : (
+                <div>
+                  {(exerciseListExpanded
+                    ? dailyLog.exerciseEntries
+                    : dailyLog.exerciseEntries.slice(0, ENTRY_PREVIEW)
+                  ).map((entry) => (
+                    <ExerciseEntryCard key={entry.log_id} entry={entry} showActions={false} />
+                  ))}
+                  {dailyLog.exerciseEntries.length > ENTRY_PREVIEW && (
+                    <button
+                      type="button"
+                      onClick={() => setExerciseListExpanded((v) => !v)}
+                      className="mt-2 flex w-full items-center justify-center gap-1 border-t border-dashed border-border pt-2.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {exerciseListExpanded
+                        ? "收起"
+                        : `展开剩余 ${dailyLog.exerciseEntries.length - ENTRY_PREVIEW} 项`}
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform ${exerciseListExpanded ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 7 — 每日状态 (只读) */}
+          <DailyStatusSummary status={dailyLog.dailyStatus} />
+
+          {/* Card 8 — AI 建议 */}
+          <SmartSuggestions
+            suggestions={resolvedSmartSuggestions?.suggestions}
+            suggestionDate={resolvedSmartSuggestions?.date}
+            suggestionDaysAgo={resolvedSmartSuggestions?.daysAgo}
+            isLoading={smartSuggestionsLoading}
+            onRefresh={() => generateSmartSuggestions(dailyLog.date)}
+            currentDate={dailyLog.date}
+            userProfile={userProfile}
+            aiConfig={aiConfig}
+          />
+
+          {/* Card 9 — 管理图表 */}
+          <ManagementCharts selectedDate={selectedDate} refreshTrigger={chartRefreshTrigger} />
         </div>
 
         {/* 免责声明 */}
-        <div className="mt-12 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
+        <div className="mt-12 border-t border-border pt-6">
           <div className="text-center">
-            <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+            <p className="text-xs text-muted-foreground/80 leading-relaxed">
               本应用基于AI技术，仅为您提供健康管理参考。请注意：AI分析可能存在偏差，特别是营养数据方面。您的健康很重要，在做出重要的饮食或运动决策前，建议咨询专业的医生、营养师或健身教练。
             </p>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
   )
 }

@@ -1,11 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import {
-  HEALTH_DB_NAME,
-  HEALTH_DB_STORES,
-  HEALTH_DB_VERSION,
-} from "@/lib/indexed-db"
+import { openHealthDatabase } from "@/lib/indexed-db"
 
 interface IndexedDBHook {
   getData: (key: string) => Promise<any>
@@ -23,51 +19,30 @@ export function useIndexedDB(storeName: string): IndexedDBHook {
   const [error, setError] = useState<Error | null>(null)
   const [db, setDb] = useState<IDBDatabase | null>(null)
 
-  // 初始化数据库
   useEffect(() => {
-    const initDB = async () => {
-      try {
-        const request = window.indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
+    let cancelled = false
+    let openedDb: IDBDatabase | null = null
 
-        request.onupgradeneeded = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result
-          if (!db.objectStoreNames.contains(storeName)) {
-            db.createObjectStore(storeName)
-          }
-          // 确保aiMemories存储也被创建
-          if (!db.objectStoreNames.contains(HEALTH_DB_STORES.aiMemories)) {
-            db.createObjectStore(HEALTH_DB_STORES.aiMemories)
-          }
-          if (!db.objectStoreNames.contains(HEALTH_DB_STORES.workoutSessions)) {
-            db.createObjectStore(HEALTH_DB_STORES.workoutSessions)
-          }
-          if (!db.objectStoreNames.contains(HEALTH_DB_STORES.workoutSessionMeta)) {
-            db.createObjectStore(HEALTH_DB_STORES.workoutSessionMeta)
-          }
+    openHealthDatabase()
+      .then((result) => {
+        if (cancelled) {
+          result.close()
+          return
         }
-
-        request.onsuccess = (event) => {
-          setDb((event.target as IDBOpenDBRequest).result)
-          setIsInitializing(false)
-        }
-
-        request.onerror = (event) => {
-          setError(new Error("无法打开数据库"))
-          setIsInitializing(false)
-          console.error("IndexedDB error:", (event.target as IDBOpenDBRequest).error)
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("初始化数据库时发生未知错误"))
+        openedDb = result
+        setDb(result)
         setIsInitializing(false)
-      }
-    }
-
-    initDB()
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err : new Error("无法打开数据库"))
+        setIsInitializing(false)
+        console.error("IndexedDB error:", err)
+      })
 
     return () => {
-      if (db) {
-        db.close()
-      }
+      cancelled = true
+      openedDb?.close()
     }
   }, [storeName])
 

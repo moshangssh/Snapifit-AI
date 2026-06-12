@@ -26,6 +26,7 @@ import {
 } from "@/lib/indexed-db-utils"
 import type { AIConfig, ModelConfig } from "@/lib/types"
 import type { OpenAIModel } from "@/lib/ai/types"
+import { validateOptionalAIConfig } from "@/lib/ai/config"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +38,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Loader2, RefreshCw, UploadCloud } from "lucide-react"
+import { PageHeader } from "@/components/ui/page-header"
+import { Tile } from "@/components/ui/tile"
+import {
+  Brain,
+  Loader2,
+  RefreshCw,
+  UploadCloud,
+} from "lucide-react"
 
 const defaultUserProfile = {
   weight: 70,
@@ -424,23 +432,21 @@ function SettingsContent() {
 
   // 保存AI配置
   const handleSaveAIConfig = useCallback(() => {
-    // 验证配置
-    const models = [aiFormData.agentModel, aiFormData.chatModel, aiFormData.visionModel]
-    for (const model of models) {
-      if (!model.name || !model.baseUrl || !model.apiKey) {
-        toast({
-          title: "配置不完整",
-          description: "请填写所有模型的名称、Base URL 和 API Key",
-          variant: "destructive",
-        })
-        return
-      }
+    const validation = validateOptionalAIConfig(aiFormData)
+
+    if (!validation.valid) {
+      toast({
+        title: "配置不完整",
+        description: validation.message,
+        variant: "destructive",
+      })
+      return
     }
 
     setAIConfig(aiFormData)
     toast({
       title: "保存成功",
-      description: "AI 模型配置已更新",
+      description: `已保存 ${validation.configuredCount} 个 AI 模型配置`,
     })
   }, [aiFormData, setAIConfig, toast])
 
@@ -635,20 +641,21 @@ function SettingsContent() {
   )
 
   return (
-    <div className="container mx-auto py-6 max-w-8xl">
-      <h1 className="text-3xl font-bold mb-6">{"我的档案与设置"}</h1>
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm720:px-8 sm720:py-10">
+        <PageHeader title="设置" subtitle="管理你的应用偏好与数据" />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">{"个人信息"}</TabsTrigger>
-          <TabsTrigger value="goals">{"健康目标"}</TabsTrigger>
-          <TabsTrigger value="ai">{"AI 配置"}</TabsTrigger>
-          <TabsTrigger value="data">{"数据管理"}</TabsTrigger>
-        </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 sm720:w-auto sm720:inline-grid">
+            <TabsTrigger value="profile">{"个人信息"}</TabsTrigger>
+            <TabsTrigger value="goals">{"健康目标"}</TabsTrigger>
+            <TabsTrigger value="ai">{"AI 配置"}</TabsTrigger>
+            <TabsTrigger value="data">{"数据管理"}</TabsTrigger>
+          </TabsList>
 
         {/* 个人信息 */}
         <TabsContent value="profile">
-          <Card>
+          <Card className="rounded-2xl border-border">
             <CardHeader>
               <CardTitle>{"个人信息"}</CardTitle>
               <CardDescription>{"更新您的个人信息，这些数据将用于计算卡路里消耗和提供个性化建议"}</CardDescription>
@@ -686,24 +693,26 @@ function SettingsContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="activityLevel">{"日常活动水平"}</Label>
+                <Label htmlFor="activityLevel">{"日常状态（不含有意识运动）"}</Label>
                 <Select
                   value={formData.activityLevel}
                   onValueChange={(value) => handleSelectChange("activityLevel", value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={"日常活动水平"} />
+                    <SelectValue placeholder={"日常状态（不含有意识运动）"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sedentary">{"久坐不动"}</SelectItem>
-                    <SelectItem value="light">{"轻度活跃"}</SelectItem>
-                    <SelectItem value="moderate">{"中度活跃"}</SelectItem>
-                    <SelectItem value="active">{"高度活跃"}</SelectItem>
-                    <SelectItem value="very_active">{"非常活跃"}</SelectItem>
+                    <SelectItem value="sedentary">{"久坐少动 — 全天办公 / 通勤坐车"}</SelectItem>
+                    <SelectItem value="light">{"轻度活跃 — 站立工作 / 经常走动"}</SelectItem>
+                    <SelectItem value="moderate">{"中度活跃 — 体力劳动（护士、工地）"}</SelectItem>
+                    <SelectItem value="active">{"高度活跃 — 重体力劳动"}</SelectItem>
+                    <SelectItem value="very_active">{"极重活跃 — 农忙 / 矿工"}</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {"设定您通常的活动水平。此设置将作为新日期的默认活动水平，或当您未在主页为特定日期指定活动水平时的备用值。"}
+                  {"此处描述你日常生活的活动强度（走路、家务、姿势维持等 NEAT），用于估算基础消耗。"}
+                  <b className="font-semibold text-foreground">{"不要按运动频率选档位"}</b>
+                  {"——跑步、举铁等刻意运动请到运动模块单独打卡,系统会自动叠加到当日总消耗,避免双重计算。"}
                 </p>
               </div>
 
@@ -769,14 +778,14 @@ function SettingsContent() {
               )}
             </CardContent>
             <CardFooter>
-              <Button onClick={handleSaveProfile}>{"保存个人信息"}</Button>
+              <Button variant="ink" onClick={handleSaveProfile}>{"保存个人信息"}</Button>
             </CardFooter>
           </Card>
         </TabsContent>
 
         {/* 健康目标 */}
         <TabsContent value="goals">
-          <Card>
+          <Card className="rounded-2xl border-border">
             <CardHeader>
               <CardTitle>{"健康目标"}</CardTitle>
               <CardDescription>{"设置您的健康目标，AI 助手将根据您的目标提供个性化建议"}</CardDescription>
@@ -900,7 +909,7 @@ function SettingsContent() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button onClick={handleSaveProfile}>{"保存健康目标"}</Button>
+              <Button variant="ink" onClick={handleSaveProfile}>{"保存健康目标"}</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -910,7 +919,7 @@ function SettingsContent() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* 工作模型/Agents模型 */}
-              <Card>
+              <Card className="rounded-2xl border-border">
                 <CardHeader>
                   <CardTitle>{"工作模型 / Agents 模型"}</CardTitle>
                   <CardDescription>{"用于生成健康建议和分析的模型"}</CardDescription>
@@ -946,14 +955,14 @@ function SettingsContent() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" onClick={() => handleTestAIConfig("agentModel")}>
+                  <Button variant="bare" size="sm" onClick={() => handleTestAIConfig("agentModel")}>
                     {"测试连接"}
                   </Button>
                 </CardFooter>
               </Card>
 
               {/* 对话模型 */}
-              <Card>
+              <Card className="rounded-2xl border-border">
                 <CardHeader>
                   <CardTitle>{"对话模型"}</CardTitle>
                   <CardDescription>{"用于智能对话功能的模型"}</CardDescription>
@@ -989,14 +998,14 @@ function SettingsContent() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" onClick={() => handleTestAIConfig("chatModel")}>
+                  <Button variant="bare" size="sm" onClick={() => handleTestAIConfig("chatModel")}>
                     {"测试连接"}
                   </Button>
                 </CardFooter>
               </Card>
 
               {/* 视觉模型 */}
-              <Card>
+              <Card className="rounded-2xl border-border">
                 <CardHeader>
                   <CardTitle>{"视觉模型"}</CardTitle>
                   <CardDescription>{"用于图片识别和分析的模型"}</CardDescription>
@@ -1032,17 +1041,17 @@ function SettingsContent() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" onClick={() => handleTestAIConfig("visionModel")}>
+                  <Button variant="bare" size="sm" onClick={() => handleTestAIConfig("visionModel")}>
                     {"测试连接"}
                   </Button>
                 </CardFooter>
               </Card>
             </div>
 
-            <Button onClick={handleSaveAIConfig}>{"保存 AI 配置"}</Button>
+            <Button variant="ink" onClick={handleSaveAIConfig}>{"保存 AI 配置"}</Button>
 
             {/* AI记忆管理 */}
-            <Card className="mt-6">
+            <Card className="mt-6 rounded-2xl border-border">
               <CardHeader>
                 <CardTitle>{"AI助手记忆管理"}</CardTitle>
                 <CardDescription>
@@ -1068,10 +1077,13 @@ function SettingsContent() {
                       }
 
                       return (
-                        <Card key={expertId} className="border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <Card key={expertId} className="rounded-2xl border-border">
                           <CardHeader className="pb-2 px-4 pt-3">
                             <div className="flex items-center justify-between">
-                              <CardTitle className="text-sm font-medium">
+                              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <Tile variant="purple" size={18}>
+                                  <Brain />
+                                </Tile>
                                 {getExpertName(expertId)}
                               </CardTitle>
                               <div className="text-xs text-muted-foreground">
@@ -1098,14 +1110,14 @@ function SettingsContent() {
                                 />
                                 {/* 保存状态指示器 */}
                                 {savingMemories[expertId] && (
-                                  <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                    <div className="w-2 h-2 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                  <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-c-ai bg-c-ai/10 px-1.5 py-0.5 rounded">
+                                    <div className="w-2 h-2 border border-c-ai border-t-transparent rounded-full animate-spin"></div>
                                     <span>{"保存中"}</span>
                                   </div>
                                 )}
                                 {hasUnsavedChanges(expertId) && !savingMemories[expertId] && (
-                                  <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                                    <div className="w-1.5 h-1.5 bg-amber-600 rounded-full"></div>
+                                  <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-c-food bg-c-food/10 px-1.5 py-0.5 rounded">
+                                    <div className="w-1.5 h-1.5 bg-c-food rounded-full"></div>
                                     <span>{"未保存"}</span>
                                   </div>
                                 )}
@@ -1113,12 +1125,12 @@ function SettingsContent() {
                               <div className="flex justify-between items-center">
                                 <div className="text-xs text-muted-foreground">
                                   {(editingMemories[expertId] || "").length > 400 && (
-                                    <span className="text-amber-600">
+                                    <span className="text-c-food">
                                       即将达到上限
                                     </span>
                                   )}
                                   {hasUnsavedChanges(expertId) && (
-                                    <span className="text-amber-600">
+                                    <span className="text-c-food">
                                       3秒后自动保存
                                     </span>
                                   )}
@@ -1219,7 +1231,7 @@ function SettingsContent() {
 
         {/* 数据管理 */}
         <TabsContent value="data">
-          <Card>
+          <Card className="rounded-2xl border-border">
             <CardHeader>
               <CardTitle>{"数据管理"}</CardTitle>
               <CardDescription>{"导出或导入您的健康数据，或清空所有数据"}</CardDescription>
@@ -1228,7 +1240,7 @@ function SettingsContent() {
               <div className="space-y-2">
                 <h3 className="text-lg font-medium">{"导出数据"}</h3>
                 <p className="text-sm text-muted-foreground">{"将您的所有健康数据导出为 JSON 文件，以便备份或迁移"}</p>
-                <Button onClick={handleExportData}>{"导出所有数据"}</Button>
+                <Button variant="ink" onClick={handleExportData}>{"导出所有数据"}</Button>
               </div>
 
               <div className="space-y-2">
@@ -1279,7 +1291,7 @@ function SettingsContent() {
       </Tabs>
 
       {/* 关于与帮助 */}
-      <Card className="mt-6">
+      <Card className="mt-6 rounded-2xl border-border">
         <CardHeader>
           <CardTitle>{"关于与帮助"}</CardTitle>
         </CardHeader>
@@ -1308,17 +1320,20 @@ function SettingsContent() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="container mx-auto py-6 max-w-8xl">
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">加载设置...</p>
+    <Suspense fallback={<div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm720:px-8 sm720:py-10">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">加载设置...</p>
+          </div>
         </div>
       </div>
     </div>}>

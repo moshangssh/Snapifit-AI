@@ -1,5 +1,13 @@
 import type { FoodEntry, TEFAnalysis } from './types';
 
+const MIN_TEF_MULTIPLIER = 1.0;
+const MAX_TEF_MULTIPLIER = 1.3;
+
+export function clampTEFMultiplier(multiplier: number): number {
+  if (!Number.isFinite(multiplier)) return MIN_TEF_MULTIPLIER;
+  return Math.max(MIN_TEF_MULTIPLIER, Math.min(MAX_TEF_MULTIPLIER, multiplier));
+}
+
 /**
  * 计算基础食物热效应 (TEF)
  * 基于宏量营养素的热效应系数：
@@ -165,12 +173,20 @@ export function identifyTEFEnhancers(foodEntries: FoodEntry[]): {
   // 检查每个食物条目
   foodEntries.forEach(entry => {
     const foodName = entry.food_name.toLowerCase();
-    
+
+    // 绿茶儿茶素优先级高于普通咖啡因:同一食物命中绿茶关键词时,
+    // 跳过 caffeine 规则,避免 "绿茶" / "抹茶拿铁" 被叠加成 1.1 × 1.12。
+    const greenTeaHit = tefEnhancers.greenTea.keywords.some(keyword =>
+      foodName.includes(keyword.toLowerCase())
+    );
+
     Object.entries(tefEnhancers).forEach(([key, enhancer]) => {
-      const hasKeyword = enhancer.keywords.some(keyword => 
+      if (key === 'caffeine' && greenTeaHit) return;
+
+      const hasKeyword = enhancer.keywords.some(keyword =>
         foodName.includes(keyword.toLowerCase())
       );
-      
+
       if (hasKeyword && !factors.includes(enhancer.description)) {
         factors.push(enhancer.description);
         // 累积乘数效应，但有上限
@@ -195,8 +211,13 @@ export function generateTEFAnalysis(
   const baseTEFData = calculateBaseTEF(foodEntries);
   const enhancers = identifyTEFEnhancers(foodEntries);
   
-  // 使用提供的乘数或自动识别的乘数
-  const finalMultiplier = enhancementMultiplier || enhancers.suggestedMultiplier;
+  // 使用提供的乘数或自动识别的乘数(取 max,避免 AI 保守返回 1.0 时本地关键词检测被吞掉)
+  const finalMultiplier = clampTEFMultiplier(
+    Math.max(
+      clampTEFMultiplier(enhancementMultiplier ?? MIN_TEF_MULTIPLIER),
+      enhancers.suggestedMultiplier
+    )
+  );
   
   const enhancedTEF = baseTEFData.totalTEF * finalMultiplier;
   const baseTEFPercentage = baseTEFData.totalCalories > 0 

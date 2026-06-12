@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { format } from "date-fns"
-import { HEALTH_DB_NAME, HEALTH_DB_VERSION } from "@/lib/indexed-db"
+import { HEALTH_DB_STORES, openHealthDatabase } from "@/lib/indexed-db"
 
 interface DateRecordsHook {
   hasRecord: (date: Date) => boolean
@@ -23,51 +23,53 @@ export function useDateRecords(): DateRecordsHook {
   // 从IndexedDB加载所有有记录的日期
   const loadRecordedDates = useCallback(async () => {
     setIsLoading(true)
+    let db: IDBDatabase | null = null
     try {
-      const request = indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
-      
-      request.onsuccess = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result
-        const transaction = db.transaction(['healthLogs'], 'readonly')
-        const objectStore = transaction.objectStore('healthLogs')
-        const getAllRequest = objectStore.getAll()
+      db = await openHealthDatabase()
+      const transaction = db.transaction(
+        [HEALTH_DB_STORES.healthLogs],
+        "readonly",
+      )
+      const objectStore = transaction.objectStore(HEALTH_DB_STORES.healthLogs)
+      const getAllRequest = objectStore.getAll()
 
+      await new Promise<void>((resolve) => {
         getAllRequest.onsuccess = () => {
           const allLogs = getAllRequest.result
           const dates = new Set<string>()
 
           if (allLogs && allLogs.length > 0) {
-            allLogs.forEach(log => {
-              if (log && (
-                (log.foodEntries && log.foodEntries.length > 0) ||
-                (log.exerciseEntries && log.exerciseEntries.length > 0) ||
-                log.weight !== undefined ||
-                log.dailyStatus ||
-                log.calculatedBMR ||
-                log.calculatedTDEE ||
-                log.tefAnalysis
-              )) {
+            allLogs.forEach((log) => {
+              if (
+                log &&
+                ((log.foodEntries && log.foodEntries.length > 0) ||
+                  (log.exerciseEntries && log.exerciseEntries.length > 0) ||
+                  log.weight !== undefined ||
+                  log.dailyStatus ||
+                  log.plannedTrainingType ||
+                  log.mealPlanSuggestion ||
+                  log.calculatedBMR ||
+                  log.calculatedTDEE ||
+                  log.tefAnalysis)
+              ) {
                 dates.add(log.date)
               }
             })
           }
 
           setRecordedDates(dates)
-          setIsLoading(false)
+          resolve()
         }
 
         getAllRequest.onerror = () => {
-          console.error('Failed to load recorded dates')
-          setIsLoading(false)
+          console.error("Failed to load recorded dates")
+          resolve()
         }
-      }
-
-      request.onerror = () => {
-        console.error('Failed to open IndexedDB')
-        setIsLoading(false)
-      }
+      })
     } catch (error) {
-      console.error('Error loading recorded dates:', error)
+      console.error("Error loading recorded dates:", error)
+    } finally {
+      db?.close()
       setIsLoading(false)
     }
   }, [])

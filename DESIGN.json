@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-19T00:00:00Z",
+  "title": "Design System: Snapifit-AI",
+  "extensions": {
+    "colorMeta": {
+      "charcoal-ink": {
+        "role": "primary",
+        "displayName": "Charcoal Ink",
+        "canonical": "hsl(240 3% 11%)",
+        "tonalRamp": ["#1C1C1E", "#2B2B2D", "#3A3A3C", "#54545A", "#86868B", "#A8A8AD", "#D8D8D2", "#F3F3F0"]
+      },
+      "paper-cream": {
+        "role": "neutral",
+        "displayName": "Paper Cream",
+        "canonical": "hsl(60 23% 97%)",
+        "tonalRamp": ["#3A3A35", "#5C5C56", "#86867C", "#B3B3A8", "#D8D8D2", "#EAEAE5", "#FAFAF7", "#FDFDFC"]
+      },
+      "margin-white": {
+        "role": "neutral",
+        "displayName": "Margin White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#3A3A3C", "#5C5C5E", "#86868B", "#B3B3B5", "#D8D8D2", "#EAEAE5", "#FAFAF7", "#FFFFFF"]
+      },
+      "soft-ink": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "hsl(240 2% 23%)",
+        "tonalRamp": ["#1C1C1E", "#3A3A3C", "#54545A", "#6E6E73", "#86868B", "#A8A8AD", "#C7C7CC", "#E5E5EA"]
+      },
+      "pencil-grey": {
+        "role": "neutral",
+        "displayName": "Pencil Grey",
+        "canonical": "hsl(240 2% 54%)",
+        "tonalRamp": ["#3A3A3C", "#54545A", "#6E6E73", "#86868B", "#A8A8AD", "#C7C7CC", "#D8D8D2", "#EAEAE5"]
+      },
+      "ruled-line": {
+        "role": "neutral",
+        "displayName": "Ruled Line",
+        "canonical": "hsl(60 11% 91%)",
+        "tonalRamp": ["#86867C", "#A8A8A0", "#C2C2BA", "#D8D8D2", "#E0E0DB", "#EAEAE5", "#F3F3F0", "#FAFAF7"]
+      },
+      "ruled-line-strong": {
+        "role": "neutral",
+        "displayName": "Ruled Line Strong",
+        "canonical": "hsl(60 7% 84%)",
+        "tonalRamp": ["#6E6E66", "#86867C", "#A8A8A0", "#C2C2BA", "#D8D8D2", "#E0E0DB", "#EAEAE5", "#F3F3F0"]
+      },
+      "apricot-food": {
+        "role": "secondary",
+        "displayName": "Apricot (Food)",
+        "canonical": "hsl(35 100% 50%)",
+        "semanticMeaning": "Calorie intake, food entries, carbohydrate axis.",
+        "tonalRamp": ["#3D2400", "#663D00", "#995C00", "#CC7A00", "#FF9500", "#FFB347", "#FFD699", "#FFF1DD"]
+      },
+      "cinnabar-exercise": {
+        "role": "secondary",
+        "displayName": "Cinnabar (Exercise)",
+        "canonical": "hsl(3 100% 59%)",
+        "semanticMeaning": "Calorie expenditure, exercise burn, destructive actions.",
+        "tonalRamp": ["#4D0E0B", "#7A1612", "#A61D19", "#D32621", "#FF3B30", "#FF7A72", "#FFB3AE", "#FFE0DD"]
+      },
+      "jade-weight": {
+        "role": "secondary",
+        "displayName": "Jade (Weight)",
+        "canonical": "hsl(135 59% 49%)",
+        "semanticMeaning": "Weight, body composition, positive deficit.",
+        "tonalRamp": ["#0F3B1B", "#1A5C2B", "#247D3B", "#2DA04D", "#34C759", "#6DDB85", "#A6EBB2", "#DDF6E3"]
+      },
+      "indigo-status": {
+        "role": "secondary",
+        "displayName": "Indigo (Status)",
+        "canonical": "hsl(241 61% 59%)",
+        "semanticMeaning": "Daily status — mood / stress / sleep quality / sleep duration.",
+        "tonalRamp": ["#1A1956", "#2A2980", "#3F3EA8", "#4A48C7", "#5856D6", "#8C8AE0", "#B5B4EA", "#DCDCF5"]
+      },
+      "rose-mood": {
+        "role": "secondary",
+        "displayName": "Rose (Mood)",
+        "canonical": "hsl(349 100% 59%)",
+        "semanticMeaning": "Mood axis specifically (when status is broken out).",
+        "tonalRamp": ["#4D0917", "#7A0F25", "#A61533", "#D31B41", "#FF2D55", "#FF6E89", "#FFB0BD", "#FFE0E6"]
+      },
+      "cobalt-ai": {
+        "role": "secondary",
+        "displayName": "Cobalt (AI)",
+        "canonical": "hsl(210 100% 52%)",
+        "semanticMeaning": "AI suggestions, chat surface, AI persona avatars.",
+        "tonalRamp": ["#001F4D", "#003380", "#0050B3", "#0066D6", "#0A84FF", "#5BA8FF", "#A0C8FF", "#DDEBFF"]
+      },
+      "iris-behavior": {
+        "role": "secondary",
+        "displayName": "Iris (Behavior)",
+        "canonical": "hsl(271 91% 65%)",
+        "semanticMeaning": "Behavior-expert AI persona inside multi-agent consultation.",
+        "tonalRamp": ["#33094D", "#530F80", "#7314A6", "#9333D6", "#A855F7", "#C087FA", "#D9B8FC", "#F0E1FE"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page-header H1 only. One per route. Tracks tight at -0.02em." },
+      "headline": { "displayName": "Headline", "purpose": "Hero numbers — ring center, stat card big value. Always tabular-nums." },
+      "title": { "displayName": "Title", "purpose": "Card titles, sidebar labels, entry-row names." },
+      "body": { "displayName": "Body", "purpose": "Default prose. AI suggestions, descriptions. Caps at 65–75ch line length." },
+      "label": { "displayName": "Label", "purpose": "Card-head uppercase caption. Only 13px or smaller may be uppercase." }
+    },
+    "shadows": [
+      {
+        "name": "segmented-pill-ring",
+        "value": "inset 0 0 0 1px hsl(60 11% 91%)",
+        "purpose": "The only sanctioned shadow value. Hairline inset ring on the active pill of segmented controls (tab pills, period pills)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-default",
+        "value": "ease-out",
+        "purpose": "Default easing for fade / slide / scale entrance animations (0.3s–0.5s durations)."
+      },
+      {
+        "name": "ring-progress",
+        "value": "0.6s ease",
+        "purpose": "Ring stroke-dashoffset transition. The only non-instant animation on the dashboard hero."
+      },
+      {
+        "name": "button-hover-lift",
+        "value": "transform 0.15s ease-out",
+        "purpose": "translateY(-1px) on button hover. Buttons only — never cards, tiles, or inputs."
+      },
+      {
+        "name": "sidebar-collapse",
+        "value": "grid-template-columns 0.25s ease",
+        "purpose": "Desktop sidebar 220px ↔ 64px collapse transition."
+      },
+      {
+        "name": "accordion",
+        "value": "0.2s ease-out",
+        "purpose": "Radix Accordion expand/collapse — height animation off radix-accordion-content-height var."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm720", "value": "720px", "purpose": "Custom Snapifit breakpoint — switches mobile bottom-tab to desktop sidebar, page H1 from 24px to 30px." },
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Charcoal Ink fill, Margin White text. The system's only saturated-CTA shape.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>记录</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; height: 36px; background: #1C1C1E; color: #FFFFFF; border: 1px solid #1C1C1E; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; font-size: 13px; font-weight: 500; line-height: 1; letter-spacing: -0.005em; cursor: pointer; transition: background 0.15s ease-out, transform 0.15s ease-out; } .ds-btn-primary svg { width: 14px; height: 14px; flex: none; } .ds-btn-primary:hover { background: #3A3A3C; border-color: #3A3A3C; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 2px solid #1C1C1E; outline-offset: 2px; } .ds-btn-primary:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Margin White fill with a Ruled-Line-Strong border. The everyday secondary action.",
+      "html": "<button class=\"ds-btn-outline\">导出</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; height: 36px; background: #FFFFFF; color: #1C1C1E; border: 1px solid #D8D8D2; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; font-size: 13px; font-weight: 500; line-height: 1; cursor: pointer; transition: background 0.15s ease-out, border-color 0.15s ease-out, transform 0.15s ease-out; } .ds-btn-outline:hover { background: #FAFAF7; border-color: #1C1C1E; transform: translateY(-1px); } .ds-btn-outline:focus-visible { outline: 2px solid #1C1C1E; outline-offset: 2px; } .ds-btn-outline:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "No background, no border, Pencil Grey text. Used in toolbars and row actions.",
+      "html": "<button class=\"ds-btn-ghost\">查看更多 →</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 12px; height: 36px; background: transparent; color: #86868B; border: 1px solid transparent; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; font-size: 12px; font-weight: 500; line-height: 1; cursor: pointer; transition: color 0.15s ease-out, background 0.15s ease-out; } .ds-btn-ghost:hover { color: #1C1C1E; background: rgba(0,0,0,0.04); } .ds-btn-ghost:focus-visible { outline: 2px solid #1C1C1E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Card Surface",
+      "kind": "card",
+      "refersTo": "card-surface",
+      "description": "Margin White surface on Paper Cream page. 1px Ruled Line border, 16px radius, no shadow.",
+      "html": "<article class=\"ds-card\"><header class=\"ds-card-head\"><div class=\"ds-card-title-row\"><span class=\"ds-tile ds-tile-food\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 11h18M3 11l1.5-4A2 2 0 0 1 6.4 5.6h11.2A2 2 0 0 1 19.5 7L21 11M3 11v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/></svg></span><span class=\"ds-card-title\">今日饮食</span></div><a class=\"ds-card-action\">查看更多 →</a></header><div class=\"ds-card-body\"><div class=\"ds-hero-num\">1,824<small> kcal</small></div><div class=\"ds-hero-label\">摄入热量</div></div></article>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid #EAEAE5; border-radius: 16px; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; } .ds-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; } .ds-card-title-row { display: flex; align-items: center; gap: 10px; } .ds-card-title { font-size: 13px; font-weight: 600; color: #86868B; letter-spacing: 0.02em; text-transform: uppercase; } .ds-card-action { font-size: 12px; font-weight: 500; color: #86868B; cursor: pointer; transition: color 0.15s ease-out; } .ds-card-action:hover { color: #1C1C1E; } .ds-hero-num { font-size: 28px; font-weight: 700; color: #1C1C1E; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; } .ds-hero-num small { font-size: 12px; font-weight: 500; color: #86868B; margin-left: 3px; } .ds-hero-label { font-size: 12px; color: #86868B; margin-top: 4px; }"
+    },
+    {
+      "name": "Tile (Food)",
+      "kind": "custom",
+      "refersTo": "tile-food",
+      "description": "Signature category-color glyph block. 32×32, 10px radius, single solid accent color, white icon. Each Tile says 'this is a [food / exercise / weight / status / mood / AI] thing' without a word.",
+      "html": "<div class=\"ds-tile-grid\"><span class=\"ds-tile ds-tile-food\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 11h18M3 11l1.5-4A2 2 0 0 1 6.4 5.6h11.2A2 2 0 0 1 19.5 7L21 11M3 11v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/></svg></span><span class=\"ds-tile ds-tile-exercise\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.4 14.4 9.6 9.6M18.6 5.4l-2.1 2.1M5.4 18.6l2.1-2.1M21 12h-3M6 12H3M19.4 4.6l-2.1 2.1M6.7 17.3l-2.1 2.1\"/></svg></span><span class=\"ds-tile ds-tile-weight\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 3\"/></svg></span><span class=\"ds-tile ds-tile-status\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 13a9 9 0 1 1-9-9c0 5 4 5 4 9s5 0 5 0Z\"/></svg></span><span class=\"ds-tile ds-tile-mood\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z\"/></svg></span><span class=\"ds-tile ds-tile-ai\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m12 3 1.9 5.8 5.8 1.9-5.8 1.9L12 18.4l-1.9-5.8L4.3 10.7l5.8-1.9Z\"/></svg></span></div>",
+      "css": ".ds-tile-grid { display: inline-flex; align-items: center; gap: 10px; } .ds-tile { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: #FFFFFF; flex: none; } .ds-tile svg { width: 18px; height: 18px; } .ds-tile-food { background: #FF9500; } .ds-tile-exercise { background: #FF3B30; } .ds-tile-weight { background: #34C759; } .ds-tile-status { background: #5856D6; } .ds-tile-mood { background: #FF2D55; } .ds-tile-ai { background: #0A84FF; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Margin White fill, 1px border, 10px radius. Focus shifts border to Charcoal Ink.",
+      "html": "<label class=\"ds-input-wrap\"><span class=\"ds-input-label\">体重 (kg)</span><input class=\"ds-input\" type=\"text\" value=\"68.4\" /></label>",
+      "css": ".ds-input-wrap { display: flex; flex-direction: column; gap: 6px; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; } .ds-input-label { font-size: 12px; font-weight: 500; color: #86868B; } .ds-input { width: 100%; height: 40px; padding: 10px 12px; background: #FFFFFF; color: #1C1C1E; border: 1px solid #EAEAE5; border-radius: 10px; font-family: inherit; font-size: 14px; line-height: 1.4; font-variant-numeric: tabular-nums; outline: none; transition: border-color 0.15s ease-out, background 0.15s ease-out; } .ds-input::placeholder { color: #86868B; } .ds-input:hover { border-color: #D8D8D2; } .ds-input:focus-visible { border-color: #1C1C1E; box-shadow: 0 0 0 2px rgba(28,28,30,0.15); }"
+    },
+    {
+      "name": "Meal Chip",
+      "kind": "chip",
+      "refersTo": "chip-meal-breakfast",
+      "description": "Four meal-context chips — breakfast / lunch / dinner / snack. The only sanctioned tinted backgrounds outside the cream/white system.",
+      "html": "<div class=\"ds-chip-row\"><span class=\"ds-chip ds-chip-breakfast\">早</span><span class=\"ds-chip ds-chip-lunch\">午</span><span class=\"ds-chip ds-chip-dinner\">晚</span><span class=\"ds-chip ds-chip-snack\">加</span></div>",
+      "css": ".ds-chip-row { display: inline-flex; gap: 6px; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; } .ds-chip { display: inline-flex; align-items: center; justify-content: center; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.4; } .ds-chip-breakfast { background: #FFF7ED; color: #C2410C; } .ds-chip-lunch { background: #FEF3C7; color: #92400E; } .ds-chip-dinner { background: #EDE9FE; color: #6D28D9; } .ds-chip-snack { background: #DCFCE7; color: #15803D; }"
+    },
+    {
+      "name": "Pip Row",
+      "kind": "custom",
+      "refersTo": "pip-on",
+      "description": "Signature 4-step status rating row used for mood / stress / sleep quality / sleep duration. Off pips are Ruled Line; on pips are Charcoal Ink — pip count is the data, not the hue.",
+      "html": "<div class=\"ds-pip-wrap\"><div class=\"ds-pip-label\"><span>心情</span><b>3 / 4</b></div><div class=\"ds-pip-row\"><span class=\"ds-pip ds-pip-on\"></span><span class=\"ds-pip ds-pip-on\"></span><span class=\"ds-pip ds-pip-on\"></span><span class=\"ds-pip\"></span></div></div>",
+      "css": ".ds-pip-wrap { display: flex; flex-direction: column; gap: 6px; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; min-width: 160px; } .ds-pip-label { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #86868B; } .ds-pip-label b { color: #1C1C1E; font-weight: 600; font-variant-numeric: tabular-nums; } .ds-pip-row { display: flex; gap: 4px; } .ds-pip { flex: 1; height: 6px; background: #EAEAE5; border-radius: 3px; transition: background 0.15s ease-out; } .ds-pip-on { background: #1C1C1E; }"
+    },
+    {
+      "name": "KcalRow",
+      "kind": "custom",
+      "refersTo": "card-surface",
+      "description": "Signature two-column data row used inside cards to break down a hero number. Left swatch dot + muted label, right bold tabular-nums value optionally tinted Jade (positive deficit) or Cinnabar (over-budget).",
+      "html": "<div class=\"ds-kcal-list\"><div class=\"ds-kcal-row\"><span class=\"ds-kcal-left\"><span class=\"ds-kcal-dot ds-kcal-dot-food\"></span>摄入</span><span class=\"ds-kcal-val\">1,824 kcal</span></div><div class=\"ds-kcal-row\"><span class=\"ds-kcal-left\"><span class=\"ds-kcal-dot ds-kcal-dot-exercise\"></span>运动消耗</span><span class=\"ds-kcal-val ds-kcal-val-pos\">−342 kcal</span></div><div class=\"ds-kcal-row\"><span class=\"ds-kcal-left\"><span class=\"ds-kcal-dot ds-kcal-dot-ink\"></span>净缺口</span><span class=\"ds-kcal-val ds-kcal-val-neg\">+218 kcal</span></div></div>",
+      "css": ".ds-kcal-list { display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; min-width: 280px; } .ds-kcal-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #EAEAE5; font-size: 13px; } .ds-kcal-row:last-child { border-bottom: none; } .ds-kcal-left { display: inline-flex; align-items: center; gap: 8px; color: #86868B; } .ds-kcal-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; } .ds-kcal-dot-food { background: #FF9500; } .ds-kcal-dot-exercise { background: #FF3B30; } .ds-kcal-dot-ink { background: #1C1C1E; } .ds-kcal-val { font-weight: 600; color: #1C1C1E; font-variant-numeric: tabular-nums; } .ds-kcal-val-pos { color: #FF3B30; } .ds-kcal-val-neg { color: #34C759; }"
+    },
+    {
+      "name": "Mobile Bottom Tab",
+      "kind": "nav",
+      "refersTo": "card-surface",
+      "description": "Mobile-only fixed bottom navigation (sm720 and below). Five tabs, color-shift active state, no background fill — only icon weight and text color carry the state.",
+      "html": "<nav class=\"ds-bottom-tab\" aria-label=\"Mobile navigation\"><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 12 12 3l9 9M5 10v10h14V10\"/></svg><span>总览</span></a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4v6m0 0 3-3m-3 3-3-3M4 14h16v6H4z\"/></svg><span>工作台</span></a><a class=\"ds-tab ds-tab-active\" href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M6.5 6.5h2v11h-2zM10 8h2v8h-2zM13.5 5h2v14h-2zM17 7h2v10h-2z\"/></svg><span>训练</span></a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 12a8 8 0 1 1-3.2-6.4L21 4v5h-5\"/></svg><span>对话</span></a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z\"/></svg><span>设置</span></a></nav>",
+      "css": ".ds-bottom-tab { display: flex; align-items: stretch; height: 56px; background: #FAFAF7; border-top: 1px solid #EAEAE5; font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", \"Segoe UI\", system-ui, sans-serif; width: 100%; max-width: 480px; } .ds-tab { flex: 1; display: grid; place-items: center; gap: 2px; padding: 8px 0; text-decoration: none; color: #86868B; font-size: 11px; font-weight: 500; line-height: 1.2; transition: color 0.15s ease-out; } .ds-tab svg { width: 20px; height: 20px; } .ds-tab:hover { color: #1C1C1E; } .ds-tab-active { color: #1C1C1E; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Health Journal",
+    "overview": "Snapifit-AI is a journal a doctor might keep for themselves — paper-cream pages, charcoal ink, the occasional category sticker pressed into the corner of an entry. Nothing on the page exists to be impressive; everything exists to be read clearly six months from now. The interface is the page, the data is the handwriting, and the AI is the quiet assistant that sometimes underlines the relevant passages without ever interrupting.\n\nThis system is explicitly not a SaaS dashboard, not a gym-bro athletic brand, not a clinical chart system, and not a Material 3 surface play. There are no gradients, no glassmorphism, no neon, no FAB. Color is a label, not a mood. Shadow is not a layer; the border is. The reader's eye lands on numbers — calories, weight, sleep hours, pip counts — not on chrome.",
+    "keyCharacteristics": [
+      "Paper-cream canvas (#FAFAF7), never pure white at the page level.",
+      "Charcoal ink (#1C1C1E) as the only voice that carries across the whole product.",
+      "Six category accent colors restricted to 32px tiles, 8px dots, and 2px progress fills — never card surfaces, never text bodies.",
+      "Flat by default: 1px borders define cards; shadows are forbidden as a visual style.",
+      "Tabular numerals everywhere a number appears. Numbers are the protagonist.",
+      "No gradients, anywhere, ever — a hard rule, not a preference."
+    ],
+    "rules": [
+      { "name": "The Charcoal Voice Rule", "section": "colors", "body": "Across any single screen, charcoal ink and the cream/white neutrals must cover at least 85% of pixels. If a category accent is filling more than the 32×32 tile, the 8×8 dot, the 2px ring stroke, or a single meal-chip background, it is wrong." },
+      { "name": "The Category Lock Rule", "section": "colors", "body": "Each accent has exactly one meaning. Never swap them for visual variety. Apricot is always food; Jade is always weight or deficit; Cobalt is always AI. A workout chart never paints exercise time in Jade because 'it looks healthier' — that breaks the contract." },
+      { "name": "The No-Gradient Rule", "section": "colors", "body": "No linear-gradient, no radial-gradient, no background-clip: text. Two-color visualization uses two solid colors. Hero numbers use a single solid color. The previous design's emerald gradient is the named anti-reference; do not regress." },
+      { "name": "The Meal-Chip Pastel Set", "section": "colors", "body": "Breakfast #FFF7ED/#C2410C, Lunch #FEF3C7/#92400E, Dinner #EDE9FE/#6D28D9, Snack #DCFCE7/#15803D. These pastel backgrounds are the only sanctioned tinted backgrounds outside the cream/white system. Never invent a new pastel pair for a new category." },
+      { "name": "The Tabular-Nums Rule", "section": "typography", "body": "Every number that represents a health metric — calories, grams, kg, minutes, reps, heart rate, pip counts, percentages — uses font-variant-numeric: tabular-nums. The numbers must align vertically when stacked in a list." },
+      { "name": "The Display-Is-Page-H1 Rule", "section": "typography", "body": "Only the page header may use the Display tier. Cards use Headline at most. No card title is ever 24px+. This forces the eye to register the route header first, then drop into the cards beneath." },
+      { "name": "The Uppercase Floor Rule", "section": "typography", "body": "Uppercase typography only appears at 13px or smaller (Label and Micro tiers). The page H1, card headlines, button labels — none of these are uppercased. Uppercase reads as caption / tag / divider, not as content." },
+      { "name": "The Flat-By-Default Rule", "section": "elevation", "body": "Surfaces are flat at rest. No box-shadow is used to imply elevation. Existing shadow-lg / shadow-xl declarations in legacy shadcn Card are drift, to be removed when touched. The project-canonical card class is .health-card (border + no shadow)." },
+      { "name": "The Border-Is-The-Shadow Rule", "section": "elevation", "body": "Where another system would reach for shadow-sm, Snapifit uses a 1px Ruled Line border. The hover-lift pattern (translateY(-1px) on buttons) is permitted on buttons only; it is never applied to cards." },
+      { "name": "The No-Glass Rule", "section": "elevation", "body": "No backdrop-filter: blur(...) as a decorative effect. Glassmorphism is forbidden. The single permitted use is the management-charts locked-state overlay (functional blur to signal 'view disabled')." }
+    ],
+    "dos": [
+      "Do treat Paper Cream (#FAFAF7) as the page background everywhere — never substitute pure white at the page level.",
+      "Do use Charcoal Ink (#1C1C1E) as the primary voice for text, buttons, ring strokes, and active nav states.",
+      "Do confine category accents to 32×32 tiles, 8×8 dots, 2px progress fills, and meal chips.",
+      "Do enable font-variant-numeric: tabular-nums on every health metric, weight readout, kcal value, time duration, and pip count.",
+      "Do prefer 1px Ruled Line borders for separation — between cards, between rows, around inputs.",
+      "Do keep the H1 (Display tier) only on the page header. Cards top out at Headline-tier numbers and Title-tier names.",
+      "Do allow the one micro-lift (translateY(-1px)) on buttons during hover. Not on cards, not on tiles, not on inputs.",
+      "Do use the pastel meal-chip set (orange / amber / violet / green) for breakfast / lunch / dinner / snack."
+    ],
+    "donts": [
+      "Don't use any gradient — no linear-gradient, no radial-gradient, no background-clip: text. The previous emerald-gradient design is the named anti-reference.",
+      "Don't apply box-shadow as a card elevation. The only sanctioned shadow value is the inset hairline ring on segmented-control active pills.",
+      "Don't colorize card surfaces, card backgrounds, or text bodies with category accents. Accents are labels, not moods.",
+      "Don't use Material 3 surface-tone layers, FABs, or Filled Tonal Button patterns. Even when the Android port arrives, the visual language is owned by this DESIGN.md, not by M3.",
+      "Don't apply backdrop-filter: blur(...) decoratively. Glassmorphism is forbidden.",
+      "Don't introduce a side-stripe border (border-left: 3px solid var(--c-food)). The category Tile or 8px dot expresses category — never a colored stripe down a card edge.",
+      "Don't use uppercase typography above the 13px Label tier.",
+      "Don't introduce new fonts. The system-font stack is the brand. No Google Fonts, no Inter, no custom face.",
+      "Don't swap a category accent for visual variety. Apricot is always food. Jade is always weight/deficit. Cobalt is always AI.",
+      "Don't wrap a card in another card. Nested cards are the SaaS-template smell test."
+    ]
+  }
+}

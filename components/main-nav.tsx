@@ -1,91 +1,116 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Dumbbell, Home, MessageSquare, Settings, Moon, Sun } from "lucide-react"
-import { useTheme } from "next-themes"
-import { Button } from "@/components/ui/button"
-import Image from "next/image"
+import {
+  BarChart3,
+  ClipboardEdit,
+  Dumbbell,
+  MessageSquare,
+  Settings,
+  ChevronLeft,
+} from "lucide-react"
+import { useSidebarCollapsed } from "@/hooks/use-sidebar-collapsed"
+
+type NavItem = {
+  name: string
+  href: string
+  icon: typeof BarChart3
+  carriesDate?: boolean
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { name: "总览", href: "/", icon: BarChart3, carriesDate: true },
+  { name: "工作台", href: "/workbench", icon: ClipboardEdit, carriesDate: true },
+  { name: "训练", href: "/workout", icon: Dumbbell },
+  { name: "智能对话", href: "/chat", icon: MessageSquare },
+  { name: "设置", href: "/settings", icon: Settings },
+]
 
 export function MainNav() {
   const pathname = usePathname()
-  const { theme, setTheme } = useTheme()
+  const searchParams = useSearchParams()
+  const dateParam = searchParams.get("date")
+  const { collapsed, toggle } = useSidebarCollapsed()
 
-  const navItems = [
-    {
-      name: "首页",
-      href: "/",
-      icon: Home,
-    },
-    {
-      name: "训练",
-      href: "/workout",
-      icon: Dumbbell,
-    },
-    {
-      name: "智能对话",
-      href: "/chat",
-      icon: MessageSquare,
-    },
-    {
-      name: "设置",
-      href: "/settings",
-      icon: Settings,
-    },
-  ]
+  const withDate = (href: string) =>
+    dateParam ? `${href}${href.includes("?") ? "&" : "?"}date=${dateParam}` : href
 
   return (
-    <div className="sticky top-0 z-50 w-full border-b border-slate-200/20 dark:border-slate-600/30 bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl shadow-sm">
-      <div className="flex h-20 items-center px-8 lg:px-16">
-        <div className="mr-8 hidden md:flex">
-          <Link href="/" className="flex items-center space-x-4 group">
-            <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 dark:from-green-400 dark:to-green-500 shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
-              <Image
-                src="/placeholder.svg"
-                alt="SnapFit AI Logo"
-                width={24}
-                height={24}
-                className="brightness-0 invert"
-              />
-            </div>
-            <span className="font-bold text-xl bg-gradient-to-r from-green-600 to-green-700 dark:from-green-300 dark:to-green-400 bg-clip-text text-transparent">
-              SnapFit AI
-            </span>
-          </Link>
-        </div>
+    <aside
+      data-collapsed={collapsed}
+      className={cn(
+        "sticky top-0 z-40 hidden h-screen flex-col border-r border-border bg-background px-3 py-4 sm720:flex",
+        "transition-[width] duration-200 ease-out",
+        collapsed ? "w-16" : "w-[220px]",
+      )}
+    >
+      {/* 顶部 logo + 折叠按钮 */}
+      <div className="mb-4 flex items-center justify-between px-2">
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-foreground text-sm font-bold text-background">
+            S
+          </span>
+          {!collapsed && (
+            <span className="text-[17px] font-bold tracking-tight">Snapifit</span>
+          )}
+        </Link>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={collapsed ? "展开侧边栏" : "折叠侧边栏"}
+          className={cn(
+            "grid h-7 w-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground",
+            collapsed && "absolute right-2",
+          )}
+        >
+          <ChevronLeft
+            className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")}
+          />
+        </button>
+      </div>
 
-        <nav className="flex items-center space-x-2 lg:space-x-3 mx-8">
-          {navItems.map((item) => (
+      {/* 导航 */}
+      <nav className="flex flex-col gap-0.5">
+        {NAV_ITEMS.map((item) => {
+          const active =
+            item.href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(item.href)
+          const Icon = item.icon
+          return (
             <Link
               key={item.href}
-              href={item.href}
+              href={item.carriesDate ? withDate(item.href) : item.href}
               className={cn(
-                "flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 hover:bg-green-50 dark:hover:bg-slate-700/50 hover:scale-105",
-                pathname === item.href
-                  ? "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-400 dark:to-green-500 text-white dark:text-slate-900 shadow-lg shadow-green-500/25 dark:shadow-green-400/20"
-                  : "text-slate-600 dark:text-slate-200 hover:text-green-600 dark:hover:text-green-300",
+                "flex items-center gap-3 rounded-[10px] px-2.5 py-2 text-sm font-medium transition-colors",
+                collapsed && "justify-center px-0",
+                active
+                  ? "bg-foreground text-background"
+                  : "text-foreground/80 hover:bg-black/5 hover:text-foreground",
               )}
+              title={collapsed ? item.name : undefined}
             >
-              <item.icon className="h-4 w-4 mr-2.5" />
-              <span className="hidden sm:inline">{item.name}</span>
+              <Icon className="h-[18px] w-[18px] shrink-0" />
+              {!collapsed && <span>{item.name}</span>}
             </Link>
-          ))}
-        </nav>
+          )
+        })}
+      </nav>
 
-        <div className="ml-auto flex items-center space-x-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            className="h-10 w-10 rounded-xl hover:bg-green-50 dark:hover:bg-slate-700/50 hover:scale-105 transition-all duration-300 border border-transparent hover:border-green-200 dark:hover:border-slate-600"
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-green-600 dark:text-green-400" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-green-500 dark:text-green-300" />
-            <span className="sr-only">切换主题</span>
-          </Button>
+      {/* 底部用户信息 */}
+      <div className="mt-auto flex items-center gap-2.5 border-t border-border px-2 pt-3">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-foreground text-xs font-semibold text-background">
+          X
         </div>
+        {!collapsed && (
+          <div className="min-w-0 leading-tight">
+            <div className="text-[13px] font-semibold">xdd</div>
+            <div className="truncate text-xs text-muted-foreground">本地账户</div>
+          </div>
+        )}
       </div>
-    </div>
+    </aside>
   )
 }

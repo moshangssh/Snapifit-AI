@@ -6,6 +6,7 @@ import type {
   RecentWorkoutSessionSummary,
   WorkoutPlanContextSnapshot,
   WorkoutSession,
+  WorkoutSessionSet,
 } from "@/lib/workout/types"
 
 export function getEffectiveUserWeightKg(
@@ -28,19 +29,14 @@ export function summarizeWorkoutSession(
       const completedSets = exercise.sets.filter(
         (set) => !set.isSkipped && set.isCompleted,
       )
-      const weights = completedSets
-        .map((set) => set.actualWeightKg)
-        .filter((value): value is number => typeof value === "number")
-      const reps = completedSets
-        .map((set) => set.actualReps)
-        .filter((value): value is number => typeof value === "number")
+      const workingSet = pickWorkingSet(completedSets)
 
       return {
         exerciseName:
           exercise.actualExerciseName ?? exercise.plannedExerciseName,
         completedSets: completedSets.length,
-        averageWeightKg: average(weights),
-        averageReps: average(reps),
+        workingSetWeightKg: workingSet?.weightKg,
+        workingSetReps: workingSet?.reps,
         wasReplaced: Boolean(exercise.actualExerciseName),
         wasSkipped: exercise.isExerciseSkipped,
         muscleGroups: (
@@ -92,8 +88,22 @@ export function buildWorkoutPlanContextSnapshot(input: {
   }
 }
 
-function average(values: number[]): number | undefined {
-  if (values.length === 0) return undefined
-  const sum = values.reduce((acc, value) => acc + value, 0)
-  return Math.round((sum / values.length) * 10) / 10
+function pickWorkingSet(
+  sets: WorkoutSessionSet[],
+): { weightKg?: number; reps?: number } | undefined {
+  if (sets.length === 0) return undefined
+  let best = sets[0]
+  for (const set of sets) {
+    const setWeight = set.actualWeightKg ?? -Infinity
+    const bestWeight = best.actualWeightKg ?? -Infinity
+    if (setWeight > bestWeight) {
+      best = set
+    } else if (
+      setWeight === bestWeight &&
+      (set.actualReps ?? 0) > (best.actualReps ?? 0)
+    ) {
+      best = set
+    }
+  }
+  return { weightKg: best.actualWeightKg, reps: best.actualReps }
 }

@@ -3,26 +3,19 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Edit2, Trash2, Check, X } from "lucide-react"
+import { Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+import { EntryRow } from "@/components/ui/entry-row"
 import type { FoodEntry } from "@/lib/types"
 
 interface FoodEntryCardProps {
   entry: FoodEntry
-  onDelete: () => void
-  onUpdate: (updatedEntry: FoodEntry) => void
-}
-
-const MEAL_TYPE_LABELS: Record<string, string> = {
-  breakfast: "早餐",
-  lunch: "午餐",
-  dinner: "晚餐",
-  snack: "加餐",
+  onDelete?: () => void
+  onUpdate?: (updatedEntry: FoodEntry) => void
+  showActions?: boolean
 }
 
 const TIME_PERIOD_LABELS: Record<string, string> = {
@@ -32,7 +25,14 @@ const TIME_PERIOD_LABELS: Record<string, string> = {
   evening: "夜宵",
 }
 
-export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps) {
+const MEAL_CHIP: Record<string, { label: string; cls: string }> = {
+  breakfast: { label: "早", cls: "breakfast" },
+  lunch:     { label: "午", cls: "lunch" },
+  dinner:    { label: "晚", cls: "dinner" },
+  snack:     { label: "加", cls: "snack" },
+}
+
+export function FoodEntryCard({ entry, onDelete, onUpdate, showActions = true }: FoodEntryCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedEntry, setEditedEntry] = useState<FoodEntry>({ ...entry })
 
@@ -73,7 +73,7 @@ export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps)
   }
 
   const handleSave = () => {
-    onUpdate(editedEntry)
+    onUpdate?.(editedEntry)
     setIsEditing(false)
   }
 
@@ -87,108 +87,95 @@ export function FoodEntryCard({ entry, onDelete, onUpdate }: FoodEntryCardProps)
     return TIME_PERIOD_LABELS[period] || period
   }
 
-  const getMealTypeLabel = (type: string) => {
-    return MEAL_TYPE_LABELS[type] || type
+  const t = entry.total_nutritional_info_consumed || {}
+  const kcal = Math.round((t.calories as number) || 0)
+  const carbs = Math.round((t.carbohydrates as number) || 0)
+  const protein = Math.round((t.protein as number) || 0)
+  const fat = Math.round((t.fat as number) || 0)
+  const chip = MEAL_CHIP[entry.meal_type]
+
+  if (isEditing) {
+    return (
+      <div className="space-y-3 border-b border-border py-3 last:border-b-0">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label htmlFor="food_name">{"食物名称"}</Label>
+            <Input id="food_name" name="food_name" value={editedEntry.food_name} onChange={handleInputChange} />
+          </div>
+          <div>
+            <Label htmlFor="consumed_grams">{"份量 (克)"}</Label>
+            <Input
+              id="consumed_grams"
+              name="consumed_grams"
+              type="number"
+              value={editedEntry.consumed_grams}
+              onChange={handleInputChange}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label htmlFor="meal_type">{"餐次"}</Label>
+            <Select value={editedEntry.meal_type} onValueChange={handleMealTypeChange}>
+              <SelectTrigger id="meal_type">
+                <SelectValue placeholder={"选择餐次"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="breakfast">{"早餐"}</SelectItem>
+                <SelectItem value="lunch">{"午餐"}</SelectItem>
+                <SelectItem value="dinner">{"晚餐"}</SelectItem>
+                <SelectItem value="snack">{"加餐"}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="time_period">{"时间段"}</Label>
+            <Select value={editedEntry.time_period || ""} onValueChange={handleTimePeriodChange}>
+              <SelectTrigger id="time_period">
+                <SelectValue placeholder={"选择时间段"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="morning">{"上午"}</SelectItem>
+                <SelectItem value="noon">{"中午"}</SelectItem>
+                <SelectItem value="afternoon">{"下午"}</SelectItem>
+                <SelectItem value="evening">{"夜宵"}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-2">
+          <Button size="sm" variant="outline" onClick={handleCancel}>
+            <X className="h-4 w-4 mr-1" /> {"取消"}
+          </Button>
+          <Button size="sm" onClick={handleSave}>
+            <Check className="h-4 w-4 mr-1" /> {"保存"}
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className={cn(
-      "bg-card rounded-xl border transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-emerald-100/50 dark:hover:shadow-emerald-900/30",
-      entry.is_estimated && "border-amber-300 dark:border-amber-600 bg-amber-50/50 dark:bg-amber-900/10"
-    )}>
-      <div className="p-6">
-        {isEditing ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor="food_name">{"食物名称"}</Label>
-                <Input id="food_name" name="food_name" value={editedEntry.food_name} onChange={handleInputChange} />
-              </div>
-              <div>
-                <Label htmlFor="consumed_grams">{"份量 (克)"}</Label>
-                <Input
-                  id="consumed_grams"
-                  name="consumed_grams"
-                  type="number"
-                  value={editedEntry.consumed_grams}
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor="meal_type">{"餐次"}</Label>
-                <Select value={editedEntry.meal_type} onValueChange={handleMealTypeChange}>
-                  <SelectTrigger id="meal_type">
-                    <SelectValue placeholder={"选择餐次"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="breakfast">{"早餐"}</SelectItem>
-                    <SelectItem value="lunch">{"午餐"}</SelectItem>
-                    <SelectItem value="dinner">{"晚餐"}</SelectItem>
-                    <SelectItem value="snack">{"加餐"}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="time_period">{"时间段"}</Label>
-                <Select value={editedEntry.time_period || ""} onValueChange={handleTimePeriodChange}>
-                  <SelectTrigger id="time_period">
-                    <SelectValue placeholder={"选择时间段"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="morning">{"上午"}</SelectItem>
-                    <SelectItem value="noon">{"中午"}</SelectItem>
-                    <SelectItem value="afternoon">{"下午"}</SelectItem>
-                    <SelectItem value="evening">{"夜宵"}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 mt-2">
-              <Button size="sm" variant="outline" onClick={handleCancel}>
-                <X className="h-4 w-4 mr-1" /> {"取消"}
-              </Button>
-              <Button size="sm" onClick={handleSave}>
-                <Check className="h-4 w-4 mr-1" /> {"保存"}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="flex items-center">
-                <h4 className="font-medium">{entry.food_name}</h4>
-                {entry.is_estimated && (
-                  <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-1 rounded">{"估算"}</span>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {entry.consumed_grams}{"克"} · {getMealTypeLabel(entry.meal_type)}
-                {entry.time_period && ` · ${getTimePeriodLabel(entry.time_period)}`}
-              </p>
-              <p className="text-sm font-medium mt-1">
-                {entry.total_nutritional_info_consumed?.calories?.toFixed(0) || 0} {"卡路里"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {"碳水"}: {entry.total_nutritional_info_consumed?.carbohydrates?.toFixed(1) || 0}g · {"蛋白质"}:{" "}
-                {entry.total_nutritional_info_consumed?.protein?.toFixed(1) || 0}g · {"脂肪"}:{" "}
-                {entry.total_nutritional_info_consumed?.fat?.toFixed(1) || 0}g
-              </p>
-            </div>
-            <div className="flex space-x-1">
-              <Button size="icon" variant="ghost" onClick={() => setIsEditing(true)} className="h-8 w-8">
-                <Edit2 className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" onClick={onDelete} className="h-8 w-8 text-destructive hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <EntryRow
+      swatchToken="food"
+      leading={chip && <span className={`meal-chip ${chip.cls}`}>{chip.label}</span>}
+      title={entry.food_name}
+      isEstimated={entry.is_estimated}
+      tags={
+        <div className="entry-tags">
+          <span className="micro">碳水 {carbs}g</span>
+          <span className="micro">蛋白 {protein}g</span>
+          <span className="micro">脂肪 {fat}g</span>
+          <span className="micro">{entry.consumed_grams}g</span>
+          {entry.time_period && <span className="micro">{getTimePeriodLabel(entry.time_period)}</span>}
+        </div>
+      }
+      value={`${kcal} kcal`}
+      showActions={showActions}
+      onEdit={() => setIsEditing(true)}
+      onDelete={onDelete}
+    />
   )
 }

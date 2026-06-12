@@ -7,6 +7,7 @@ interface WorkoutSetNumberInputProps {
   value?: number
   disabled: boolean
   integerOnly?: boolean
+  className?: string
   step: number
   min: number
   onCommit: (value: number) => void
@@ -16,6 +17,7 @@ export function WorkoutSetNumberInput({
   value,
   disabled,
   integerOnly = false,
+  className,
   step,
   min,
   onCommit,
@@ -45,6 +47,7 @@ export function WorkoutSetNumberInput({
   return (
     <Input
       type="number"
+      className={className}
       value={draft}
       disabled={disabled}
       min={min}

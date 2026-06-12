@@ -14,7 +14,7 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
   return (
-    <div className={cn("prose prose-sm max-w-none dark:prose-invert break-words overflow-wrap-anywhere word-break-break-all hyphens-auto w-full overflow-hidden", className)}>
+    <div className={cn("prose prose-sm max-w-none break-words overflow-wrap-anywhere word-break-break-all hyphens-auto w-full overflow-hidden", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}

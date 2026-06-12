@@ -1,7 +1,6 @@
 import {
-  HEALTH_DB_NAME,
   HEALTH_DB_STORES,
-  HEALTH_DB_VERSION,
+  openHealthDatabase,
 } from "@/lib/indexed-db"
 import {
   EXPORTABLE_HEALTH_STORES,
@@ -9,26 +8,7 @@ import {
   type StoreRecord,
 } from "@/lib/health-data-export"
 
-function ensureHealthStores(db: IDBDatabase): void {
-  for (const storeName of EXPORTABLE_HEALTH_STORES) {
-    if (!db.objectStoreNames.contains(storeName)) {
-      db.createObjectStore(storeName)
-    }
-  }
-}
-
-export function openHealthDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = window.indexedDB.open(HEALTH_DB_NAME, HEALTH_DB_VERSION)
-
-    request.onupgradeneeded = (event) => {
-      ensureHealthStores((event.target as IDBOpenDBRequest).result)
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () =>
-      reject(request.error ?? new Error("Failed to open IndexedDB"))
-  })
-}
+export { openHealthDatabase }
 
 export async function exportStores(
   storeNames: ExportStoreName[] = EXPORTABLE_HEALTH_STORES,

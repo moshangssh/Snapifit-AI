@@ -184,13 +184,13 @@ export async function POST(req: Request) {
         - 性别: ${
           userProfile.gender === "male" ? "男" : userProfile.gender === "female" ? "女" : userProfile.gender || "未知"
         }
-        - 活动水平: ${
+        - 活动水平（日常状态，不含刻意运动）: ${
           {
-            sedentary: "久坐不动",
-            light: "轻度活跃",
-            moderate: "中度活跃",
-            active: "高度活跃",
-            very_active: "非常活跃",
+            sedentary: "久坐少动（办公室 / 通勤坐车）",
+            light: "轻度活跃（站立工作 / 经常走动）",
+            moderate: "中度活跃（体力劳动）",
+            active: "高度活跃（重体力劳动）",
+            very_active: "极重活跃（农忙 / 矿工）",
           }[userProfile.activityLevel] ||
           userProfile.activityLevel ||
           "未知"
@@ -221,24 +221,26 @@ export async function POST(req: Request) {
       }
 
       if (healthData) {
+        const baseline = healthData.baselineExpenditure ?? healthData.calculatedTDEE ?? 0
+        const burned = healthData.summary?.totalCaloriesBurned ?? 0
+        const consumed = healthData.summary?.totalCaloriesConsumed ?? 0
+        const totalExpenditure = baseline + burned
         systemPrompt += `
+
+        # 能量平衡口径（NEAT 动态法）
+        - 基础消耗 = BMR × PAL（PAL 仅覆盖 NEAT+TEF，**不含**刻意运动）
+        - 今日总消耗 = 基础消耗 + 当日运动消耗
+        - 热量差额 = 摄入 − 今日总消耗（正数为盈余，负数为缺口）
+        - 用户的"活动水平"描述的是日常状态（走路、家务、姿势等），不包含跑步/举铁等记录到运动模块的项目，避免双计。
 
         今日健康数据 (${healthData.date || "今日"}):
         - 当日体重: ${healthData.weight ? `${healthData.weight} kg` : "未记录"}
         - 基础代谢率(BMR): ${healthData.calculatedBMR?.toFixed(0) || "未计算"} kcal
-        - 总能量消耗(TDEE): ${healthData.calculatedTDEE?.toFixed(0) || "未计算"} kcal
-        - 总卡路里摄入: ${healthData.summary?.totalCaloriesConsumed?.toFixed(0) || "0"} kcal
-        - 总卡路里消耗: ${healthData.summary?.totalCaloriesBurned?.toFixed(0) || "0"} kcal
-        - 净卡路里: ${
-          healthData.summary
-            ? (healthData.summary.totalCaloriesConsumed - healthData.summary.totalCaloriesBurned).toFixed(0)
-            : "0"
-        } kcal
-        - 热量缺口/盈余: ${
-          healthData.summary && healthData.calculatedTDEE
-            ? (healthData.calculatedTDEE - (healthData.summary.totalCaloriesConsumed - healthData.summary.totalCaloriesBurned)).toFixed(0)
-            : "无法计算"
-        } kcal (正数为缺口，负数为盈余)
+        - 基础消耗(BMR + NEAT + TEF，不含运动): ${baseline ? baseline.toFixed(0) : "未计算"} kcal
+        - 当日运动消耗: ${burned.toFixed(0)} kcal
+        - 今日总消耗(基线 + 运动): ${baseline ? totalExpenditure.toFixed(0) : "无法计算"} kcal
+        - 总卡路里摄入: ${consumed.toFixed(0)} kcal
+        - 热量差额(摄入 − 总消耗): ${baseline ? (consumed - totalExpenditure).toFixed(0) : "无法计算"} kcal (负数为缺口，正数为盈余)
         - 宏量营养素摄入:
           * 蛋白质: ${healthData.summary?.macros?.protein?.toFixed(1) || "0"} g (${healthData.summary?.macros?.protein && healthData.summary?.totalCaloriesConsumed ? ((healthData.summary.macros.protein * 4 / healthData.summary.totalCaloriesConsumed) * 100).toFixed(1) : "0"}%)
           * 碳水化合物: ${healthData.summary?.macros?.carbs?.toFixed(1) || "0"} g (${healthData.summary?.macros?.carbs && healthData.summary?.totalCaloriesConsumed ? ((healthData.summary.macros.carbs * 4 / healthData.summary.totalCaloriesConsumed) * 100).toFixed(1) : "0"}%)
@@ -291,15 +293,19 @@ export async function POST(req: Request) {
         历史健康数据趋势 (最近${historicalData.length}天):
         ${historicalData.map((dayLog, index) => {
           const dayLabel = index === 0 ? "昨天" : `${index + 1}天前`
+          const dayBaseline = dayLog.baselineExpenditure ?? dayLog.calculatedTDEE ?? 0
+          const dayBurned = dayLog.summary?.totalCaloriesBurned ?? 0
+          const dayConsumed = dayLog.summary?.totalCaloriesConsumed ?? 0
+          const dayTotal = dayBaseline + dayBurned
           return `
         ${dayLabel} (${dayLog.date}):
         - 体重: ${dayLog.weight ? `${dayLog.weight} kg` : "未记录"}
         - BMR: ${dayLog.calculatedBMR?.toFixed(0) || "未计算"} kcal
-        - TDEE: ${dayLog.calculatedTDEE?.toFixed(0) || "未计算"} kcal
-        - 摄入: ${dayLog.summary?.totalCaloriesConsumed?.toFixed(0) || "0"} kcal
-        - 消耗: ${dayLog.summary?.totalCaloriesBurned?.toFixed(0) || "0"} kcal
-        - 净卡路里: ${dayLog.summary ? (dayLog.summary.totalCaloriesConsumed - dayLog.summary.totalCaloriesBurned).toFixed(0) : "0"} kcal
-        - 热量缺口: ${dayLog.summary && dayLog.calculatedTDEE ? (dayLog.calculatedTDEE - (dayLog.summary.totalCaloriesConsumed - dayLog.summary.totalCaloriesBurned)).toFixed(0) : "无法计算"} kcal
+        - 基础消耗: ${dayBaseline ? dayBaseline.toFixed(0) : "未计算"} kcal
+        - 运动消耗: ${dayBurned.toFixed(0)} kcal
+        - 今日总消耗: ${dayBaseline ? dayTotal.toFixed(0) : "未计算"} kcal
+        - 摄入: ${dayConsumed.toFixed(0)} kcal
+        - 热量差额(摄入 − 总消耗): ${dayBaseline ? (dayConsumed - dayTotal).toFixed(0) : "无法计算"} kcal (负数为缺口)
         - 宏量营养素: 蛋白质 ${dayLog.summary?.macros?.protein?.toFixed(1) || "0"}g (${dayLog.summary?.macros?.protein && dayLog.summary?.totalCaloriesConsumed ? ((dayLog.summary.macros.protein * 4 / dayLog.summary.totalCaloriesConsumed) * 100).toFixed(1) : "0"}%), 碳水 ${dayLog.summary?.macros?.carbs?.toFixed(1) || "0"}g (${dayLog.summary?.macros?.carbs && dayLog.summary?.totalCaloriesConsumed ? ((dayLog.summary.macros.carbs * 4 / dayLog.summary.totalCaloriesConsumed) * 100).toFixed(1) : "0"}%), 脂肪 ${dayLog.summary?.macros?.fat?.toFixed(1) || "0"}g (${dayLog.summary?.macros?.fat && dayLog.summary?.totalCaloriesConsumed ? ((dayLog.summary.macros.fat * 9 / dayLog.summary.totalCaloriesConsumed) * 100).toFixed(1) : "0"}%)
         - 食物记录: ${dayLog.foodEntries?.length || 0}条, 运动记录: ${dayLog.exerciseEntries?.length || 0}条
         ${dayLog.dailyStatus ? `- 状态: ${formatDailyStatusForAI(dayLog.dailyStatus)}` : ""}

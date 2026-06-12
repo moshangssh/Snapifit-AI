@@ -38,14 +38,14 @@ export async function POST(req: Request) {
           ? "女"
           : "其他"
       }
-      - 活动水平: ${
+      - 活动水平（日常状态，不含刻意运动）: ${
         (
           {
-            sedentary: "久坐不动",
-            light: "轻度活跃",
-            moderate: "中度活跃",
-            active: "高度活跃",
-            very_active: "非常活跃",
+            sedentary: "久坐少动（办公室 / 通勤坐车）",
+            light: "轻度活跃（站立工作 / 经常走动）",
+            moderate: "中度活跃（体力劳动）",
+            active: "高度活跃（重体力劳动）",
+            very_active: "极重活跃（农忙 / 矿工）",
           } as Record<string, string>
         )[userProfile.activityLevel] || userProfile.activityLevel
       }

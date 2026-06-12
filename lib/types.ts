@@ -89,6 +89,76 @@ export interface SmartSuggestionsResponse {
   suggestions: SmartSuggestionCategory[]
   generatedAt: string
   dataDate: string
+  summary?: string
+  highlights?: string[]
+  risks?: string[]
+}
+
+export interface PeriodSmartAnalysisResponse {
+  range: '7d' | '30d'
+  startDate: string
+  endDate: string
+  generatedAt: string
+  dataDays: number
+  minDataDays: number
+  summary: string
+  highlights: string[]
+  risks: string[]
+  suggestions: SmartSuggestionCategory[]
+}
+
+export type PlannedTrainingType =
+  | "rest"
+  | "strength"
+  | "strength_cardio"
+  | "high_output"
+
+export interface MealPlanNutritionEstimate {
+  calories: number
+  protein: number
+  carbohydrates: number
+  fat: number
+}
+
+export interface MealPlanItem {
+  title: string
+  kind: "combo" | "single"
+  foods: string[]
+  portionHint: string
+  bestFor: string
+  nutrition: MealPlanNutritionEstimate
+  isProteinPick?: boolean
+  slightlyOverBudget?: boolean
+  warning?: string
+}
+
+export interface MealPlanBudgetSnapshot {
+  date: string
+  baselineExpenditure: number
+  recordedExerciseCalories: number
+  targetCalories: number
+  consumedCalories: number
+  remainingCalories: number
+  macroTargets: {
+    protein: number
+    carbohydrates: number
+    fat: number
+  }
+  remainingMacros: {
+    protein: number
+    carbohydrates: number
+    fat: number
+  }
+  remainingMealSlots: Array<"breakfast" | "lunch" | "dinner" | "snack">
+  summaryText: string
+}
+
+export interface MealPlanSuggestion {
+  generatedAt: string
+  inputPreference: string
+  budgetSnapshot: MealPlanBudgetSnapshot
+  summary: string
+  items: MealPlanItem[]
 }
 
 // 每日状态记录类型
@@ -111,12 +181,19 @@ export interface DailyLog {
   foodEntries: FoodEntry[]
   exerciseEntries: ExerciseEntry[]
   summary: DailySummaryType
-  weight?: number // 新增：记录当日体重
-  activityLevel?: string // 新增：记录当日的活动水平，用于TDEE计算
-  calculatedBMR?: number // 新增：当日计算的BMR
-  calculatedTDEE?: number // 新增：当日计算的TDEE
-  tefAnalysis?: TEFAnalysis // 新增：TEF分析结果
-  dailyStatus?: DailyStatus // 新增：每日状态记录
+  weight?: number // 当日体重
+  /** @deprecated 仅用于读取历史数据。新流程不再写入 daily activityLevel，统一从 profile 取 */
+  activityLevel?: string
+  calculatedBMR?: number // 当日计算的 BMR
+  /** @deprecated 仅用于读取历史数据。新流程改用 baselineExpenditure + 运动消耗计算缺口 */
+  calculatedTDEE?: number
+  baselineExpenditure?: number // 基础消耗（BMR × PAL，只含 NEAT+TEF，不含刻意运动）
+  dailyTotalExpenditure?: number // 今日总消耗 = baselineExpenditure + summary.totalCaloriesBurned
+  tefAnalysis?: TEFAnalysis // TEF 分析结果
+  dailyStatus?: DailyStatus // 每日状态记录
+  /** @deprecated 旧版「今天还能吃什么」训练强度字段。新流程不再写入或用于预算。 */
+  plannedTrainingType?: PlannedTrainingType
+  mealPlanSuggestion?: MealPlanSuggestion
 }
 
 // 用户配置类型

@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { TrendingUp, Weight, Utensils, Dumbbell, Target, Calendar } from "lucide-react"
-import { format, subDays, parseISO, eachDayOfInterval } from "date-fns"
+import { Weight, Utensils, Dumbbell, Target, TrendingUp } from "lucide-react"
+import { format, subDays } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tile } from "@/components/ui/tile"
+import { SectionCardHeader } from "@/components/ui/section-card-header"
+import { cn } from "@/lib/utils"
 
 interface ChartData {
   date: string
@@ -24,6 +26,7 @@ interface ManagementChartsProps {
 }
 
 type DateRange = '7d' | '14d' | '30d' | '90d'
+type MetricKey = 'weight' | 'calories' | 'exercise' | 'deficit'
 
 interface DateRangeOption {
   value: DateRange
@@ -31,11 +34,40 @@ interface DateRangeOption {
   days: number
 }
 
+const METRIC_META: Record<MetricKey, { label: string; unit: string; colorVar: string }> = {
+  weight:   { label: "体重",     unit: "kg",   colorVar: "--c-weight"   },
+  calories: { label: "卡路里",   unit: "kcal", colorVar: "--c-food"     },
+  exercise: { label: "运动消耗", unit: "kcal", colorVar: "--c-exercise" },
+  deficit:  { label: "热量缺口", unit: "kcal", colorVar: "--c-weight"   },
+}
+
+function collectMetricValues(data: ChartData[], metric: MetricKey): number[] {
+  switch (metric) {
+    case "weight":
+      return data.map(d => d.weight).filter((v): v is number => typeof v === "number")
+    case "calories":
+      return data.map(d => d.caloriesIn ?? 0).filter(v => v > 0)
+    case "exercise":
+      return data.map(d => d.caloriesOut ?? 0).filter(v => v > 0)
+    case "deficit":
+      return data
+        .filter(d => (d.caloriesIn ?? 0) > 0 || (d.caloriesOut ?? 0) > 0)
+        .map(d => d.calorieDeficit ?? 0)
+  }
+}
+
+function formatMetricValue(v: number, metric: MetricKey, kind: "range" | "avg"): string {
+  if (metric === "weight") return kind === "avg" ? v.toFixed(2) : v.toFixed(1)
+  const rounded = Math.round(v)
+  return rounded > 0 && metric === "deficit" ? `+${rounded}` : rounded.toString()
+}
+
 export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementChartsProps) {
   const [chartData, setChartData] = useState<ChartData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUsingMockData, setIsUsingMockData] = useState(false)
   const [dateRange, setDateRange] = useState<DateRange>('7d')
+  const [activeMetric, setActiveMetric] = useState<MetricKey>('weight')
   const [isDataOptimized, setIsDataOptimized] = useState(false)
   const [realDataCount, setRealDataCount] = useState(0)
   const { getData: getDailyLog, isInitializing: dbInitializing } = useIndexedDB("healthLogs")
@@ -233,22 +265,47 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
     }
   }
 
-  // 自定义X轴标签格式化函数
-  const formatXAxisLabel = (tickItem: string) => {
-    // tickItem 格式是 'MM/dd'，我们需要转换为完整日期来获取星期
-    const currentYear = new Date().getFullYear()
-    const [month, day] = tickItem.split('/')
-    const date = new Date(currentYear, parseInt(month) - 1, parseInt(day))
-
-    // 根据日期范围和数据量调整显示格式
-    if ((dateRange === '7d' || dateRange === '14d') || chartData.length <= 10) {
-      // 短期范围或数据点少时显示星期
-      const weekday = format(date, 'eee', { locale: zhCN })
-      return `${tickItem}\n${weekday}`
-    } else {
-      // 长期范围只显示日期
-      return tickItem
+  // 自定义X轴 tick — 日期 + 星期 横向堆叠
+  const showWeekday = (dateRange === '7d' || dateRange === '14d') || chartData.length <= 10
+  const renderXAxisTick = (props: { x?: number; y?: number; payload?: { value?: string } }) => {
+    const { x = 0, y = 0, payload } = props
+    const tickItem = payload?.value
+    if (!tickItem) return <g />
+    let weekday: string | null = null
+    if (showWeekday) {
+      const [month, day] = tickItem.split('/')
+      const currentYear = new Date().getFullYear()
+      const d = new Date(currentYear, parseInt(month) - 1, parseInt(day))
+      weekday = format(d, 'eee', { locale: zhCN })
     }
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          x={0}
+          y={0}
+          dy={14}
+          textAnchor="middle"
+          fontSize={11}
+          fill="hsl(var(--muted-foreground))"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {tickItem}
+        </text>
+        {weekday && (
+          <text
+            x={0}
+            y={0}
+            dy={28}
+            textAnchor="middle"
+            fontSize={10}
+            fill="hsl(var(--muted-foreground))"
+            fillOpacity={0.7}
+          >
+            {weekday}
+          </text>
+        )}
+      </g>
+    )
   }
 
   // 动态计算X轴间隔
@@ -261,130 +318,172 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
 
   if (isLoading) {
     return (
-      <div className="health-card">
-        <div className="p-8">
-          <div className="flex items-center space-x-4 mb-8">
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-white">
-              <TrendingUp className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-semibold">{"管理图表"}</h3>
-              <p className="text-muted-foreground text-lg">{`${'30日'}健康数据趋势分析`}</p>
-            </div>
-          </div>
-          <div className="text-center py-16">
-            <p className="text-lg text-muted-foreground">{"加载图表数据中..."}</p>
-          </div>
-        </div>
-      </div>
+      <Card className="rounded-2xl border-border">
+        <CardContent className="p-5 sm720:p-7">
+          <SectionCardHeader
+            tileVariant="ink"
+            icon={<TrendingUp />}
+            title="管理图表"
+            subtitle="加载中…"
+          />
+          <p className="py-8 text-center text-sm text-muted-foreground">加载图表数据中...</p>
+        </CardContent>
+      </Card>
     )
   }
 
+  const currentRangeOption = dateRangeOptions.find(opt => opt.value === dateRange) ?? dateRangeOptions[0]
+  const metricMeta = METRIC_META[activeMetric]
+  const metricValues = collectMetricValues(chartData, activeMetric)
+  const hasMetricData = metricValues.length > 0
+  const stats = hasMetricData
+    ? {
+        min: Math.min(...metricValues),
+        max: Math.max(...metricValues),
+        avg: metricValues.reduce((a, b) => a + b, 0) / metricValues.length,
+      }
+    : null
+
+  const headerSubtitle = isUsingMockData
+    ? "演示数据 — 请先记录您的健康数据"
+    : isDataOptimized
+      ? `${currentRangeOption.label} 健康数据趋势分析 · 已优化(${realDataCount} 天有效)`
+      : `${currentRangeOption.label} 健康数据趋势分析`
+
+  const rangePill = (
+    <div
+      role="tablist"
+      aria-label="日期范围"
+      className="inline-flex h-8 items-center rounded-md bg-muted p-0.5 text-muted-foreground"
+    >
+      {dateRangeOptions.map((option) => {
+        const active = dateRange === option.value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => setDateRange(option.value)}
+            className={cn(
+              "inline-flex h-7 items-center justify-center whitespace-nowrap rounded-[6px] px-2.5 text-xs font-medium transition-colors",
+              active
+                ? "bg-background text-foreground shadow-[0_0_0_1px_hsl(var(--border))_inset]"
+                : "hover:text-foreground"
+            )}
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+
   return (
-    <div className="health-card">
-      <div className="p-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-white">
-              <TrendingUp className="h-6 w-6" />
+    <Card className="rounded-2xl border-border">
+      <CardContent className="p-5 sm720:p-7">
+        <SectionCardHeader
+          tileVariant="ink"
+          icon={<TrendingUp />}
+          title="管理图表"
+          subtitle={headerSubtitle}
+          action={rangePill}
+          className="flex-wrap gap-3"
+        />
+
+        <Tabs value={activeMetric} onValueChange={(v) => setActiveMetric(v as MetricKey)} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 bg-muted p-1">
+            <TabsTrigger
+              value="weight"
+              className="data-[state=active]:shadow-[0_0_0_1px_hsl(var(--border))_inset] data-[state=active]:font-semibold"
+            >
+              <Weight className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
+              体重
+            </TabsTrigger>
+            <TabsTrigger
+              value="calories"
+              className="data-[state=active]:shadow-[0_0_0_1px_hsl(var(--border))_inset] data-[state=active]:font-semibold"
+            >
+              <Utensils className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
+              卡路里
+            </TabsTrigger>
+            <TabsTrigger
+              value="exercise"
+              className="data-[state=active]:shadow-[0_0_0_1px_hsl(var(--border))_inset] data-[state=active]:font-semibold"
+            >
+              <Dumbbell className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
+              运动消耗
+            </TabsTrigger>
+            <TabsTrigger
+              value="deficit"
+              className="data-[state=active]:shadow-[0_0_0_1px_hsl(var(--border))_inset] data-[state=active]:font-semibold"
+            >
+              <Target className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
+              热量缺口
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-[13px]">
+              <span
+                aria-hidden
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: `hsl(var(${metricMeta.colorVar}))` }}
+              />
+              <span className="font-medium text-foreground">{metricMeta.label}</span>
+              <span className="text-muted-foreground">({metricMeta.unit})</span>
             </div>
-            <div>
-              <h3 className="text-2xl font-semibold">{"管理图表"}</h3>
-              <p className="text-muted-foreground text-lg">
-                {isUsingMockData
-                  ? "演示数据 - 请先记录您的健康数据"
-                  : `${`${dateRangeOptions.find(opt => opt.value === dateRange)?.label}`}健康数据趋势分析`
-                }
-              </p>
-              {isDataOptimized && !isUsingMockData && (
-                <p className="text-sm text-amber-600 mt-1">
-                  {`已优化显示：仅显示有数据的时间段 (${realDataCount} 天有效数据)`}
-                </p>
+            <div className="text-[12px] text-muted-foreground tabular-nums">
+              {hasMetricData && stats ? (
+                <>
+                  区间 {formatMetricValue(stats.min, activeMetric, "range")} – {formatMetricValue(stats.max, activeMetric, "range")}
+                  <span className="mx-1.5 text-muted-foreground/50">·</span>
+                  {currentRangeOption.days} 日均值 {formatMetricValue(stats.avg, activeMetric, "avg")}
+                </>
+              ) : (
+                <span className="text-muted-foreground/70">暂无数据</span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
-            <Select value={dateRange} onValueChange={(value: DateRange) => setDateRange(value)}>
-              <SelectTrigger className="w-[120px] h-10">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {dateRangeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-
-
-        <Tabs defaultValue="weight" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-14">
-            <TabsTrigger value="weight" className="text-base py-4 px-4">
-              <Weight className="mr-2 h-4 w-4" />
-              {"体重"}
-            </TabsTrigger>
-            <TabsTrigger value="calories" className="text-base py-4 px-4">
-              <Utensils className="mr-2 h-4 w-4" />
-              {"卡路里"}
-            </TabsTrigger>
-            <TabsTrigger value="exercise" className="text-base py-4 px-4">
-              <Dumbbell className="mr-2 h-4 w-4" />
-              {"运动消耗"}
-            </TabsTrigger>
-            <TabsTrigger value="deficit" className="text-base py-4 px-4">
-              <Target className="mr-2 h-4 w-4" />
-              {"热量缺口"}
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="mt-8 relative">
+          <div className="mt-4 relative">
             {/* 图表内容 */}
-            <div className={isUsingMockData ? 'blur-sm' : ''}>
+            <div className={isUsingMockData ? 'opacity-30 pointer-events-none select-none' : ''}>
               <TabsContent value="weight" className="space-y-4">
                 <div className="h-60">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <CartesianGrid vertical={false} strokeDasharray="2 6" stroke="hsl(var(--border))" strokeOpacity={0.55} />
                       <XAxis
                         dataKey="date"
-                        tick={{
-                          fontSize: 11,
-                          angle: dateRange === '90d' ? -90 : -45,
-                          textAnchor: 'end'
-                        }}
-                        tickLine={{ stroke: '#e2e8f0' }}
+                        axisLine={false}
+                        tickLine={false}
                         interval={getXAxisInterval()}
                         minTickGap={chartData.length <= 5 ? 10 : (dateRange === '90d' ? 20 : 35)}
-                        height={(dateRange === '7d' || dateRange === '14d') || chartData.length <= 10 ? 70 : 50}
-                        tickFormatter={formatXAxisLabel}
+                        height={showWeekday ? 44 : 24}
+                        tick={renderXAxisTick}
                       />
                       <YAxis
-                        tick={{ fontSize: 12 }}
-                        tickLine={{ stroke: '#e2e8f0' }}
+                        hide
                         domain={[(dataMin: number) => Math.max(0, dataMin - 2), (dataMax: number) => dataMax + 2]}
                       />
                       <Tooltip
                         formatter={formatTooltipValue}
-                        labelStyle={{ color: '#64748b' }}
+                        labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
                         contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px'
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          color: 'hsl(var(--foreground))'
                         }}
                       />
                       <Line
                         type="monotone"
                         dataKey="weight"
-                        stroke="hsl(var(--primary))"
+                        stroke="hsl(var(--c-weight))"
                         strokeWidth={3}
-                        dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
+                        dot={{ fill: 'hsl(var(--c-weight))', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: 'hsl(var(--c-weight))', strokeWidth: 2 }}
                         connectNulls={false}
                       />
                     </LineChart>
@@ -396,40 +495,34 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
                 <div className="h-60">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <CartesianGrid vertical={false} strokeDasharray="2 6" stroke="hsl(var(--border))" strokeOpacity={0.55} />
                       <XAxis
                         dataKey="date"
-                        tick={{
-                          fontSize: 11,
-                          angle: dateRange === '90d' ? -90 : -45,
-                          textAnchor: 'end'
-                        }}
-                        tickLine={{ stroke: '#e2e8f0' }}
+                        axisLine={false}
+                        tickLine={false}
                         interval={getXAxisInterval()}
                         minTickGap={chartData.length <= 5 ? 10 : (dateRange === '90d' ? 20 : 35)}
-                        height={(dateRange === '7d' || dateRange === '14d') || chartData.length <= 10 ? 70 : 50}
-                        tickFormatter={formatXAxisLabel}
+                        height={showWeekday ? 44 : 24}
+                        tick={renderXAxisTick}
                       />
-                      <YAxis
-                        tick={{ fontSize: 12 }}
-                        tickLine={{ stroke: '#e2e8f0' }}
-                        domain={['dataMin', 'dataMax']}
-                      />
+                      <YAxis hide domain={['dataMin', 'dataMax']} />
                       <Tooltip
                         formatter={formatTooltipValue}
-                        labelStyle={{ color: '#64748b' }}
+                        labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
                         contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px'
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          color: 'hsl(var(--foreground))'
                         }}
                       />
                       <Line
                         type="monotone"
                         dataKey="caloriesIn"
-                        stroke="#10b981"
+                        stroke="hsl(var(--c-food))"
                         strokeWidth={3}
-                        dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                        dot={{ fill: 'hsl(var(--c-food))', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: 'hsl(var(--c-food))', strokeWidth: 2 }}
                         name="卡路里摄入"
                         connectNulls={false}
                       />
@@ -442,41 +535,34 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
                 <div className="h-60">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <CartesianGrid vertical={false} strokeDasharray="2 6" stroke="hsl(var(--border))" strokeOpacity={0.55} />
                       <XAxis
                         dataKey="date"
-                        tick={{
-                          fontSize: 11,
-                          angle: dateRange === '90d' ? -90 : -45,
-                          textAnchor: 'end'
-                        }}
-                        tickLine={{ stroke: '#e2e8f0' }}
+                        axisLine={false}
+                        tickLine={false}
                         interval={getXAxisInterval()}
                         minTickGap={chartData.length <= 5 ? 10 : (dateRange === '90d' ? 20 : 35)}
-                        height={(dateRange === '7d' || dateRange === '14d') || chartData.length <= 10 ? 70 : 50}
-                        tickFormatter={formatXAxisLabel}
+                        height={showWeekday ? 44 : 24}
+                        tick={renderXAxisTick}
                       />
-                      <YAxis
-                        tick={{ fontSize: 12 }}
-                        tickLine={{ stroke: '#e2e8f0' }}
-                        domain={['dataMin', 'dataMax']}
-                      />
+                      <YAxis hide domain={['dataMin', 'dataMax']} />
                       <Tooltip
                         formatter={formatTooltipValue}
-                        labelStyle={{ color: '#64748b' }}
+                        labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
                         contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px'
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          color: 'hsl(var(--foreground))'
                         }}
                       />
                       <Line
                         type="monotone"
                         dataKey="caloriesOut"
-                        stroke="#3b82f6"
+                        stroke="hsl(var(--c-exercise))"
                         strokeWidth={3}
-                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                        dot={{ fill: 'hsl(var(--c-exercise))', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: 'hsl(var(--c-exercise))', strokeWidth: 2 }}
                         connectNulls={false}
                       />
                     </LineChart>
@@ -488,41 +574,34 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
                 <div className="h-60">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <CartesianGrid vertical={false} strokeDasharray="2 6" stroke="hsl(var(--border))" strokeOpacity={0.55} />
                       <XAxis
                         dataKey="date"
-                        tick={{
-                          fontSize: 11,
-                          angle: dateRange === '90d' ? -90 : -45,
-                          textAnchor: 'end'
-                        }}
-                        tickLine={{ stroke: '#e2e8f0' }}
+                        axisLine={false}
+                        tickLine={false}
                         interval={getXAxisInterval()}
                         minTickGap={chartData.length <= 5 ? 10 : (dateRange === '90d' ? 20 : 35)}
-                        height={(dateRange === '7d' || dateRange === '14d') || chartData.length <= 10 ? 70 : 50}
-                        tickFormatter={formatXAxisLabel}
+                        height={showWeekday ? 44 : 24}
+                        tick={renderXAxisTick}
                       />
-                      <YAxis
-                        tick={{ fontSize: 12 }}
-                        tickLine={{ stroke: '#e2e8f0' }}
-                        domain={['dataMin - 100', 'dataMax + 100']}
-                      />
+                      <YAxis hide domain={['dataMin - 100', 'dataMax + 100']} />
                       <Tooltip
                         formatter={formatTooltipValue}
-                        labelStyle={{ color: '#64748b' }}
+                        labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
                         contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px'
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          color: 'hsl(var(--foreground))'
                         }}
                       />
                       <Line
                         type="monotone"
                         dataKey="calorieDeficit"
-                        stroke="#f59e0b"
+                        stroke="hsl(var(--c-weight))"
                         strokeWidth={3}
-                        dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2 }}
+                        dot={{ fill: 'hsl(var(--c-weight))', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: 'hsl(var(--c-weight))', strokeWidth: 2 }}
                         connectNulls={false}
                       />
                     </LineChart>
@@ -531,22 +610,22 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
               </TabsContent>
             </div>
 
-            {/* 模拟数据覆盖层 - 确保在最上层且清晰显示 */}
+            {/* 模拟数据覆盖层 */}
             {isUsingMockData && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-lg">
-                <div className="text-center p-8 max-w-md">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
-                    <TrendingUp className="w-8 h-8 text-primary" />
-                  </div>
-                  <h4 className="text-xl font-bold text-foreground mb-3">
-                    {"开始记录您的健康数据"}
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-card/95 rounded-lg">
+                <div className="text-center px-8 max-w-md">
+                  <Tile variant="ink" size={36} className="mx-auto mb-4">
+                    <TrendingUp />
+                  </Tile>
+                  <h4 className="text-base font-semibold text-foreground mb-2">
+                    开始记录您的健康数据
                   </h4>
-                  <p className="text-base text-muted-foreground mb-4 leading-relaxed">
-                    {"记录体重、饮食和运动数据后，这里将显示您的真实健康趋势图表"}
+                  <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
+                    记录体重、饮食和运动数据后,这里将显示您的真实健康趋势图表
                   </p>
-                  <div className="text-sm text-muted-foreground/80 bg-muted/50 px-3 py-2 rounded-lg">
-                    {"当前显示的是演示数据"}
-                  </div>
+                  <p className="text-xs text-muted-foreground/70">
+                    当前显示的是演示数据
+                  </p>
                 </div>
               </div>
             )}
@@ -554,7 +633,7 @@ export function ManagementCharts({ selectedDate, refreshTrigger }: ManagementCha
 
           </div>
         </Tabs>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

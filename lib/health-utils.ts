@@ -1,12 +1,28 @@
 import type { UserProfile } from './types';
 
-// 活动水平对应的TDEE乘数
+/**
+ * 活动水平对应的 PAL（Physical Activity Level）乘数。
+ *
+ * 语义说明：这里的乘数**仅覆盖 NEAT（非运动性活动）+ TEF（食物热效应）**，
+ * **不再**包含 EAT（刻意运动消耗）。用户应将跑步/举铁等运动单独记录到运动模块，
+ * 由调用方在 baseline 之上累加，构成今日总消耗。
+ *
+ * 注:active / very_active 已从标准 Harris-Benedict PAL(1.725 / 1.9)下调,
+ * 因为标准表的高档原本就靠"刻意运动"占主要比例,改成纯 NEAT 后明显高估。
+ *
+ * 对照表(NEAT-only 校准):
+ *   sedentary    1.2    — 久坐少动（办公室 + 通勤坐车）
+ *   light        1.375  — 站立工作 / 经常走动
+ *   moderate     1.55   — 体力劳动（护士、工地）
+ *   active       1.6    — 重体力劳动（标准 PAL 1.725,下调 0.125 抵消运动占比）
+ *   very_active  1.75   — 极重体力（标准 PAL 1.9,下调 0.15 抵消运动占比）
+ */
 const activityMultipliers: Record<string, number> = {
   sedentary: 1.2,
   light: 1.375,
   moderate: 1.55,
-  active: 1.725,
-  very_active: 1.9,
+  active: 1.6,
+  very_active: 1.75,
 };
 
 /**
@@ -75,6 +91,8 @@ export function calculateHarrisBenedictBMR(
 
 /**
  * 计算每日总能量消耗 (TDEE)
+ * @deprecated 旧语义假设 PAL 已含运动，会与单独记录的运动消耗双重计算。
+ *   新代码请使用 `calculateBaselineExpenditure`，并在外层叠加当日运动消耗。
  * @param bmr 基础代谢率 (kcal/天)
  * @param activityLevel 活动水平 (来自 UserProfile.activityLevel)
  * @param additionalTEF 额外的食物热效应 (kcal/天) - 可选
@@ -90,45 +108,60 @@ export function calculateTDEE(bmr: number, activityLevel: string, additionalTEF?
 }
 
 /**
- * 根据用户配置和当日数据计算BMR和TDEE
- * @param userProfile 用户配置信息
- * @param currentDayData 包含当日可选的体重、活动水平和TEF的对象
- * @returns 包含 bmr、tdee 和 tefEnhancement 的对象，如果无法计算则为 undefined
+ * 计算基础消耗 (Baseline Expenditure = BMR × PAL + additionalTEF)
+ *
+ * 语义：**不含**刻意运动消耗（EAT）。仅覆盖 BMR + NEAT + TEF。
+ * 调用方应在此基础上累加当日运动消耗，得到 dailyTotalExpenditure：
+ *
+ *   dailyTotalExpenditure = baseline + totalCaloriesBurned
+ *   缺口 = dailyTotalExpenditure - totalCaloriesConsumed
+ *
+ * @param bmr 基础代谢率 (kcal/天)
+ * @param activityLevel 日常状态档位（参见 activityMultipliers 注释）
+ * @param additionalTEF 额外的食物热效应增强 (kcal/天)，可选
+ * @returns 基础消耗 (kcal/天)
+ */
+export function calculateBaselineExpenditure(
+  bmr: number,
+  activityLevel: string,
+  additionalTEF?: number,
+): number {
+  const multiplier = activityMultipliers[activityLevel] || 1.2; // 默认 sedentary，避免高估
+  const base = bmr * multiplier;
+  return additionalTEF ? base + additionalTEF : base;
+}
+
+/**
+ * 根据用户配置和当日数据计算 BMR 和基础消耗
+ * @param userProfile 用户配置信息（活动水平统一从此读取）
+ * @param currentDayData 包含当日可选的体重、TEF
+ * @returns 包含 bmr、tdee（向后兼容字段，等于 baselineExpenditure）、baselineExpenditure 的对象
  */
 export function calculateMetabolicRates(
   userProfile: UserProfile,
   currentDayData: {
     weight?: number; // 当日体重 (kg)
-    activityLevel?: string; // 当日活动水平
+    /** @deprecated 已废弃，仅保留参数以兼容旧调用方。活动水平统一从 userProfile 读取 */
+    activityLevel?: string;
     additionalTEF?: number; // 额外的TEF增强 (kcal)
   }
-): { bmr: number; tdee: number; tefEnhancement?: number } | undefined {
+): { bmr: number; tdee: number; baselineExpenditure: number; tefEnhancement?: number } | undefined {
   const weightToUse = currentDayData.weight && currentDayData.weight > 0
     ? currentDayData.weight
     : userProfile.weight;
 
-  let activityLevelForTDEE: string | undefined = undefined;
-  if (currentDayData.activityLevel && activityMultipliers.hasOwnProperty(currentDayData.activityLevel)) {
-    activityLevelForTDEE = currentDayData.activityLevel;
-  } else if (userProfile.activityLevel && activityMultipliers.hasOwnProperty(userProfile.activityLevel)) {
-    activityLevelForTDEE = userProfile.activityLevel;
-    if (currentDayData.activityLevel && currentDayData.activityLevel !== userProfile.activityLevel) {
-        console.warn(`calculateMetabolicRates: Daily activity level '${currentDayData.activityLevel}' was invalid or different from profile. Using profile's: '${userProfile.activityLevel}'.`);
-    }
-  } else {
-    // If no valid activity level from daily log or profile, try to use profile one as a last resort if it exists, even if it wasn't in activityMultipliers (though this case should be rare if profile settings are validated)
-    activityLevelForTDEE = userProfile.activityLevel;
-  }
+  // 活动水平只读 profile，不再支持 daily override
+  const activityLevelForBaseline = userProfile.activityLevel;
 
-  if (!weightToUse || !activityLevelForTDEE || !activityMultipliers.hasOwnProperty(activityLevelForTDEE)) {
+  if (!weightToUse || !activityLevelForBaseline || !activityMultipliers.hasOwnProperty(activityLevelForBaseline)) {
     console.warn(
-      "calculateMetabolicRates: Missing valid weightToUse or activityLevelForTDEE. Cannot calculate BMR/TDEE.",
-      { weightToUse, profileActivityLevel: userProfile.activityLevel, dailyActivityLevel: currentDayData.activityLevel, finalActivityLevelForTDEE: activityLevelForTDEE }
+      "calculateMetabolicRates: Missing valid weight or activityLevel. Cannot calculate baseline.",
+      { weightToUse, profileActivityLevel: userProfile.activityLevel }
     );
     return undefined;
   }
 
-  console.log(`calculateMetabolicRates: Using weight: ${weightToUse}kg, activity level for TDEE: ${activityLevelForTDEE}`);
+  console.log(`calculateMetabolicRates: Using weight: ${weightToUse}kg, activity level: ${activityLevelForBaseline}`);
 
   let bmr: number | undefined = undefined;
 
@@ -175,15 +208,16 @@ export function calculateMetabolicRates(
   }
 
   if (bmr === undefined || bmr <= 0) {
-      console.warn(`Final calculated BMR is not positive or undefined: ${bmr}. Cannot calculate TDEE.`);
+      console.warn(`Final calculated BMR is not positive or undefined: ${bmr}. Cannot calculate baseline.`);
       return undefined;
   }
 
-  const tdee = calculateTDEE(bmr, activityLevelForTDEE, currentDayData.additionalTEF);
+  const baseline = calculateBaselineExpenditure(bmr, activityLevelForBaseline, currentDayData.additionalTEF);
 
   return {
     bmr: parseFloat(bmr.toFixed(0)),
-    tdee: parseFloat(tdee.toFixed(0)),
+    tdee: parseFloat(baseline.toFixed(0)), // 向后兼容字段，数值等同 baselineExpenditure
+    baselineExpenditure: parseFloat(baseline.toFixed(0)),
     tefEnhancement: currentDayData.additionalTEF ? parseFloat(currentDayData.additionalTEF.toFixed(1)) : undefined,
   };
 }

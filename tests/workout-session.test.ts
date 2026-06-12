@@ -203,6 +203,29 @@ describe("workout session core", () => {
     expect(entries[0]).not.toHaveProperty("tips")
   })
 
+  it("scales calories and duration by completed-set ratio", () => {
+    let session = createWorkoutSessionFromPlan(makeInput())
+    const exerciseId = session.exercises[0].exerciseId
+    session = completeWorkoutSet(
+      session,
+      exerciseId,
+      1,
+      "2026-04-23T10:00:00.000Z",
+    )
+    session = setWorkoutExerciseSkipped(session, session.exercises[1].exerciseId, true)
+
+    const entries = workoutSessionToExerciseEntries(
+      session,
+      "2026-04-23T10:05:00.000Z",
+    )
+
+    expect(entries).toHaveLength(1)
+    expect(entries[0].exercise_name).toBe("卧推")
+    expect(entries[0].sets).toBe(1)
+    expect(entries[0].calories_burned_estimated).toBe(Math.round(86 / 3))
+    expect(entries[0].duration_minutes).toBe(Math.max(1, Math.round(12 / 3)))
+  })
+
   it("uses stable workout log ids for derived exercise entries", () => {
     let session = createWorkoutSessionFromPlan(makeInput())
     const exerciseId = session.exercises[0].exerciseId
@@ -302,7 +325,9 @@ describe("workout session core", () => {
     const enrichedId = session.exercises[1].exerciseId
 
     session = completeWorkoutSet(session, fallbackId, 1, "2026-04-23T10:00:00.000Z")
-    session = completeWorkoutSet(session, enrichedId, 1, "2026-04-23T10:02:00.000Z")
+    session = completeWorkoutSet(session, fallbackId, 2, "2026-04-23T10:02:00.000Z")
+    session = completeWorkoutSet(session, fallbackId, 3, "2026-04-23T10:04:00.000Z")
+    session = completeWorkoutSet(session, enrichedId, 1, "2026-04-23T10:06:00.000Z")
 
     session = {
       ...session,
