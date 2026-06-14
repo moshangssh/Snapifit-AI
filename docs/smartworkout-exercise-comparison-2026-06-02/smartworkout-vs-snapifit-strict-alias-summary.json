@@ -1,0 +1,156 @@
+{
+  "sourceUrl": "https://smartworkout.app/zh/健身练习库",
+  "smartworkoutCount": 824,
+  "snapifitCatalogPath": "lib/workout/exercise-catalog/data.ts",
+  "snapifitCatalogCount": 43,
+  "remoteStrictDisplayMatchCount": 27,
+  "remoteAliasMatchReviewCount": 6,
+  "remoteNotInLocalStrictOrAliasCount": 791,
+  "localStrictDisplayMatchedCount": 21,
+  "localAliasMatchedReviewCount": 5,
+  "localCoveredStrictOrAliasCount": 26,
+  "localNotCoveredStrictOrAliasCount": 17,
+  "localByCoverageStatus": {
+    "strict_display_match": 21,
+    "candidate_review": 16,
+    "alias_match_review": 5,
+    "not_found": 1
+  },
+  "smartworkoutByBodyPart": {
+    "LEGS": 191,
+    "SHOULDERS": 108,
+    "BICEPS": 56,
+    "ABS": 107,
+    "BACK": 103,
+    "CHEST": 103,
+    "TRICEPS": 68,
+    "FOREARMS": 30,
+    "GLUTEUS": 58
+  },
+  "localNotCoveredStrictOrAlias": [
+    {
+      "id": "bodyweight_squat",
+      "zh": "徒手深蹲",
+      "en": "Bodyweight Squat",
+      "status": "candidate_review",
+      "candidates": "141:深蹲 / Squat [LEGS; BODYWEIGHT]|71:史密斯椅式深蹲 / Smith Chair Squat [LEGS; MACHINE]|36:安德森深蹲 / Anderson Squat [LEGS; BARBELL]|36:单腿深蹲 / Pistol Squat [LEGS; BODYWEIGHT]|36:负重西西深蹲 / Weighted Sissy Squat [LEGS; WEIGHTED]|36:半蹲 / Half Squat [LEGS; BARBELL]|36:杠铃深蹲 / Barbell Squat [LEGS; BARBELL]|36:杠铃限位深蹲 / Pin Squat [LEGS; BARBELL]"
+    },
+    {
+      "id": "machine_row",
+      "zh": "器械划船",
+      "en": "Machine Row",
+      "status": "candidate_review",
+      "candidates": "129:胸部支撑器械划船 / Chest Supported Machine Row [BACK; MACHINE]|24:单臂哑铃俯身肩胛骨划船 / One-Arm Dumbbell Bent Over Scapula Row [BACK; DUMBBELL]|24:杠铃划船 / Barbell Bent Over Row [BACK; BARBELL]|24:单臂下拉绳低位划船 / One-Arm Cable Low Row [BACK; MACHINE]|24:坐姿绳索宽握划船 / Seated Cable Wide Grip Row [BACK; MACHINE]|24:坐姿划船 / Seated Cable Row [BACK; MACHINE]|24:悬挂划船 / Suspension Row [BACK; BODYWEIGHT]|24:杠铃俯身划船（从支架开始） / Barbell Bent Over Row From Pin [BACK; BARBELL]"
+    },
+    {
+      "id": "lat_pulldown",
+      "zh": "高位下拉",
+      "en": "Lat Pulldown",
+      "status": "candidate_review",
+      "candidates": "200:单臂背阔肌下拉 / One-Arm Lat Pulldown [BACK; MACHINE]|200:绳索直臂背阔肌下拉 / Rope Straight-Arm Lat Pulldown [BACK; MACHINE]|200:弹力带俯身背阔肌下拉 / Band Bent Over Lat Pulldown [BACK; BAND]|200:单臂钢索半跪姿背阔肌下拉 / One-Arm Cable Half-Kneeling Lat Pulldown [BACK; MACHINE]|200:单臂弹力带跪姿背阔肌下拉 / One-Arm Band Kneeling Lat Pulldown [BACK; BAND]|200:绳索窄握背阔肌下拉 / Cable Close Grip Lat Pulldown [BACK; MACHINE]|200:坐姿下拉机 / Lat Pulldown Machine [BACK; MACHINE]|200:直臂背阔肌下拉 / Straight-Arm Lat Pulldown [BACK; MACHINE]"
+    },
+    {
+      "id": "reverse_lunge",
+      "zh": "反向弓步",
+      "en": "Reverse Lunge",
+      "status": "candidate_review",
+      "candidates": "153:哑铃台阶反向弓步 / Dumbbell Reverse Lunge off Step [GLUTEUS; DUMBBELL]|129:杠铃反向弓步蹲 / Barbell Reverse Lunges [LEGS; BARBELL]|24:反向腕屈俯卧撑 / Reverse Wrist Push-Up [CHEST; BODYWEIGHT]|24:反握下拉绳三头肌推压 / Triceps Cable Pushdown Reverse Grip [TRICEPS; MACHINE]|24:EZ杠坐姿反向腕弯举 / EZ-Bar Seated Reverse Wrist Curl [FOREARMS; BARBELL]|24:弓步拉伸 / Lunge Stretch [LEGS; UNWEIGHTED]|24:杠铃台阶后弓步 / Barbell Rear Lunge On Step [GLUTEUS; BARBELL]|24:器械反向飞鸟 / Machine Reverse Flyes [SHOULDERS; MACHINE]"
+    },
+    {
+      "id": "walking_lunge",
+      "zh": "行走弓步",
+      "en": "Walking Lunge",
+      "status": "candidate_review",
+      "candidates": "129:保加利亚包行走弓步 / Bulgarian Bag Walking Lunges [LEGS; WEIGHTED]|129:行走弓步蹲 / Walking Lunges [LEGS; BODYWEIGHT]|94:哑铃箭步蹲 / Barbell Walking Lunges [LEGS; BARBELL]|94:哑铃箭步蹲 / Dumbbell Walking Lunges [LEGS; DUMBBELL]|24:哑铃台阶反向弓步 / Dumbbell Reverse Lunge off Step [GLUTEUS; DUMBBELL]|24:弓步拉伸 / Lunge Stretch [LEGS; UNWEIGHTED]|24:杠铃台阶后弓步 / Barbell Rear Lunge On Step [GLUTEUS; BARBELL]|24:壶铃后弓步 / Kettlebell Rear Lunge [LEGS; WEIGHTED]"
+    },
+    {
+      "id": "bulgarian_split_squat",
+      "zh": "保加利亚分腿蹲",
+      "en": "Bulgarian Split Squat",
+      "status": "candidate_review",
+      "candidates": "118:分腿蹲 / Split Squat [LEGS; BODYWEIGHT]|94:深蹲 / Squat [LEGS; BODYWEIGHT]|48:哑铃分腿蹲 / Dumbbell Split Squat [LEGS; DUMBBELL]|48:前脚抬高分腿蹲 / Split Squat Front Foot Elevated [LEGS; BODYWEIGHT]|48:前脚抬高分腿蹲 / Split Squat Front Foot Elevated [GLUTEUS; BARBELL]|48:史密斯机保加利亚深蹲 / Bulgarian Squat Smith [LEGS; MACHINE]|48:史密斯机分腿蹲 / Smith Split Squat [LEGS; MACHINE]|48:杠铃分腿蹲 / Barbell Split Squat [LEGS; BARBELL]"
+    },
+    {
+      "id": "pallof_press",
+      "zh": "Pallof Press",
+      "en": "Pallof Press",
+      "status": "candidate_review",
+      "candidates": "212:弹力带帕洛夫抗旋转推举 / Band Pallof Press [ABS; BAND]|177:低位滑轮水平帕洛夫推举 / Low Cable Horizontal Pallof Press [ABS; MACHINE]|177:钢索水平帕洛夫推举 / Cable Horizontal Pallof Press [ABS; MACHINE]|36:杠铃颈后肩推举 / Barbell Behind Neck Shoulder Press [SHOULDERS; BARBELL]|36:哑铃推举 / Dumbbell Push Press [SHOULDERS; DUMBBELL]|36:弹力带肩推举 / Band Shoulder Press [SHOULDERS; BAND]|36:杠铃地板卧推 / Barbell Floor Press [CHEST; BARBELL]|36:窄距45度腿举 / Narrow Stance 45 Degree Leg Press [LEGS; MACHINE]"
+    },
+    {
+      "id": "band_external_rotation",
+      "zh": "弹力带肩外旋",
+      "en": "Band External Rotation",
+      "status": "candidate_review",
+      "candidates": "48:坐姿肩外旋 / Seated Shoulder External Rotation [SHOULDERS; DUMBBELL]|24:弹力带肱二头肌弯举 / Band Biceps Curl [BICEPS; BAND]|24:弹力带肩推举 / Band Shoulder Press [SHOULDERS; BAND]|24:跪姿弹力带臀部后踢 / Kneeling Resistance Band Glute Kickback [GLUTEUS; BAND]|24:弹力带站姿侧弯 / Band Standing Side Bend [ABS; BAND]|24:弹力带站姿扭转卷腹 / Band Standing Twisting Crunches [ABS; BAND]|24:迷你弹力带臀桥 / Mini Band Glute Bridge [GLUTEUS; BODYWEIGHT]|24:弹力带帕洛夫抗旋转推举 / Band Pallof Press [ABS; BAND]"
+    },
+    {
+      "id": "scapular_push_up",
+      "zh": "肩胛俯卧撑",
+      "en": "Scapular Push-up",
+      "status": "candidate_review",
+      "candidates": "94:俯卧撑 / Push-Up [CHEST; BODYWEIGHT]|24:反向腕屈俯卧撑 / Reverse Wrist Push-Up [CHEST; BODYWEIGHT]|24:钻石俯卧撑 / Diamond Push-Up [TRICEPS; BODYWEIGHT]|24:超人俯卧撑 / Superman Push-Up [CHEST; BODYWEIGHT]|24:交叉臂俯卧撑 / Cross Arms Push-Up [TRICEPS; BODYWEIGHT]|24:拳面俯卧撑 / Knuckle Push-Up [CHEST; BODYWEIGHT]|24:开合俯卧撑 / Jack Push-Up [CHEST; BODYWEIGHT]|24:跪姿窄距俯卧撑 / Knee Close Grip Push-Up [TRICEPS; BODYWEIGHT]"
+    },
+    {
+      "id": "thoracic_rotation",
+      "zh": "胸椎旋转",
+      "en": "Thoracic Rotation",
+      "status": "candidate_review",
+      "candidates": "24:哑铃古巴旋转 / Dumbbell Cuban Rotation [SHOULDERS; DUMBBELL]|24:壶铃头部环绕旋转 / Kettlebell Around the Head Rotation [SHOULDERS; WEIGHTED]|24:坐姿肩外旋 / Seated Shoulder External Rotation [SHOULDERS; DUMBBELL]|24:跪姿背部旋转拉伸 / Kneeling Back Rotation Stretch [CHEST; UNWEIGHTED]|24:坐姿器械躯干旋转 / Seated Machine Trunk Rotation [ABS; BODYWEIGHT]|24:自下而上旋转 / Bottom up rotation [ABS; BODYWEIGHT]"
+    },
+    {
+      "id": "hip_flexor_stretch",
+      "zh": "跪姿髋屈肌拉伸",
+      "en": "Kneeling Hip Flexor Stretch",
+      "status": "candidate_review",
+      "candidates": "24:摇摆半蛙式拉伸 / Rocking Half Frog Stretch [LEGS; UNWEIGHTED]|24:坐姿单腿腘绳肌拉伸 / Seated Single Leg Hamstring Stretch [LEGS; UNWEIGHTED]|24:哑铃单腿臀桥 / Dumbbell Single Leg Hip Thrust [GLUTEUS; BODYWEIGHT]|24:坐姿髋内收 / Seated Hip Adduction [LEGS; MACHINE]|24:钢索髋关节外展 / Cable Hip Abducction [GLUTEUS; MACHINE]|24:屈膝抱胸伸展 / Knee To Chest Stretch [LEGS; UNWEIGHTED]|24:仰卧股四头肌拉伸 / Lying Quadriceps Stretch [LEGS; UNWEIGHTED]|24:颈部侧向拉伸 / Neck Side Stretch [BACK; UNWEIGHTED]"
+    },
+    {
+      "id": "chest_stretch",
+      "zh": "胸大肌拉伸",
+      "en": "Chest Stretch",
+      "status": "candidate_review",
+      "candidates": "165:门框胸部拉伸 / Doorway Chest Stretch [CHEST; UNWEIGHTED]|165:肘外胸部拉伸 / Elbow Out Chest Stretch [CHEST; UNWEIGHTED]|165:屈臂胸部拉伸 / Bent Arm Chest Stretch [CHEST; UNWEIGHTED]|130:屈膝抱胸伸展 / Knee To Chest Stretch [LEGS; UNWEIGHTED]|130:仰卧屈膝抱胸拉伸 / Lying Knee To Chest Stretch [GLUTEUS; UNWEIGHTED]|36:摇摆半蛙式拉伸 / Rocking Half Frog Stretch [LEGS; UNWEIGHTED]|36:坐姿单腿腘绳肌拉伸 / Seated Single Leg Hamstring Stretch [LEGS; UNWEIGHTED]|36:仰卧股四头肌拉伸 / Lying Quadriceps Stretch [LEGS; UNWEIGHTED]"
+    },
+    {
+      "id": "hamstring_stretch",
+      "zh": "腘绳肌拉伸",
+      "en": "Hamstring Stretch",
+      "status": "candidate_review",
+      "candidates": "153:坐姿单腿腘绳肌拉伸 / Seated Single Leg Hamstring Stretch [LEGS; UNWEIGHTED]|153:跪姿腘绳肌拉伸 / Kneeling Hamstring Stretch [LEGS; UNWEIGHTED]|24:摇摆半蛙式拉伸 / Rocking Half Frog Stretch [LEGS; UNWEIGHTED]|24:屈膝抱胸伸展 / Knee To Chest Stretch [LEGS; UNWEIGHTED]|24:仰卧股四头肌拉伸 / Lying Quadriceps Stretch [LEGS; UNWEIGHTED]|24:颈部侧向拉伸 / Neck Side Stretch [BACK; UNWEIGHTED]|24:站立股四头肌拉伸 / Standing Quadriceps Stretch [LEGS; UNWEIGHTED]|24:北欧腘绳肌弯曲 / Nordic Hamstring Curl [LEGS; UNWEIGHTED]"
+    },
+    {
+      "id": "calf_stretch",
+      "zh": "小腿拉伸",
+      "en": "Calf Stretch",
+      "status": "candidate_review",
+      "candidates": "24:摇摆半蛙式拉伸 / Rocking Half Frog Stretch [LEGS; UNWEIGHTED]|24:杠铃提踵 / Barbell Calf Raise [LEGS; BARBELL]|24:坐姿单腿腘绳肌拉伸 / Seated Single Leg Hamstring Stretch [LEGS; UNWEIGHTED]|24:负重坐姿提踵 / Weighted Seated Calf Raise [LEGS; WEIGHTED]|24:小腿腿举 / Calf Leg Press [LEGS; MACHINE]|24:单腿哑铃提踵 / Single-Leg Calf Raise with Dumbbell [LEGS; BODYWEIGHT]|24:屈膝抱胸伸展 / Knee To Chest Stretch [LEGS; UNWEIGHTED]|24:仰卧股四头肌拉伸 / Lying Quadriceps Stretch [LEGS; UNWEIGHTED]"
+    },
+    {
+      "id": "breathing_reset",
+      "zh": "仰卧腹式呼吸",
+      "en": "Supine Diaphragmatic Breathing",
+      "status": "not_found",
+      "candidates": ""
+    },
+    {
+      "id": "easy_bike",
+      "zh": "轻松单车",
+      "en": "Easy Bike",
+      "status": "candidate_review",
+      "candidates": "36:固定式自行车 / Stacionary Bike [LEGS; BODYWEIGHT]|36:站立式空中自行车 / Standing Air Bike [ABS; UNWEIGHTED]|36:空中自行车 / Air Bike [ABS; BODYWEIGHT]|36:风阻自行车 / Assault Air Bike [LEGS; BODYWEIGHT]"
+    },
+    {
+      "id": "brisk_walk",
+      "zh": "快走",
+      "en": "Brisk Walk",
+      "status": "candidate_review",
+      "candidates": "24:农夫行走 / Farmer Walk [FOREARMS; DUMBBELL]|24:单侧农夫行走 / Unilateral Farmer Walk [FOREARMS; DUMBBELL]|24:前向弹力带怪兽行走 / Forward Band Monster Walk [LEGS; BAND]|24:侧向怪兽步行 / Lateral Monster Walk [GLUTEUS; BAND]|24:单侧农夫行走 / Unilateral Farmer Walk [FOREARMS; DUMBBELL]"
+    }
+  ],
+  "files": {
+    "remoteAllCompared": "/tmp/smartworkout-vs-snapifit-strict-alias.csv",
+    "remoteNotInLocal": "/tmp/smartworkout-not-in-snapifit-strict-alias.csv",
+    "localMatrix": "/tmp/snapifit-local-smartworkout-match-matrix.csv"
+  }
+}

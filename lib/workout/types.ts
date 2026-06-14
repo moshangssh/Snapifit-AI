@@ -53,6 +53,9 @@ export interface WorkoutSessionExercise {
   analysisStatus: WorkoutExerciseAnalysisStatus
   plannedAnalysis: WorkoutExerciseAnalysis
   enrichedAnalysis?: WorkoutExerciseAnalysis
+  // 训练引擎字段
+  catalogExerciseId?: string  // catalog 动作 ID（用于追踪进度和替换）
+  discomfortFlag?: boolean    // 用户标记"感觉不对"（触发立即替换+黑名单）
 }
 
 export interface RecentWorkoutSessionSummary {
@@ -112,6 +115,10 @@ export interface WorkoutSession {
   planContext: WorkoutPlanContextSnapshot
   exercises: WorkoutSessionExercise[]
   derived: WorkoutSessionDerived
+  // 训练引擎字段（确定性引擎）
+  templateIndex?: number  // 模板索引：0-3（新手4模板）或 0-5（中高级6模板）
+  isDeload?: boolean      // 是否减载训练
+  phase?: "novice" | "intermediate" | "advanced"  // 训练阶段快照（历史回溯用）
 }
 
 export interface WorkoutPlanExerciseDraft {
