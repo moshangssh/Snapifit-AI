@@ -4,6 +4,7 @@ import {
   STRENGTH_EXERCISES,
 } from "@/lib/workout/engine/catalog"
 import { selectASCore, selectExercises } from "@/lib/workout/engine/selection"
+import { AS_DIMENSIONS } from "@/tests/fixtures/as-dimensions"
 
 describe("workout exercise selection", () => {
   it("selects exercises by muscle and tags from the provided pool", () => {
@@ -58,6 +59,20 @@ describe("workout exercise selection", () => {
         ["QUADS", "GLUTES"].includes(exercise.primaryMuscle),
       ),
     ).toBe(true)
+  })
+
+  it("selects one AS core movement from each focus dimension", () => {
+    const upperAS = selectASCore({ focus: "upper", count: 2, offset: 0 })
+    const lowerAS = selectASCore({ focus: "lower", count: 2, offset: 0 })
+
+    expect(upperAS.map((exercise) => exercise.name)).toEqual([
+      "手臂环绕",
+      "坐姿肩外旋",
+    ])
+    expect(lowerAS.map((exercise) => exercise.name)).toEqual([
+      "弓步拉伸",
+      "站立前屈",
+    ])
   })
 
   it("does not return blacklisted AS core exercises", () => {
