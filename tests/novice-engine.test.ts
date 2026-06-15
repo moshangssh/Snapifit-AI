@@ -351,4 +351,57 @@ describe("novice workout engine", () => {
       (quadExercise?.sets[0].plannedWeightKg ?? 0) + 2.5,
     ])
   })
+
+  it("maintains weight when target reps were not fully completed last time", () => {
+    const baseline = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+    })
+    const mainExercises = baseline.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const chestExercise = mainExercises.find((exercise) =>
+      exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+
+    expect(chestExercise?.catalogExerciseId).toBeTruthy()
+
+    const incompleteSummary = {
+      completedAt: "2026-06-15T08:00:00.000Z",
+      exercises: mainExercises.map((exercise) => ({
+        catalogExerciseId: exercise.catalogExerciseId,
+        exerciseName: exercise.plannedExerciseName,
+        phase: exercise.phase,
+        completedSets: 3,
+        workingSetWeightKg: exercise.sets[0].plannedWeightKg,
+        workingSetReps: 8,
+        wasReplaced: false,
+        wasSkipped: false,
+        muscleGroups: exercise.plannedAnalysis.muscleGroups,
+        sets: exercise.sets.map((set, idx) => ({
+          plannedWeightKg: set.plannedWeightKg,
+          plannedReps: set.plannedReps,
+          actualWeightKg: set.plannedWeightKg,
+          actualReps: idx === 0 ? 10 : 8,
+          isCompleted: true,
+          isSkipped: false,
+        })),
+      })),
+    }
+
+    const maintained = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [incompleteSummary],
+    })
+
+    const maintainedChest = maintained.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === chestExercise?.catalogExerciseId,
+    )
+
+    expect(maintainedChest?.sets.map((set) => set.plannedWeightKg)).toEqual([
+      chestExercise?.sets[0].plannedWeightKg,
+      chestExercise?.sets[0].plannedWeightKg,
+      chestExercise?.sets[0].plannedWeightKg,
+    ])
+  })
 })

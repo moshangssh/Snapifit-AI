@@ -59,10 +59,13 @@ function completedAllTargetReps(
     (set) => set.isCompleted && !set.isSkipped,
   )
 
-  if (completedSets.length < 3) return false
+  if (completedSets.length === 0) return false
+
+  const requiredSets = Math.min(3, exercise.sets?.length ?? 3)
+  if (completedSets.length < requiredSets) return false
 
   return completedSets
-    .slice(0, 3)
+    .slice(0, requiredSets)
     .every(
       (set) =>
         typeof set.actualReps === "number" &&
@@ -102,10 +105,17 @@ export function evaluateProgression(
         !exercise.wasReplaced,
     )
 
-  if (!previousExercise || !completedAllTargetReps(previousExercise)) {
+  if (!previousExercise) {
     return {
       action: "maintain",
       weight: fallbackWeight,
+    }
+  }
+
+  if (!completedAllTargetReps(previousExercise)) {
+    return {
+      action: "maintain",
+      weight: latestCompletedWeightKg(previousExercise) ?? fallbackWeight,
     }
   }
 

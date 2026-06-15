@@ -27,11 +27,7 @@ export async function POST(req: Request) {
     return Response.json(
       generateSession(normalizeTrainingState(trainingState), {
         effectiveUserWeightKg,
-        recentWorkoutSessionSummaries: Array.isArray(
-          recentWorkoutSessionSummaries,
-        )
-          ? recentWorkoutSessionSummaries
-          : [],
+        recentWorkoutSessionSummaries: recentWorkoutSessionSummaries ?? [],
       }),
     )
   } catch (error) {
