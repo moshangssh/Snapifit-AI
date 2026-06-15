@@ -71,4 +71,26 @@ describe("workout exercise selection", () => {
       blacklisted.id,
     )
   })
+
+  it("handles rotation with heavy blacklisting by skipping to available exercises", () => {
+    const chestExercises = selectExercises({
+      muscle: "CHEST",
+      tags: ["NOVICE_CORE"],
+      pool: STRENGTH_EXERCISES,
+    })
+
+    // 只拉黑前 2 个，确保至少还剩 1 个可选
+    const blacklistFirst2 = chestExercises.slice(0, 2).map((ex) => ex.id)
+    const [selected] = selectExercises({
+      muscle: "CHEST",
+      tags: ["NOVICE_CORE"],
+      pool: STRENGTH_EXERCISES,
+      count: 1,
+      blacklist: blacklistFirst2,
+      offset: 0,
+    })
+
+    expect(selected).toBeDefined()
+    expect(blacklistFirst2).not.toContain(selected.id)
+  })
 })

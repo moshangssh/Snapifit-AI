@@ -36,6 +36,8 @@ interface TemplateDefinition {
   asFocus: ASCoreFocus
   warmupSupportMuscles: MuscleGroup[]
   mainMuscles: MuscleGroup[]
+  // TODO: cooldownSupport 仍使用旧结构（name + muscleGroups），因为放松拉伸动作尚未加入目录。
+  // 未来统一后应改为与 warmup/main 一致的目录 ID 选择方式。
   cooldownSupport: Array<{
     name: string
     muscleGroups: MuscleKey[]
@@ -241,7 +243,19 @@ function selectByMuscleSlots(
       offset: offset + index,
     })
 
-    if (fallback) selected.push(fallback)
+    if (fallback) {
+      selected.push(fallback)
+    } else {
+      console.warn(
+        `无法为肌群 ${muscle} 找到可用动作（offset=${offset + index}，黑名单=${blacklist.length} 项）`,
+      )
+    }
+  }
+
+  if (selected.length < muscles.length) {
+    console.warn(
+      `动作池不足：期望 ${muscles.length} 个动作，实际只选出 ${selected.length} 个`,
+    )
   }
 
   return selected

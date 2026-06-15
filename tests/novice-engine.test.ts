@@ -172,4 +172,19 @@ describe("novice workout engine", () => {
       session.exercises.map((exercise) => exercise.catalogExerciseId),
     ).not.toContain(blacklistedExerciseId)
   })
+
+  it("does not select duplicate exercises between warmup and main phases", () => {
+    const session = generateSession(makeState(0))
+    const warmupIds = session.exercises
+      .filter((exercise) => exercise.phase === "warmup")
+      .map((exercise) => exercise.catalogExerciseId)
+      .filter(Boolean)
+    const mainIds = session.exercises
+      .filter((exercise) => exercise.phase === "main")
+      .map((exercise) => exercise.catalogExerciseId)
+      .filter(Boolean)
+
+    const duplicates = warmupIds.filter((id) => mainIds.includes(id))
+    expect(duplicates).toHaveLength(0)
+  })
 })

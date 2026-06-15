@@ -85,6 +85,7 @@ export function selectASCore(input: SelectASCoreInput): Exercise[] {
 
   if (selected.length >= count) return selected
 
+  const needed = count - selected.length
   const fallback = selectExercises({
     pool: AS_CORE_EXERCISES,
     tags: ["AS_CORE"],
@@ -93,8 +94,9 @@ export function selectASCore(input: SelectASCoreInput): Exercise[] {
       ...(input.excludeIds ?? []),
       ...selected.map((exercise) => exercise.id),
     ],
+    count: needed,
     offset: input.offset ?? 0,
   }).filter((exercise) => focusMuscles.includes(exercise.primaryMuscle))
 
-  return [...selected, ...fallback].slice(0, count)
+  return [...selected, ...fallback]
 }
