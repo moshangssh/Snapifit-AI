@@ -291,7 +291,7 @@ export function generateSession(
     focus: template.asFocus,
     blacklist,
     count: 2,
-    offset: rotationOffset + 2,
+    offset: rotationOffset + 1,
   })
 
   const warmup = [

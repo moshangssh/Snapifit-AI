@@ -60,6 +60,20 @@ describe("workout exercise selection", () => {
     ).toBe(true)
   })
 
+  it("selects one AS core movement from each focus dimension", () => {
+    const upperAS = selectASCore({ focus: "upper", count: 2, offset: 0 })
+    const lowerAS = selectASCore({ focus: "lower", count: 2, offset: 0 })
+
+    expect(upperAS.map((exercise) => exercise.name)).toEqual([
+      "手臂环绕",
+      "坐姿肩外旋",
+    ])
+    expect(lowerAS.map((exercise) => exercise.name)).toEqual([
+      "弓步拉伸",
+      "站立前屈",
+    ])
+  })
+
   it("does not return blacklisted AS core exercises", () => {
     const [blacklisted] = AS_CORE_EXERCISES
     const selected = selectASCore({

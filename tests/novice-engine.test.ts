@@ -17,6 +17,29 @@ function makeState(
   }
 }
 
+const AS_DIMENSIONS = {
+  upperThoracic: ["手臂环绕", "弹力带肩部穿越"],
+  upperScapular: ["坐姿肩外旋", "哑铃古巴旋转", "颈部侧向拉伸"],
+  lowerHip: ["弓步拉伸", "坐姿四字伸展"],
+  lowerSpine: ["站立前屈", "仰卧蝴蝶式", "坐姿单腿腘绳肌拉伸"],
+}
+
+function asCoreNames(
+  session: ReturnType<typeof generateSession>,
+  phase: "warmup" | "cooldown",
+): string[] {
+  const asCoreIds = new Set(AS_CORE_EXERCISES.map((exercise) => exercise.id))
+
+  return session.exercises
+    .filter(
+      (exercise) =>
+        exercise.phase === phase &&
+        exercise.catalogExerciseId &&
+        asCoreIds.has(exercise.catalogExerciseId),
+    )
+    .map((exercise) => exercise.plannedExerciseName)
+}
+
 describe("novice workout engine", () => {
   it("rotates through the four novice templates by completed session count", () => {
     const sessions = [0, 1, 2, 3, 4].map((count) =>
@@ -161,6 +184,51 @@ describe("novice workout engine", () => {
       lowerAS.every((exercise) =>
         ["QUADS", "GLUTES"].includes(exercise?.primaryMuscle ?? ""),
       ),
+    ).toBe(true)
+  })
+
+  it("embeds the expected AS dimensions in every warmup and cooldown", () => {
+    const sessions = [0, 1, 2, 3].map((count) =>
+      generateSession(makeState(count)),
+    )
+
+    for (const session of sessions) {
+      const expectedDimensions =
+        session.templateName === "上A" || session.templateName === "上B"
+          ? [AS_DIMENSIONS.upperThoracic, AS_DIMENSIONS.upperScapular]
+          : [AS_DIMENSIONS.lowerHip, AS_DIMENSIONS.lowerSpine]
+
+      for (const phase of ["warmup", "cooldown"] as const) {
+        const names = asCoreNames(session, phase)
+
+        expect(names).toHaveLength(2)
+        for (const dimension of expectedDimensions) {
+          expect(names.some((name) => dimension.includes(name))).toBe(true)
+        }
+      }
+    }
+  })
+
+  it("covers all four AS core dimensions across one full template rotation", () => {
+    const asNames = [0, 1, 2, 3].flatMap((count) => {
+      const session = generateSession(makeState(count))
+      return [
+        ...asCoreNames(session, "warmup"),
+        ...asCoreNames(session, "cooldown"),
+      ]
+    })
+
+    expect(
+      AS_DIMENSIONS.upperThoracic.some((name) => asNames.includes(name)),
+    ).toBe(true)
+    expect(
+      AS_DIMENSIONS.upperScapular.some((name) => asNames.includes(name)),
+    ).toBe(true)
+    expect(AS_DIMENSIONS.lowerHip.some((name) => asNames.includes(name))).toBe(
+      true,
+    )
+    expect(
+      AS_DIMENSIONS.lowerSpine.some((name) => asNames.includes(name)),
     ).toBe(true)
   })
 
