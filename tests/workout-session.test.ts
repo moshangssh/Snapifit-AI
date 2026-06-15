@@ -15,6 +15,7 @@ import {
   buildWorkoutPlanContextSnapshot,
   getEffectiveUserWeightKg,
 } from "@/lib/workout/context"
+import { generateSession } from "@/lib/workout/engine/novice-engine"
 import type { DailyLog, UserProfile } from "@/lib/types"
 import type { CreateWorkoutSessionInput } from "@/lib/workout/types"
 
@@ -81,6 +82,29 @@ describe("workout session core", () => {
     ])
     expect(session.exercises[0].sets[0].actualWeightKg).toBe(60)
     expect(session.derived.totalSetCount).toBe(4)
+  })
+
+  it("preserves deterministic engine metadata in created sessions", () => {
+    const plan = generateSession({
+      phase: "novice",
+      completedSessionCount: 2,
+      blacklistedExerciseIds: [],
+    })
+
+    const session = createWorkoutSessionFromPlan({
+      ...makeInput(),
+      exercises: plan.exercises,
+      templateIndex: plan.templateIndex,
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+    })
+
+    expect(session.templateIndex).toBe(2)
+    expect(session.phase).toBe("novice")
+    expect(session.isDeload).toBe(false)
+    expect(session.exercises[0].catalogExerciseId).toBe(
+      plan.exercises[0].catalogExerciseId,
+    )
   })
 
   it("syncs changed weight only to later untouched unfinished sets", () => {
