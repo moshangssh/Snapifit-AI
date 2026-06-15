@@ -11,7 +11,13 @@ interface EvaluateProgressionOptions {
 interface ProgressionResult {
   action: ProgressionAction
   weight: number
+  plannedReps: number
 }
+
+const FAILURE_THRESHOLD = 2
+const NORMAL_REPS = 10
+const REDUCED_REPS = 8
+const WEIGHT_EPSILON = 0.01 // 10g tolerance for floating point comparison
 
 const LOWER_BODY_MUSCLES: MuscleGroup[] = [
   "QUADS",
@@ -86,6 +92,43 @@ function latestCompletedWeightKg(
   return Math.max(...completedWeights)
 }
 
+function progressionExercises(
+  history: RecentWorkoutSessionSummary[],
+  exerciseId: string,
+) {
+  return [...history]
+    .sort(
+      (left, right) =>
+        new Date(right.completedAt).getTime() -
+        new Date(left.completedAt).getTime(),
+    )
+    .flatMap((session) => session.exercises)
+    .filter(
+      (exercise) =>
+        exercise.catalogExerciseId === exerciseId &&
+        (exercise.phase === undefined || exercise.phase === "main") &&
+        !exercise.wasSkipped &&
+        !exercise.wasReplaced,
+    )
+}
+
+function consecutiveFailuresAtWeight(
+  exercises: RecentWorkoutSessionSummary["exercises"],
+  weight: number,
+) {
+  let failures = 0
+
+  for (const exercise of exercises) {
+    const exerciseWeight = latestCompletedWeightKg(exercise)
+    if (Math.abs(exerciseWeight - weight) > WEIGHT_EPSILON) break
+    if (completedAllTargetReps(exercise)) break
+
+    failures += 1
+  }
+
+  return failures
+}
+
 export function evaluateProgression(
   history: RecentWorkoutSessionSummary[],
   exerciseId: string,
@@ -95,27 +138,25 @@ export function evaluateProgression(
     options.primaryMuscle,
     options.effectiveUserWeightKg,
   )
-  const previousExercise = history
-    .flatMap((session) => session.exercises)
-    .find(
-      (exercise) =>
-        exercise.catalogExerciseId === exerciseId &&
-        (exercise.phase === undefined || exercise.phase === "main") &&
-        !exercise.wasSkipped &&
-        !exercise.wasReplaced,
-    )
+  const exercises = progressionExercises(history, exerciseId)
+  const previousExercise = exercises[0]
 
   if (!previousExercise) {
     return {
       action: "maintain",
       weight: fallbackWeight,
+      plannedReps: NORMAL_REPS,
     }
   }
 
   if (!completedAllTargetReps(previousExercise)) {
+    const weight = latestCompletedWeightKg(previousExercise) ?? fallbackWeight
+    const consecutiveFailures = consecutiveFailuresAtWeight(exercises, weight)
+
     return {
-      action: "maintain",
-      weight: latestCompletedWeightKg(previousExercise) ?? fallbackWeight,
+      action: consecutiveFailures >= FAILURE_THRESHOLD ? "reduce_reps" : "maintain",
+      weight,
+      plannedReps: consecutiveFailures >= FAILURE_THRESHOLD ? REDUCED_REPS : NORMAL_REPS,
     }
   }
 
@@ -124,5 +165,6 @@ export function evaluateProgression(
     weight:
       (latestCompletedWeightKg(previousExercise) ?? fallbackWeight) +
       incrementKg(options.primaryMuscle),
+    plannedReps: NORMAL_REPS,
   }
 }

@@ -190,7 +190,7 @@ function catalogDraft(
       plannedWeightKg: isStrength
         ? progression?.weight ?? plannedWeightKg(exercise, phase)
         : undefined,
-      plannedReps: phase === "main" ? 10 : 12,
+      plannedReps: phase === "main" ? (progression?.plannedReps ?? 10) : 12,
     })),
     plannedAnalysis: analysis(
       exerciseType,
