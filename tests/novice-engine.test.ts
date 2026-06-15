@@ -34,6 +34,35 @@ function asCoreNames(
     .map((exercise) => exercise.plannedExerciseName)
 }
 
+function completedSummary(
+  completedAt: string,
+  exercises: ReturnType<typeof generateSession>["exercises"],
+  actualRepsForSet: (setIndex: number) => number | undefined,
+) {
+  return {
+    completedAt,
+    exercises: exercises.map((exercise) => ({
+      catalogExerciseId: exercise.catalogExerciseId,
+      exerciseName: exercise.plannedExerciseName,
+      phase: exercise.phase,
+      completedSets: exercise.sets.length,
+      workingSetWeightKg: exercise.sets[0].plannedWeightKg,
+      workingSetReps: exercise.sets[0].plannedReps,
+      wasReplaced: false,
+      wasSkipped: false,
+      muscleGroups: exercise.plannedAnalysis.muscleGroups,
+      sets: exercise.sets.map((set, index) => ({
+        plannedWeightKg: set.plannedWeightKg,
+        plannedReps: set.plannedReps,
+        actualWeightKg: set.plannedWeightKg,
+        actualReps: actualRepsForSet(index),
+        isCompleted: true,
+        isSkipped: false,
+      })),
+    })),
+  }
+}
+
 describe("novice workout engine", () => {
   it("rotates through the four novice templates by completed session count", () => {
     const sessions = [0, 1, 2, 3, 4].map((count) =>
@@ -403,5 +432,116 @@ describe("novice workout engine", () => {
       chestExercise?.sets[0].plannedWeightKg,
       chestExercise?.sets[0].plannedWeightKg,
     ])
+    expect(maintainedChest?.sets.map((set) => set.plannedReps)).toEqual([
+      10, 10, 10,
+    ])
   })
+
+  it("reduces target reps after two consecutive failures at the same weight", () => {
+    const baseline = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+    })
+    const mainExercises = baseline.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const chestExercise = mainExercises.find((exercise) =>
+      exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+
+    expect(chestExercise?.catalogExerciseId).toBeTruthy()
+
+    const firstFailed = completedSummary(
+      "2026-06-15T08:00:00.000Z",
+      mainExercises,
+      (setIndex) => (setIndex === 0 ? 10 : 8),
+    )
+    const secondFailed = completedSummary(
+      "2026-06-18T08:00:00.000Z",
+      mainExercises,
+      (setIndex) => (setIndex === 0 ? 10 : 8),
+    )
+
+    const reduced = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [secondFailed, firstFailed],
+    })
+
+    const reducedChest = reduced.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === chestExercise?.catalogExerciseId,
+    )
+
+    expect(reducedChest?.sets.map((set) => set.plannedWeightKg)).toEqual([
+      chestExercise?.sets[0].plannedWeightKg,
+      chestExercise?.sets[0].plannedWeightKg,
+      chestExercise?.sets[0].plannedWeightKg,
+    ])
+    expect(reducedChest?.sets.map((set) => set.plannedReps)).toEqual([8, 8, 8])
+  })
+
+  it.each([
+    { sessionCount: 4, muscleGroup: "chest", incrementKg: 1.25 },
+    { sessionCount: 5, muscleGroup: "quadriceps", incrementKg: 2.5 },
+  ] as const)(
+    "restores normal reps and adds $incrementKg kg after reduced reps are completed",
+    ({ sessionCount, muscleGroup, incrementKg }) => {
+      const baseline = generateSession(makeState(sessionCount), {
+        effectiveUserWeightKg: 72,
+      })
+      const mainExercises = baseline.exercises.filter(
+        (exercise) => exercise.phase === "main",
+      )
+      const targetExercise = mainExercises.find((exercise) =>
+        exercise.plannedAnalysis.muscleGroups.includes(muscleGroup),
+      )
+
+      expect(targetExercise?.catalogExerciseId).toBeTruthy()
+
+      const firstFailed = completedSummary(
+        "2026-06-15T08:00:00.000Z",
+        mainExercises,
+        (setIndex) => (setIndex === 0 ? 10 : 8),
+      )
+      const secondFailed = completedSummary(
+        "2026-06-18T08:00:00.000Z",
+        mainExercises,
+        (setIndex) => (setIndex === 0 ? 10 : 8),
+      )
+      const reduced = generateSession(makeState(sessionCount), {
+        effectiveUserWeightKg: 72,
+        recentWorkoutSessionSummaries: [secondFailed, firstFailed],
+      })
+      const reducedMainExercises = reduced.exercises.filter(
+        (exercise) => exercise.phase === "main",
+      )
+      const completedReduced = completedSummary(
+        "2026-06-21T08:00:00.000Z",
+        reducedMainExercises,
+        () => 8,
+      )
+
+      const restored = generateSession(makeState(sessionCount), {
+        effectiveUserWeightKg: 72,
+        recentWorkoutSessionSummaries: [
+          completedReduced,
+          secondFailed,
+          firstFailed,
+        ],
+      })
+
+      const restoredExercise = restored.exercises.find(
+        (exercise) =>
+          exercise.catalogExerciseId === targetExercise?.catalogExerciseId,
+      )
+
+      expect(restoredExercise?.sets.map((set) => set.plannedReps)).toEqual([
+        10, 10, 10,
+      ])
+      expect(restoredExercise?.sets.map((set) => set.plannedWeightKg)).toEqual([
+        (targetExercise?.sets[0].plannedWeightKg ?? 0) + incrementKg,
+        (targetExercise?.sets[0].plannedWeightKg ?? 0) + incrementKg,
+        (targetExercise?.sets[0].plannedWeightKg ?? 0) + incrementKg,
+      ])
+    },
+  )
 })
