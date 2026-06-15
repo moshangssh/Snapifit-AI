@@ -14,6 +14,11 @@ interface ProgressionResult {
   plannedReps: number
 }
 
+const FAILURE_THRESHOLD = 2
+const NORMAL_REPS = 10
+const REDUCED_REPS = 8
+const WEIGHT_EPSILON = 0.01 // 10g tolerance for floating point comparison
+
 const LOWER_BODY_MUSCLES: MuscleGroup[] = [
   "QUADS",
   "GLUTES",
@@ -114,7 +119,8 @@ function consecutiveFailuresAtWeight(
   let failures = 0
 
   for (const exercise of exercises) {
-    if (latestCompletedWeightKg(exercise) !== weight) break
+    const exerciseWeight = latestCompletedWeightKg(exercise)
+    if (Math.abs(exerciseWeight - weight) > WEIGHT_EPSILON) break
     if (completedAllTargetReps(exercise)) break
 
     failures += 1
@@ -139,7 +145,7 @@ export function evaluateProgression(
     return {
       action: "maintain",
       weight: fallbackWeight,
-      plannedReps: 10,
+      plannedReps: NORMAL_REPS,
     }
   }
 
@@ -148,9 +154,9 @@ export function evaluateProgression(
     const consecutiveFailures = consecutiveFailuresAtWeight(exercises, weight)
 
     return {
-      action: consecutiveFailures >= 2 ? "reduce_reps" : "maintain",
+      action: consecutiveFailures >= FAILURE_THRESHOLD ? "reduce_reps" : "maintain",
       weight,
-      plannedReps: consecutiveFailures >= 2 ? 8 : 10,
+      plannedReps: consecutiveFailures >= FAILURE_THRESHOLD ? REDUCED_REPS : NORMAL_REPS,
     }
   }
 
@@ -159,6 +165,6 @@ export function evaluateProgression(
     weight:
       (latestCompletedWeightKg(previousExercise) ?? fallbackWeight) +
       incrementKg(options.primaryMuscle),
-    plannedReps: 10,
+    plannedReps: NORMAL_REPS,
   }
 }

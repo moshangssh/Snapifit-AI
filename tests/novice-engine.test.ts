@@ -544,4 +544,117 @@ describe("novice workout engine", () => {
       ])
     },
   )
+
+  it("resets consecutive failure count after a successful completion", () => {
+    const baseline = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+    })
+    const mainExercises = baseline.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const chestExercise = mainExercises.find((exercise) =>
+      exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+
+    expect(chestExercise?.catalogExerciseId).toBeTruthy()
+
+    const firstFailed = completedSummary(
+      "2026-06-15T08:00:00.000Z",
+      mainExercises,
+      (setIndex) => (setIndex === 0 ? 10 : 8),
+    )
+    const succeeded = completedSummary(
+      "2026-06-18T08:00:00.000Z",
+      mainExercises,
+      () => 10,
+    )
+    const secondFailed = completedSummary(
+      "2026-06-21T08:00:00.000Z",
+      mainExercises,
+      (setIndex) => (setIndex === 0 ? 10 : 9),
+    )
+
+    const next = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [secondFailed, succeeded, firstFailed],
+    })
+
+    const nextChest = next.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === chestExercise?.catalogExerciseId,
+    )
+
+    const succeededWeight =
+      succeeded.exercises.find(
+        (ex) => ex.catalogExerciseId === chestExercise?.catalogExerciseId,
+      )?.workingSetWeightKg ?? 0
+
+    // Should maintain weight and normal reps (not reduce to 8)
+    // because the success broke the consecutive failure streak
+    // The most recent session (secondFailed) failed, so we maintain the weight from that session
+    expect(nextChest?.sets.map((set) => set.plannedWeightKg)).toEqual([
+      succeededWeight,
+      succeededWeight,
+      succeededWeight,
+    ])
+    expect(nextChest?.sets.map((set) => set.plannedReps)).toEqual([10, 10, 10])
+  })
+
+  it("excludes skipped sessions from consecutive failure count", () => {
+    const baseline = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+    })
+    const mainExercises = baseline.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const chestExercise = mainExercises.find((exercise) =>
+      exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+
+    expect(chestExercise?.catalogExerciseId).toBeTruthy()
+
+    const firstFailed = completedSummary(
+      "2026-06-15T08:00:00.000Z",
+      mainExercises,
+      (setIndex) => (setIndex === 0 ? 10 : 8),
+    )
+
+    // Mark chest exercise as skipped in this session
+    const skippedSession = completedSummary(
+      "2026-06-18T08:00:00.000Z",
+      mainExercises,
+      () => 0,
+    )
+    skippedSession.exercises = skippedSession.exercises.map((ex) =>
+      ex.catalogExerciseId === chestExercise?.catalogExerciseId
+        ? { ...ex, wasSkipped: true }
+        : ex,
+    )
+
+    const secondFailed = completedSummary(
+      "2026-06-21T08:00:00.000Z",
+      mainExercises,
+      (setIndex) => (setIndex === 0 ? 10 : 8),
+    )
+
+    const next = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [secondFailed, skippedSession, firstFailed],
+    })
+
+    const nextChest = next.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === chestExercise?.catalogExerciseId,
+    )
+
+    // The skipped session is excluded from progressionExercises filter,
+    // so we now have two consecutive failures (secondFailed and firstFailed)
+    // which should trigger reduced reps
+    expect(nextChest?.sets.map((set) => set.plannedWeightKg)).toEqual([
+      chestExercise?.sets[0].plannedWeightKg,
+      chestExercise?.sets[0].plannedWeightKg,
+      chestExercise?.sets[0].plannedWeightKg,
+    ])
+    expect(nextChest?.sets.map((set) => set.plannedReps)).toEqual([8, 8, 8])
+  })
 })
