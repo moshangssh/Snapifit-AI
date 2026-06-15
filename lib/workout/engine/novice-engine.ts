@@ -287,6 +287,8 @@ export function generateSession(
     rotationOffset + 1,
     mainExercises.map((exercise) => exercise.id),
   )
+  // Use rotationOffset + 1 for cooldown to ensure different AS movements
+  // are selected compared to warmup (which uses rotationOffset + 0)
   const cooldownAS = selectASCore({
     focus: template.asFocus,
     blacklist,

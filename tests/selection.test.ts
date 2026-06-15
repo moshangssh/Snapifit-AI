@@ -4,6 +4,7 @@ import {
   STRENGTH_EXERCISES,
 } from "@/lib/workout/engine/catalog"
 import { selectASCore, selectExercises } from "@/lib/workout/engine/selection"
+import { AS_DIMENSIONS } from "@/tests/fixtures/as-dimensions"
 
 describe("workout exercise selection", () => {
   it("selects exercises by muscle and tags from the provided pool", () => {

@@ -60,6 +60,17 @@ const AS_CORE_BY_ID = new Map(
   AS_CORE_EXERCISES.map((exercise) => [exercise.id, exercise]),
 )
 
+// Validate that all dimension IDs exist in the catalog
+const INVALID_DIMENSION_IDS = Object.values(AS_FOCUS_DIMENSION_IDS)
+  .flat(2)
+  .filter((id) => !AS_CORE_BY_ID.has(id))
+
+if (INVALID_DIMENSION_IDS.length > 0) {
+  throw new Error(
+    `Invalid AS dimension IDs not found in catalog: ${INVALID_DIMENSION_IDS.join(", ")}`,
+  )
+}
+
 function blockedIds(input: {
   blacklist?: readonly string[]
   excludeIds?: readonly string[]
