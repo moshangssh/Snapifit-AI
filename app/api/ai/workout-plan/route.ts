@@ -7,8 +7,13 @@ import {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { effectiveUserWeightKg, userProfile, fatigueSnapshot, trainingState } =
-      body
+    const {
+      effectiveUserWeightKg,
+      userProfile,
+      fatigueSnapshot,
+      trainingState,
+      recentWorkoutSessionSummaries,
+    } = body
 
     if (
       typeof effectiveUserWeightKg !== "number" ||
@@ -22,6 +27,11 @@ export async function POST(req: Request) {
     return Response.json(
       generateSession(normalizeTrainingState(trainingState), {
         effectiveUserWeightKg,
+        recentWorkoutSessionSummaries: Array.isArray(
+          recentWorkoutSessionSummaries,
+        )
+          ? recentWorkoutSessionSummaries
+          : [],
       }),
     )
   } catch (error) {

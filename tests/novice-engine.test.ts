@@ -87,6 +87,32 @@ describe("novice workout engine", () => {
     }
   })
 
+  it("uses conservative starting weights when a main exercise has no history", () => {
+    const upperSession = generateSession(makeState(0), {
+      effectiveUserWeightKg: 70,
+    })
+    const lowerSession = generateSession(makeState(1), {
+      effectiveUserWeightKg: 70,
+    })
+    const chestExercise = upperSession.exercises.find(
+      (exercise) =>
+        exercise.phase === "main" &&
+        exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+    const quadExercise = lowerSession.exercises.find(
+      (exercise) =>
+        exercise.phase === "main" &&
+        exercise.plannedAnalysis.muscleGroups.includes("quadriceps"),
+    )
+
+    expect(chestExercise?.sets.map((set) => set.plannedWeightKg)).toEqual([
+      21, 21, 21,
+    ])
+    expect(quadExercise?.sets.map((set) => set.plannedWeightKg)).toEqual([
+      35, 35, 35,
+    ])
+  })
+
   it("rotates exercises within the same template across cycles", () => {
     const firstUpperA = generateSession(makeState(0))
     const secondUpperA = generateSession(makeState(4))
@@ -248,5 +274,81 @@ describe("novice workout engine", () => {
 
     const duplicates = warmupIds.filter((id) => mainIds.includes(id))
     expect(duplicates).toHaveLength(0)
+  })
+
+  it("adds weight for catalog exercises that completed all target reps last time", () => {
+    const upperBaseline = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+    })
+    const lowerBaseline = generateSession(makeState(5), {
+      effectiveUserWeightKg: 72,
+    })
+    const upperMain = upperBaseline.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const lowerMain = lowerBaseline.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const chestExercise = upperMain.find((exercise) =>
+      exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+    const quadExercise = lowerMain.find((exercise) =>
+      exercise.plannedAnalysis.muscleGroups.includes("quadriceps"),
+    )
+
+    expect(chestExercise?.catalogExerciseId).toBeTruthy()
+    expect(quadExercise?.catalogExerciseId).toBeTruthy()
+
+    const completedSummary = (exercises: typeof upperMain) => ({
+      completedAt: "2026-06-15T08:00:00.000Z",
+      exercises: exercises.map((exercise) => ({
+        catalogExerciseId: exercise.catalogExerciseId,
+        exerciseName: exercise.plannedExerciseName,
+        phase: exercise.phase,
+        completedSets: 3,
+        workingSetWeightKg: exercise.sets[0].plannedWeightKg,
+        workingSetReps: 10,
+        wasReplaced: false,
+        wasSkipped: false,
+        muscleGroups: exercise.plannedAnalysis.muscleGroups,
+        sets: exercise.sets.map((set) => ({
+          plannedWeightKg: set.plannedWeightKg,
+          plannedReps: set.plannedReps,
+          actualWeightKg: set.plannedWeightKg,
+          actualReps: set.plannedReps,
+          isCompleted: true,
+          isSkipped: false,
+        })),
+      })),
+    })
+
+    const progressedUpper = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [completedSummary(upperMain)],
+    })
+    const progressedLower = generateSession(makeState(5), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [completedSummary(lowerMain)],
+    })
+
+    const progressedChest = progressedUpper.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === chestExercise?.catalogExerciseId,
+    )
+    const progressedQuad = progressedLower.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === quadExercise?.catalogExerciseId,
+    )
+
+    expect(progressedChest?.sets.map((set) => set.plannedWeightKg)).toEqual([
+      (chestExercise?.sets[0].plannedWeightKg ?? 0) + 1.25,
+      (chestExercise?.sets[0].plannedWeightKg ?? 0) + 1.25,
+      (chestExercise?.sets[0].plannedWeightKg ?? 0) + 1.25,
+    ])
+    expect(progressedQuad?.sets.map((set) => set.plannedWeightKg)).toEqual([
+      (quadExercise?.sets[0].plannedWeightKg ?? 0) + 2.5,
+      (quadExercise?.sets[0].plannedWeightKg ?? 0) + 2.5,
+      (quadExercise?.sets[0].plannedWeightKg ?? 0) + 2.5,
+    ])
   })
 })

@@ -68,13 +68,23 @@ export interface TrainingState {
 export interface RecentWorkoutSessionSummary {
   completedAt: string
   exercises: Array<{
+    catalogExerciseId?: string
     exerciseName: string
+    phase?: WorkoutExercisePhase
     completedSets: number
     workingSetWeightKg?: number
     workingSetReps?: number
     wasReplaced: boolean
     wasSkipped: boolean
     muscleGroups: string[]
+    sets?: Array<{
+      plannedWeightKg?: number
+      plannedReps?: number
+      actualWeightKg?: number
+      actualReps?: number
+      isCompleted: boolean
+      isSkipped: boolean
+    }>
   }>
 }
 
