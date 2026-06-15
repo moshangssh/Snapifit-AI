@@ -9,8 +9,10 @@ import {
   selectExercises,
   type ASCoreFocus,
 } from "@/lib/workout/engine/selection"
+import { evaluateProgression } from "@/lib/workout/engine/progression"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
+  RecentWorkoutSessionSummary,
   WorkoutExerciseAnalysis,
   WorkoutExercisePhase,
   WorkoutPlanExerciseDraft,
@@ -29,6 +31,7 @@ export interface GeneratedWorkoutPlan {
 
 interface GenerateSessionOptions {
   effectiveUserWeightKg?: number
+  recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
 }
 
 interface TemplateDefinition {
@@ -161,10 +164,18 @@ function catalogDraft(
   phase: WorkoutExercisePhase,
   setCount: number,
   effectiveUserWeightKg: number,
+  recentWorkoutSessionSummaries: RecentWorkoutSessionSummary[] = [],
 ): WorkoutPlanExerciseDraft {
   const exercise = getExercise(id)
   const isStrength = STRENGTH_EXERCISES.some((item) => item.id === id)
   const exerciseType = isStrength ? "strength" : "flexibility"
+  const progression =
+    phase === "main" && isStrength
+      ? evaluateProgression(recentWorkoutSessionSummaries, exercise.id, {
+          primaryMuscle: exercise.primaryMuscle,
+          effectiveUserWeightKg,
+        })
+      : null
 
   return {
     plannedExerciseName: exercise.name,
@@ -176,7 +187,9 @@ function catalogDraft(
     tips: ["保持动作可控。", "出现不适就降低幅度或停止。"],
     catalogExerciseId: exercise.id,
     sets: Array.from({ length: setCount }, () => ({
-      plannedWeightKg: isStrength ? plannedWeightKg(exercise, phase) : undefined,
+      plannedWeightKg: isStrength
+        ? progression?.weight ?? plannedWeightKg(exercise, phase)
+        : undefined,
       plannedReps: phase === "main" ? 10 : 12,
     })),
     plannedAnalysis: analysis(
@@ -266,6 +279,8 @@ export function generateSession(
   options: GenerateSessionOptions = {},
 ): GeneratedWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
+  const recentWorkoutSessionSummaries =
+    options.recentWorkoutSessionSummaries ?? []
   const templateIndex = state.completedSessionCount % TEMPLATES.length
   const template = TEMPLATES[templateIndex]
   const rotationOffset = Math.floor(state.completedSessionCount / TEMPLATES.length)
@@ -305,7 +320,13 @@ export function generateSession(
     ),
   ]
   const main = mainExercises.map((exercise) =>
-    catalogDraft(exercise.id, "main", 3, effectiveUserWeightKg),
+    catalogDraft(
+      exercise.id,
+      "main",
+      3,
+      effectiveUserWeightKg,
+      recentWorkoutSessionSummaries,
+    ),
   )
   const cooldown = [
     ...cooldownAS.map((exercise) =>
