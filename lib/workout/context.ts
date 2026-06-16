@@ -32,16 +32,27 @@ export function summarizeWorkoutSession(
       const workingSet = pickWorkingSet(completedSets)
 
       return {
+        catalogExerciseId: exercise.catalogExerciseId,
         exerciseName:
           exercise.actualExerciseName ?? exercise.plannedExerciseName,
+        phase: exercise.phase,
         completedSets: completedSets.length,
         workingSetWeightKg: workingSet?.weightKg,
         workingSetReps: workingSet?.reps,
         wasReplaced: Boolean(exercise.actualExerciseName),
         wasSkipped: exercise.isExerciseSkipped,
+        discomfortFlag: exercise.discomfortFlag,
         muscleGroups: (
           exercise.enrichedAnalysis ?? exercise.plannedAnalysis
         ).muscleGroups,
+        sets: exercise.sets.map((set) => ({
+          plannedWeightKg: set.plannedWeightKg,
+          plannedReps: set.plannedReps,
+          actualWeightKg: set.actualWeightKg,
+          actualReps: set.actualReps,
+          isCompleted: set.isCompleted,
+          isSkipped: set.isSkipped,
+        })),
       }
     }),
   }

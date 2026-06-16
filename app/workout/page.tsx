@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { format, subDays } from "date-fns"
 import { Dumbbell, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -19,10 +19,18 @@ import {
   FALLBACK_STRENGTH_ANALYSIS,
   removeWorkoutSessionEntries,
   replaceWorkoutExercise,
+  setWorkoutExerciseDiscomfortFlag,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
   workoutSessionToExerciseEntries,
 } from "@/lib/workout/session"
+import {
+  DEFAULT_TRAINING_STATE,
+  readTrainingState,
+  recordCompletedTrainingSession,
+  setExerciseBlacklisted,
+  writeTrainingState,
+} from "@/lib/workout/engine/training-state"
 import { buildWorkoutPlanContextSnapshot, getEffectiveUserWeightKg } from "@/lib/workout/context"
 import type { WorkoutExerciseAnalysis, WorkoutSession } from "@/lib/workout/types"
 import { WorkoutPlanWorkbench } from "@/components/workout/workout-plan-workbench"
@@ -78,19 +86,11 @@ export default function WorkoutPage() {
   } = useWorkoutSessions()
   const [isGenerating, setIsGenerating] = useState(false)
   const [isFinishing, setIsFinishing] = useState(false)
+  const [trainingState, setTrainingState] = useState(DEFAULT_TRAINING_STATE)
 
-  const checkAIConfig = useCallback(() => {
-    const model = aiConfig.agentModel
-    if (!model.name || !model.baseUrl || !model.apiKey) {
-      toast({
-        title: "AI 配置不完整",
-        description: "请先在设置页面配置工作模型。",
-        variant: "destructive",
-      })
-      return false
-    }
-    return true
-  }, [aiConfig.agentModel, toast])
+  useEffect(() => {
+    setTrainingState(readTrainingState())
+  }, [])
 
   const loadRecentLogs = useCallback(async () => {
     const today = new Date()
@@ -104,7 +104,6 @@ export default function WorkoutPage() {
   }, [getDailyLog])
 
   const generatePlan = useCallback(async () => {
-    if (!checkAIConfig()) return
     setIsGenerating(true)
     try {
       const now = new Date().toISOString()
@@ -122,7 +121,6 @@ export default function WorkoutPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-ai-config": JSON.stringify(aiConfig),
         },
         body: JSON.stringify({
           effectiveUserWeightKg,
@@ -131,6 +129,7 @@ export default function WorkoutPage() {
           recentWorkoutSessionSummaries: planContext.recentWorkoutSessionSummaries,
           recentExerciseEntries: planContext.recentExerciseEntries,
           fatigueSnapshot: planContext.fatigueSnapshot,
+          trainingState: readTrainingState(),
         }),
       })
 
@@ -139,12 +138,27 @@ export default function WorkoutPage() {
       }
 
       const plan = await response.json()
+      const currentState = readTrainingState()
+      const mergedState = {
+        ...plan.trainingState,
+        blacklistedExerciseIds: [
+          ...new Set([
+            ...currentState.blacklistedExerciseIds,
+            ...plan.trainingState.blacklistedExerciseIds,
+          ]),
+        ],
+      }
+      writeTrainingState(mergedState)
+      setTrainingState(mergedState)
       const session = createWorkoutSessionFromPlan({
         sessionRole: hasCompletedWorkout ? "next" : "current",
         effectiveUserWeightKg,
         planContext,
         exercises: plan.exercises,
         now,
+        templateIndex: plan.templateIndex,
+        phase: plan.phase,
+        isDeload: plan.isDeload,
       })
       await saveActiveSession(session)
     } catch (error) {
@@ -158,8 +172,6 @@ export default function WorkoutPage() {
       setIsGenerating(false)
     }
   }, [
-    aiConfig,
-    checkAIConfig,
     getCompletedSessions,
     hasCompletedWorkout,
     loadRecentLogs,
@@ -292,6 +304,9 @@ export default function WorkoutPage() {
         status: "completed",
         completedAt,
       })
+      const currentState = readTrainingState()
+      const updatedState = recordCompletedTrainingSession(currentState)
+      writeTrainingState(updatedState)
       toast({ title: "训练已完成", description: "结果已写入今日运动记录。" })
     } catch (error) {
       console.error(error)
@@ -338,7 +353,7 @@ export default function WorkoutPage() {
   if (!activeSession) {
     const title = hasCompletedWorkout ? "下次训练计划" : "本次训练计划"
     return (
-      <WorkoutPageChrome subtitle="AI 会根据你的肌肉疲劳、近期体重和训练历史生成本次计划">
+      <WorkoutPageChrome subtitle="确定性训练引擎会根据你的课次状态生成本次模板">
         <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
           <CardContent className="flex flex-col items-center gap-5 p-10 text-center sm720:p-14">
             <Tile variant="exercise" size={44}>
@@ -347,7 +362,7 @@ export default function WorkoutPage() {
             <div className="space-y-2">
               <h2 className="text-[22px] font-bold tracking-tight">{title}</h2>
               <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                {"AI 会读取你的本地训练历史、肌肉疲劳和最近体重,生成一份可直接打卡的单次训练计划。"}
+                {"训练引擎会读取本地课次状态和训练上下文,生成一份可直接打卡的单次训练计划。"}
               </p>
             </div>
             <Button variant="ink" disabled={isGenerating} onClick={generatePlan}>
@@ -384,6 +399,27 @@ export default function WorkoutPage() {
       onReplaceExercise={(exerciseId, name) =>
         updateSession((session) => replaceWorkoutExercise(session, exerciseId, name))
       }
+      onToggleDiscomfortFlag={(exerciseId, discomfortFlag) => {
+        const exercise = activeSession.exercises.find(
+          (item) => item.exerciseId === exerciseId,
+        )
+        if (exercise?.catalogExerciseId) {
+          const nextState = setExerciseBlacklisted(
+            trainingState,
+            exercise.catalogExerciseId,
+            discomfortFlag,
+          )
+          writeTrainingState(nextState)
+          setTrainingState(nextState)
+        }
+        updateSession((session) =>
+          setWorkoutExerciseDiscomfortFlag(
+            session,
+            exerciseId,
+            discomfortFlag,
+          ),
+        )
+      }}
       onToggleSkipExercise={(exerciseId, isSkipped) =>
         updateSession((session) =>
           setWorkoutExerciseSkipped(session, exerciseId, isSkipped),

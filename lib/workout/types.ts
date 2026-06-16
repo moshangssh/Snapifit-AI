@@ -2,6 +2,7 @@ import type { ExerciseEntry } from "@/lib/types"
 import type { MuscleKey } from "@/lib/muscle-groups"
 
 export type WorkoutSessionRole = "current" | "next"
+export type TrainingPhase = "novice" | "intermediate" | "advanced"
 export type WorkoutSessionStatus =
   | "draft"
   | "active"
@@ -58,16 +59,33 @@ export interface WorkoutSessionExercise {
   discomfortFlag?: boolean    // 用户标记"感觉不对"（触发立即替换+黑名单）
 }
 
+export interface TrainingState {
+  phase: TrainingPhase
+  completedSessionCount: number
+  blacklistedExerciseIds: string[]
+}
+
 export interface RecentWorkoutSessionSummary {
   completedAt: string
   exercises: Array<{
+    catalogExerciseId?: string
     exerciseName: string
+    phase?: WorkoutExercisePhase
     completedSets: number
     workingSetWeightKg?: number
     workingSetReps?: number
     wasReplaced: boolean
     wasSkipped: boolean
+    discomfortFlag?: boolean
     muscleGroups: string[]
+    sets?: Array<{
+      plannedWeightKg?: number
+      plannedReps?: number
+      actualWeightKg?: number
+      actualReps?: number
+      isCompleted: boolean
+      isSkipped: boolean
+    }>
   }>
 }
 
@@ -118,7 +136,7 @@ export interface WorkoutSession {
   // 训练引擎字段（确定性引擎）
   templateIndex?: number  // 模板索引：0-3（新手4模板）或 0-5（中高级6模板）
   isDeload?: boolean      // 是否减载训练
-  phase?: "novice" | "intermediate" | "advanced"  // 训练阶段快照（历史回溯用）
+  phase?: TrainingPhase  // 训练阶段快照（历史回溯用）
 }
 
 export interface WorkoutPlanExerciseDraft {
@@ -131,6 +149,8 @@ export interface WorkoutPlanExerciseDraft {
     plannedReps?: number
   }>
   plannedAnalysis: WorkoutExerciseAnalysis
+  catalogExerciseId?: string
+  discomfortFlag?: boolean
 }
 
 export interface CreateWorkoutSessionInput {
@@ -139,4 +159,7 @@ export interface CreateWorkoutSessionInput {
   planContext: WorkoutPlanContextSnapshot
   exercises: WorkoutPlanExerciseDraft[]
   now: string
+  templateIndex?: number
+  isDeload?: boolean
+  phase?: TrainingPhase
 }

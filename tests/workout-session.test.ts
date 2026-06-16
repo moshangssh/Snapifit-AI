@@ -7,6 +7,7 @@ import {
   FALLBACK_STRENGTH_ANALYSIS,
   removeWorkoutSessionEntries,
   replaceWorkoutExercise,
+  setWorkoutExerciseDiscomfortFlag,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
   workoutSessionToExerciseEntries,
@@ -14,7 +15,9 @@ import {
 import {
   buildWorkoutPlanContextSnapshot,
   getEffectiveUserWeightKg,
+  summarizeWorkoutSession,
 } from "@/lib/workout/context"
+import { generateSession } from "@/lib/workout/engine/novice-engine"
 import type { DailyLog, UserProfile } from "@/lib/types"
 import type { CreateWorkoutSessionInput } from "@/lib/workout/types"
 
@@ -81,6 +84,126 @@ describe("workout session core", () => {
     ])
     expect(session.exercises[0].sets[0].actualWeightKg).toBe(60)
     expect(session.derived.totalSetCount).toBe(4)
+  })
+
+  it("preserves deterministic engine metadata in created sessions", () => {
+    const plan = generateSession({
+      phase: "novice",
+      completedSessionCount: 2,
+      blacklistedExerciseIds: [],
+    })
+
+    const session = createWorkoutSessionFromPlan({
+      ...makeInput(),
+      exercises: plan.exercises,
+      templateIndex: plan.templateIndex,
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+    })
+
+    expect(session.templateIndex).toBe(2)
+    expect(session.phase).toBe("novice")
+    expect(session.isDeload).toBe(false)
+    expect(session.exercises[0].catalogExerciseId).toBe(
+      plan.exercises[0].catalogExerciseId,
+    )
+  })
+
+  it("summarizes catalog exercise ids and completed set details for progression", () => {
+    const plan = generateSession(
+      {
+        phase: "novice",
+        completedSessionCount: 4,
+        blacklistedExerciseIds: [],
+      },
+      { effectiveUserWeightKg: 72 },
+    )
+
+    let session = createWorkoutSessionFromPlan({
+      ...makeInput(),
+      exercises: plan.exercises,
+      templateIndex: plan.templateIndex,
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+    })
+    const mainExercise = session.exercises.find(
+      (exercise) => exercise.phase === "main",
+    )
+
+    expect(mainExercise?.catalogExerciseId).toBeTruthy()
+
+    for (const set of mainExercise?.sets ?? []) {
+      session = completeWorkoutSet(
+        session,
+        mainExercise?.exerciseId ?? "",
+        set.setIndex,
+        `2026-04-23T09:0${set.setIndex}:00.000Z`,
+      )
+    }
+
+    const summary = summarizeWorkoutSession({
+      ...session,
+      status: "completed",
+      completedAt: "2026-04-23T09:30:00.000Z",
+    })
+    const exerciseSummary = summary.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === mainExercise?.catalogExerciseId,
+    )
+
+    expect(exerciseSummary?.completedSets).toBe(3)
+    expect(exerciseSummary?.phase).toBe("main")
+    expect(exerciseSummary?.sets).toEqual(
+      mainExercise?.sets.map((set) => ({
+        plannedWeightKg: set.plannedWeightKg,
+        plannedReps: set.plannedReps,
+        actualWeightKg: set.actualWeightKg,
+        actualReps: set.actualReps,
+        isCompleted: true,
+        isSkipped: false,
+      })),
+    )
+  })
+
+  it("summarizes discomfort flags for replacement decisions", () => {
+    const plan = generateSession(
+      {
+        phase: "novice",
+        completedSessionCount: 4,
+        blacklistedExerciseIds: [],
+      },
+      { effectiveUserWeightKg: 72 },
+    )
+    let session = createWorkoutSessionFromPlan({
+      ...makeInput(),
+      exercises: plan.exercises,
+      templateIndex: plan.templateIndex,
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+    })
+    const mainExercise = session.exercises.find(
+      (exercise) => exercise.phase === "main",
+    )
+
+    expect(mainExercise?.catalogExerciseId).toBeTruthy()
+
+    session = setWorkoutExerciseDiscomfortFlag(
+      session,
+      mainExercise?.exerciseId ?? "",
+      true,
+    )
+
+    const summary = summarizeWorkoutSession({
+      ...session,
+      status: "completed",
+      completedAt: "2026-04-23T09:30:00.000Z",
+    })
+    const exerciseSummary = summary.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === mainExercise?.catalogExerciseId,
+    )
+
+    expect(exerciseSummary?.discomfortFlag).toBe(true)
   })
 
   it("syncs changed weight only to later untouched unfinished sets", () => {

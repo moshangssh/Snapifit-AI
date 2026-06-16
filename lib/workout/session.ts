@@ -58,6 +58,8 @@ export function createWorkoutSessionFromPlan(
     phase: exercise.phase,
     notes: exercise.notes,
     tips: exercise.tips,
+    catalogExerciseId: exercise.catalogExerciseId,
+    discomfortFlag: exercise.discomfortFlag,
     isExerciseSkipped: false,
     analysisStatus: "planned" as const,
     plannedAnalysis: exercise.plannedAnalysis,
@@ -84,6 +86,9 @@ export function createWorkoutSessionFromPlan(
     effectiveUserWeightKg: input.effectiveUserWeightKg,
     planContext: input.planContext,
     exercises,
+    templateIndex: input.templateIndex,
+    isDeload: input.isDeload,
+    phase: input.phase,
     derived: {
       completedSetCount: 0,
       totalSetCount: 0,
@@ -214,6 +219,23 @@ export function setWorkoutExerciseSkipped(
             isCompleted: isSkipped ? false : set.isCompleted,
             completedAt: isSkipped ? undefined : set.completedAt,
           })),
+        }
+      : exercise,
+  )
+
+  return refreshWorkoutSessionDerived({ ...session, exercises })
+}
+
+export function setWorkoutExerciseDiscomfortFlag(
+  session: WorkoutSession,
+  exerciseId: string,
+  discomfortFlag: boolean,
+): WorkoutSession {
+  const exercises = session.exercises.map((exercise) =>
+    exercise.exerciseId === exerciseId
+      ? {
+          ...exercise,
+          discomfortFlag,
         }
       : exercise,
   )
