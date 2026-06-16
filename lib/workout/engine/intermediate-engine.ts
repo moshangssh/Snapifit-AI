@@ -29,6 +29,17 @@ interface TemplateDefinition {
   mainMuscles: MuscleGroup[]
 }
 
+const NOVICE_SESSION_COUNT = 72
+const BLOCK_CONFIG = {
+  accumulation: { sessions: 18, benchmarkSessions: 6 },
+  intensification: { sessions: 18, benchmarkSessions: 6 },
+  deload: { sessions: 6, benchmarkSessions: 6 },
+} as const
+const BLOCK_CYCLE_LENGTH =
+  BLOCK_CONFIG.accumulation.sessions +
+  BLOCK_CONFIG.intensification.sessions +
+  BLOCK_CONFIG.deload.sessions
+
 const TEMPLATES: TemplateDefinition[] = [
   { name: "上A", mainMuscles: ["CHEST", "SHOULDERS", "TRICEPS", "BICEPS"] },
   { name: "下A", mainMuscles: ["QUADS", "GLUTES", "CORE"] },
@@ -166,17 +177,26 @@ function completedTargetReps(
 
 function latestWeightKg(
   summary: ReturnType<typeof latestCompletedExercise>,
+  targetReps?: number,
 ): number | undefined {
   if (!summary) return undefined
 
-  const setWeights = (summary.sets ?? [])
-    .filter((set) => set.isCompleted && !set.isSkipped)
-    .map((set) => set.actualWeightKg)
-    .filter((weight): weight is number => typeof weight === "number")
+  const sets = summary.sets ?? []
+  if (sets.length > 0) {
+    const successfulSets = sets.filter(
+      (set) =>
+        set.isCompleted &&
+        !set.isSkipped &&
+        (targetReps === undefined || (set.actualReps ?? 0) >= targetReps),
+    )
+    const setWeights = successfulSets
+      .map((set) => set.actualWeightKg)
+      .filter((weight): weight is number => typeof weight === "number")
 
-  return setWeights.length > 0
-    ? Math.max(...setWeights)
-    : summary.workingSetWeightKg
+    return setWeights.length > 0 ? Math.max(...setWeights) : undefined
+  }
+
+  return summary.workingSetWeightKg
 }
 
 function incrementKg(exercise: Exercise): number {
@@ -196,7 +216,7 @@ function plannedAccumulationWeightKg(
   history: RecentWorkoutSessionSummary[],
 ): number {
   const latest = latestCompletedExercise(history, exercise.id)
-  const latestWeight = latestWeightKg(latest)
+  const latestWeight = latestWeightKg(latest, 10)
 
   if (typeof latestWeight === "number" && completedTargetReps(latest, 10)) {
     return roundToHalfKg(latestWeight + incrementKg(exercise))
@@ -206,8 +226,11 @@ function plannedAccumulationWeightKg(
 }
 
 function blockForSession(blockSessionIndex: number): IntermediateBlock {
-  if (blockSessionIndex < 18) return "accumulation"
-  if (blockSessionIndex < 36) return "intensification"
+  const accEnd = BLOCK_CONFIG.accumulation.sessions
+  const intEnd = accEnd + BLOCK_CONFIG.intensification.sessions
+
+  if (blockSessionIndex < accEnd) return "accumulation"
+  if (blockSessionIndex < intEnd) return "intensification"
   return "deload"
 }
 
@@ -216,17 +239,18 @@ function plannedIntensificationWeightKg(
   history: RecentWorkoutSessionSummary[],
 ): number {
   const latest = latestCompletedExercise(history, exercise.id)
-  const latestWeight = latestWeightKg(latest)
+  const latestWeight = latestWeightKg(latest, 6)
 
   if (typeof latestWeight !== "number") {
-    return roundToHalfKg(plannedWeightKg(exercise) * 1.1)
+    const accumulationWeight = latestWeightKg(latest, 10)
+    return roundToHalfKg(accumulationWeight ?? plannedWeightKg(exercise))
   }
 
-  if ((latest?.workingSetReps ?? 0) === 6 && completedTargetReps(latest, 6)) {
+  if (completedTargetReps(latest, 6)) {
     return roundToHalfKg(latestWeight + incrementKg(exercise))
   }
 
-  return roundToHalfKg(latestWeight * 1.1)
+  return roundToHalfKg(latestWeight)
 }
 
 function plannedDeloadWeightKg(
@@ -319,10 +343,15 @@ function selectVariantsForTemplate(
 }
 
 function usesBenchmarkExercises(blockSessionIndex: number): boolean {
+  const accBenchmark = BLOCK_CONFIG.accumulation.benchmarkSessions
+  const accEnd = BLOCK_CONFIG.accumulation.sessions
+  const intEnd = accEnd + BLOCK_CONFIG.intensification.sessions
+  const intBenchmark = accEnd + BLOCK_CONFIG.intensification.benchmarkSessions
+
   return (
-    blockSessionIndex < 6 ||
-    (blockSessionIndex >= 18 && blockSessionIndex < 24) ||
-    blockSessionIndex >= 36
+    blockSessionIndex < accBenchmark ||
+    (blockSessionIndex >= accEnd && blockSessionIndex < intBenchmark) ||
+    blockSessionIndex >= intEnd
   )
 }
 
@@ -338,10 +367,10 @@ export function generateSession(
     options.recentWorkoutSessionSummaries ?? []
   const sessionsSinceIntermediateStart = Math.max(
     0,
-    state.completedSessionCount - 72,
+    state.completedSessionCount - NOVICE_SESSION_COUNT,
   )
   const templateIndex = sessionsSinceIntermediateStart % TEMPLATES.length
-  const blockSessionIndex = sessionsSinceIntermediateStart % 42
+  const blockSessionIndex = sessionsSinceIntermediateStart % BLOCK_CYCLE_LENGTH
   const block = blockForSession(blockSessionIndex)
   const template = TEMPLATES[templateIndex]
   const rotationOffset = Math.floor(sessionsSinceIntermediateStart / TEMPLATES.length)

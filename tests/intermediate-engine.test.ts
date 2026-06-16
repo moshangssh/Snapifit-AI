@@ -198,7 +198,7 @@ describe("intermediate workout engine", () => {
     )
   })
 
-  it("starts intensification on session 91 with benchmark lifts at six reps and ten percent more weight", () => {
+  it("starts intensification on session 91 with benchmark lifts at six reps using accumulation weight", () => {
     const benchmarks = benchmarkIds()
     const baseline = generateSession(
       makeState(90, { benchmarkExerciseIds: benchmarks }),
@@ -225,7 +225,7 @@ describe("intermediate workout engine", () => {
       expect(exercise.sets).toHaveLength(3)
       expect(exercise.sets.map((set) => set.plannedReps)).toEqual([6, 6, 6])
       expect(exercise.sets.map((set) => set.plannedWeightKg)).toEqual([
-        55, 55, 55,
+        50.5, 50.5, 50.5,
       ])
     }
   })
