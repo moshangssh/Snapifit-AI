@@ -5,6 +5,7 @@ import {
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import {
+  ADVANCED_SESSION_START,
   calculateDeloadParams,
   shouldAdvancedDeload,
 } from "@/lib/workout/engine/deload"
@@ -46,7 +47,7 @@ interface TrainingTypeConfig {
   repRange: [number, number]
 }
 
-const ADVANCED_SESSION_START = 240
+// ADVANCED_SESSION_START is imported from deload.ts (the canonical source)
 const TEMPLATES: TemplateDefinition[] = [
   {
     name: "力量上",

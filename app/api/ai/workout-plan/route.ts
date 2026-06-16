@@ -46,6 +46,15 @@ export async function POST(req: Request) {
         candidatePool,
       )
 
+      if (phaseTransition.nextPhase === "advanced") {
+        if (benchmarkCandidates.length < 5) {
+          throw new AIError(
+            "INSUFFICIENT_TRAINING_HISTORY",
+            `进阶阶段基准动作候选不足：需要至少 5 个候选动作，当前只有 ${benchmarkCandidates.length} 个。请继续中级训练以积累更多动作数据。`,
+          )
+        }
+      }
+
       if (phaseTransition.nextPhase === "intermediate") {
         // 验证候选质量：至少要有 6 个训练组覆盖，且有实际训练记录
         const trainedCandidates = benchmarkCandidates.filter(
