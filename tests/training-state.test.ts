@@ -111,6 +111,23 @@ describe("training state storage", () => {
     expect(readTrainingState(storage)).toEqual(nextState)
   })
 
+  it("persists advanced lifetime benchmark and deload metadata", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      phase: "advanced" as const,
+      completedSessionCount: 240,
+      lifetimeBenchmarkIds: Array.from({ length: 5 }, (_, index) =>
+        `exercise-${index + 1}`,
+      ),
+      lastDeloadSession: 240,
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
   it("falls back to novice state when stored data is missing or invalid", () => {
     const storage = createStorage()
     storage.setItem(TRAINING_STATE_STORAGE_KEY, "{")
