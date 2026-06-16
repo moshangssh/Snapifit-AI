@@ -14,6 +14,16 @@ function isTrainingPhase(value: unknown): value is TrainingPhase {
   return value === "novice" || value === "intermediate" || value === "advanced"
 }
 
+function isIntermediateBlock(
+  value: unknown,
+): value is NonNullable<TrainingState["currentBlock"]> {
+  return (
+    value === "accumulation" ||
+    value === "intensification" ||
+    value === "deload"
+  )
+}
+
 export function normalizeTrainingState(value: unknown): TrainingState {
   if (!value || typeof value !== "object") return DEFAULT_TRAINING_STATE
 
@@ -51,6 +61,18 @@ export function normalizeTrainingState(value: unknown): TrainingState {
     normalized.benchmarkExerciseIds = state.benchmarkExerciseIds.filter(
       (item): item is string => typeof item === "string",
     )
+  }
+
+  if (isIntermediateBlock(state.currentBlock)) {
+    normalized.currentBlock = state.currentBlock
+  }
+
+  if (
+    typeof state.blockStartSession === "number" &&
+    Number.isFinite(state.blockStartSession) &&
+    state.blockStartSession > 0
+  ) {
+    normalized.blockStartSession = Math.floor(state.blockStartSession)
   }
 
   if (

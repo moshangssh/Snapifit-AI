@@ -96,6 +96,21 @@ describe("training state storage", () => {
     expect(readTrainingState(storage)).toEqual(nextState)
   })
 
+  it("persists intermediate block metadata", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      phase: "intermediate" as const,
+      completedSessionCount: 114,
+      currentBlock: "accumulation" as const,
+      blockStartSession: 115,
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
   it("falls back to novice state when stored data is missing or invalid", () => {
     const storage = createStorage()
     storage.setItem(TRAINING_STATE_STORAGE_KEY, "{")
