@@ -97,4 +97,70 @@ describe("adaptive workout engine", () => {
       phaseTransitionReady: false,
     })
   })
+
+  it("accepts 8-10 benchmark exercises", () => {
+    const eightExercises = Array.from({ length: 8 }, (_, index) =>
+      `exercise-${index + 1}`,
+    )
+    const nineExercises = Array.from({ length: 9 }, (_, index) =>
+      `exercise-${index + 1}`,
+    )
+
+    const result8 = confirmBenchmarkSelection(
+      makeState(72, { phaseTransitionReady: true }),
+      eightExercises,
+    )
+    const result9 = confirmBenchmarkSelection(
+      makeState(72, { phaseTransitionReady: true }),
+      nineExercises,
+    )
+
+    expect(result8.benchmarkExerciseIds).toHaveLength(8)
+    expect(result9.benchmarkExerciseIds).toHaveLength(9)
+  })
+
+  it("caps benchmark exercises at 10 even if more are provided", () => {
+    const tooMany = Array.from({ length: 15 }, (_, index) =>
+      `exercise-${index + 1}`,
+    )
+
+    const result = confirmBenchmarkSelection(
+      makeState(72, { phaseTransitionReady: true }),
+      tooMany,
+    )
+
+    expect(result.benchmarkExerciseIds).toHaveLength(10)
+    expect(result.benchmarkExerciseIds).toEqual(tooMany.slice(0, 10))
+  })
+
+  it("handles empty benchmark selection gracefully", () => {
+    const result = confirmBenchmarkSelection(
+      makeState(72, { phaseTransitionReady: true }),
+      [],
+    )
+
+    expect(result.benchmarkExerciseIds).toEqual([])
+    expect(result.phase).toBe("intermediate")
+  })
+
+  it("clears manual downgrade record when confirming benchmarks", () => {
+    const benchmarkExerciseIds = Array.from({ length: 10 }, (_, index) =>
+      `exercise-${index + 1}`,
+    )
+
+    const result = confirmBenchmarkSelection(
+      makeState(80, {
+        phaseTransitionReady: true,
+        manualDowngrade: {
+          from: "intermediate",
+          at: 72,
+          upgradeAfter: 8,
+        },
+      }),
+      benchmarkExerciseIds,
+    )
+
+    expect(result.manualDowngrade).toBeUndefined()
+    expect(result.phase).toBe("intermediate")
+  })
 })

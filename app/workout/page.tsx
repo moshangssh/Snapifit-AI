@@ -211,7 +211,7 @@ export default function WorkoutPage() {
 
   const confirmBenchmarks = useCallback(() => {
     const nextState = confirmBenchmarkSelection(
-      readTrainingState(),
+      trainingState,
       selectedBenchmarkIds,
     )
     writeTrainingState(nextState)
@@ -220,9 +220,9 @@ export default function WorkoutPage() {
     setSelectedBenchmarkIds([])
     toast({
       title: "已进入中级阶段",
-      description: "10 个基准动作已保存。",
+      description: `${selectedBenchmarkIds.length} 个基准动作已保存。`,
     })
-  }, [selectedBenchmarkIds, toast])
+  }, [trainingState, selectedBenchmarkIds, toast])
 
   const updateSession = useCallback(
     async (updater: (session: WorkoutSession) => WorkoutSession) => {
@@ -499,7 +499,7 @@ function BenchmarkSelectionCard({
   onConfirm: () => void
 }) {
   const selectedSet = new Set(selectedIds)
-  const canConfirm = selectedIds.length === 10
+  const canConfirm = selectedIds.length >= 8 && selectedIds.length <= 10
 
   return (
     <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
@@ -510,7 +510,7 @@ function BenchmarkSelectionCard({
               选择中级基准动作
             </h2>
             <p className="text-sm text-muted-foreground">
-              已选择 {selectedIds.length}/10
+              已选择 {selectedIds.length}/8-10（至少 8 个，最多 10 个）
             </p>
           </div>
           <Badge variant="secondary" className="w-fit">
@@ -532,7 +532,7 @@ function BenchmarkSelectionCard({
                   onCheckedChange={(value) => {
                     if (value) {
                       onSelectedIdsChange(
-                        selectedIds.includes(candidate.id)
+                        selectedSet.has(candidate.id)
                           ? selectedIds
                           : [...selectedIds, candidate.id].slice(0, 10),
                       )

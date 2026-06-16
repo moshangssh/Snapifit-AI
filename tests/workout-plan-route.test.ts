@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest"
+import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
+import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
 function createRequest(body: unknown) {
   return new Request("http://localhost/api/ai/workout-plan", {
@@ -33,6 +35,106 @@ function createBaseBody() {
   }
 }
 
+function findExerciseByName(name: string) {
+  const exercise = STRENGTH_EXERCISES.find((item) => item.name === name)
+  if (!exercise) throw new Error(`Missing fixture exercise: ${name}`)
+  return exercise
+}
+
+function createMinimalTrainingHistory(): RecentWorkoutSessionSummary[] {
+  // 创建覆盖六大训练组的最小训练历史
+  const chest = findExerciseByName("器械卧推")
+  const back = findExerciseByName("单臂坐姿划船")
+  const shoulders = findExerciseByName("哑铃坐姿侧平举")
+  const quads = findExerciseByName("窄距45度腿举")
+  const biceps = findExerciseByName("哑铃蜘蛛弯举")
+  const core = findExerciseByName("坐姿腹部绳索卷腹")
+
+  return [
+    {
+      completedAt: "2026-01-01T08:00:00.000Z",
+      exercises: [
+        {
+          catalogExerciseId: chest.id,
+          exerciseName: chest.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 60,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [chest.primaryMuscle],
+        },
+        {
+          catalogExerciseId: back.id,
+          exerciseName: back.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 50,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [back.primaryMuscle],
+        },
+      ],
+    },
+    {
+      completedAt: "2026-01-03T08:00:00.000Z",
+      exercises: [
+        {
+          catalogExerciseId: shoulders.id,
+          exerciseName: shoulders.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 10,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [shoulders.primaryMuscle],
+        },
+        {
+          catalogExerciseId: quads.id,
+          exerciseName: quads.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 100,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [quads.primaryMuscle],
+        },
+      ],
+    },
+    {
+      completedAt: "2026-01-05T08:00:00.000Z",
+      exercises: [
+        {
+          catalogExerciseId: biceps.id,
+          exerciseName: biceps.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 12,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [biceps.primaryMuscle],
+        },
+        {
+          catalogExerciseId: core.id,
+          exerciseName: core.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 0,
+          workingSetReps: 15,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [core.primaryMuscle],
+        },
+      ],
+    },
+  ]
+}
+
 describe("workout plan route", () => {
   it("returns a deterministic novice plan without AI config", async () => {
     const { POST } = await import("@/app/api/ai/workout-plan/route")
@@ -60,6 +162,7 @@ describe("workout plan route", () => {
     const response = await POST(
       createRequest({
         ...createBaseBody(),
+        recentWorkoutSessionSummaries: createMinimalTrainingHistory(),
         trainingState: {
           phase: "novice",
           completedSessionCount: 72,
@@ -119,6 +222,7 @@ describe("workout plan route", () => {
     const response = await POST(
       createRequest({
         ...createBaseBody(),
+        recentWorkoutSessionSummaries: createMinimalTrainingHistory(),
         trainingState: {
           phase: "novice",
           completedSessionCount: 80,

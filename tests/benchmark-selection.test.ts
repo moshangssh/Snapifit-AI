@@ -123,4 +123,105 @@ describe("benchmark exercise selection", () => {
       progressWeightKg: 45,
     })
   })
+
+  it("returns fewer than 10 candidates when insufficient training groups are represented", () => {
+    // 只训练了 3 个训练组：胸、背、腿
+    const history = [
+      ...repeatHistory(IDS.chestFrequent, 3, 60, 70),
+      ...repeatHistory(IDS.back, 2, 55, 65),
+      ...repeatHistory(IDS.quads, 2, 90, 100),
+    ]
+
+    const selectedIds = selectBenchmarkCandidates(history, STRENGTH_EXERCISES)
+    const selectedDetails = getBenchmarkCandidateDetails(
+      history,
+      STRENGTH_EXERCISES,
+    )
+
+    // 算法会选择所有 NOVICE_CORE 动作中最好的 10 个，
+    // 即使有些动作训练次数为 0
+    expect(selectedIds.length).toBeLessThanOrEqual(10)
+    expect(selectedIds).toEqual(selectedDetails.map((detail) => detail.id))
+
+    // 验证有训练的动作被包含
+    expect(selectedIds).toContain(IDS.chestFrequent)
+    expect(selectedIds).toContain(IDS.back)
+    expect(selectedIds).toContain(IDS.quads)
+  })
+
+  it("handles exercises with no weight progression (bodyweight exercises)", () => {
+    const history = [
+      ...repeatHistory(IDS.core, 5, 0, 0),
+      ...repeatHistory(IDS.chestFrequent, 3, 60, 70),
+    ]
+
+    const progress = calculateProgress(history, IDS.core)
+
+    expect(progress).toEqual({
+      initialWeightKg: 0,
+      latestPrWeightKg: 0,
+      progressWeightKg: 0,
+    })
+
+    const selectedDetails = getBenchmarkCandidateDetails(
+      history,
+      STRENGTH_EXERCISES,
+    )
+
+    const coreCandidate = selectedDetails.find(
+      (detail) => detail.id === IDS.core,
+    )
+    expect(coreCandidate).toBeDefined()
+    expect(coreCandidate?.trainingCount).toBe(5)
+  })
+
+  it("returns candidates even when no training history exists", () => {
+    const history: RecentWorkoutSessionSummary[] = []
+
+    expect(calculateProgress(history, IDS.chestFrequent)).toEqual({
+      progressWeightKg: 0,
+    })
+
+    // 算法仍会从 NOVICE_CORE 池中选择 10 个候选，
+    // 即使它们的训练次数都是 0
+    const selectedIds = selectBenchmarkCandidates(history, STRENGTH_EXERCISES)
+    expect(selectedIds).toHaveLength(10)
+
+    const selectedDetails = getBenchmarkCandidateDetails(
+      history,
+      STRENGTH_EXERCISES,
+    )
+    // 所有候选的训练次数都应该是 0
+    expect(selectedDetails.every((detail) => detail.trainingCount === 0)).toBe(
+      true,
+    )
+  })
+
+  it("prioritizes training groups over progress when filling required slots", () => {
+    const history = [
+      ...repeatHistory(IDS.chestFrequent, 10, 60, 65),
+      ...repeatHistory(IDS.chestProgress, 10, 50, 55),
+      ...repeatHistory(IDS.back, 2, 55, 100),
+      ...repeatHistory(IDS.shoulders, 2, 8, 9),
+      ...repeatHistory(IDS.quads, 2, 90, 95),
+      ...repeatHistory(IDS.biceps, 2, 10, 11),
+      ...repeatHistory(IDS.core, 2, 0, 0),
+    ]
+
+    const selectedDetails = getBenchmarkCandidateDetails(
+      history,
+      STRENGTH_EXERCISES,
+    )
+
+    const groups = new Set(
+      selectedDetails.map((detail) => detail.trainingGroup),
+    )
+    expect(groups.size).toBe(6)
+    expect(groups).toContain("chest")
+    expect(groups).toContain("back")
+    expect(groups).toContain("shoulders")
+    expect(groups).toContain("legs")
+    expect(groups).toContain("arms")
+    expect(groups).toContain("core")
+  })
 })
