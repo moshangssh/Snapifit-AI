@@ -1,5 +1,7 @@
 import { AIError, handleAIError } from "@/lib/ai/errors"
 import { detectPhaseTransition } from "@/lib/workout/engine/adaptive-engine"
+import { getBenchmarkCandidateDetails } from "@/lib/workout/engine/benchmark-selection"
+import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
 import { generateSession } from "@/lib/workout/engine/novice-engine"
 import {
   normalizeTrainingState,
@@ -29,10 +31,31 @@ export async function POST(req: Request) {
     const phaseTransition = detectPhaseTransition(normalizedTrainingState)
 
     if (phaseTransition.phaseTransitionReady) {
+      const benchmarkCandidates = getBenchmarkCandidateDetails(
+        recentWorkoutSessionSummaries ?? [],
+        STRENGTH_EXERCISES,
+      )
+
+      // 验证候选质量：至少要有 6 个训练组覆盖，且有实际训练记录
+      const trainedCandidates = benchmarkCandidates.filter(
+        (candidate) => candidate.trainingCount > 0,
+      )
+      const trainedGroups = new Set(
+        trainedCandidates.map((candidate) => candidate.trainingGroup),
+      )
+
+      if (trainedGroups.size < 6) {
+        throw new AIError(
+          "INSUFFICIENT_TRAINING_HISTORY",
+          `基准动作候选不足：需要至少覆盖 6 个训练组（胸/背/肩/腿/臂/核心），当前只训练了 ${trainedGroups.size} 个训练组。请继续新手训练。`,
+        )
+      }
+
       return Response.json({
         needBenchmarkSelection: true,
         nextPhase: phaseTransition.nextPhase,
         reason: phaseTransition.reason,
+        benchmarkCandidates,
         trainingState: {
           ...normalizedTrainingState,
           phaseTransitionReady: true,

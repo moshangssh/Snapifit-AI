@@ -63,6 +63,7 @@ export interface TrainingState {
   phase: TrainingPhase
   completedSessionCount: number
   blacklistedExerciseIds: string[]
+  benchmarkExerciseIds?: string[]
   stalledExercises?: number
   phaseTransitionReady?: boolean
   manualDowngrade?: {

@@ -47,6 +47,12 @@ export function normalizeTrainingState(value: unknown): TrainingState {
     normalized.phaseTransitionReady = state.phaseTransitionReady
   }
 
+  if (Array.isArray(state.benchmarkExerciseIds)) {
+    normalized.benchmarkExerciseIds = state.benchmarkExerciseIds.filter(
+      (item): item is string => typeof item === "string",
+    )
+  }
+
   if (
     state.manualDowngrade &&
     isTrainingPhase(state.manualDowngrade.from) &&

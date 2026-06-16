@@ -82,6 +82,20 @@ describe("training state storage", () => {
     expect(readTrainingState(storage)).toEqual(nextState)
   })
 
+  it("persists selected benchmark exercise ids", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      benchmarkExerciseIds: Array.from({ length: 10 }, (_, index) =>
+        `exercise-${index + 1}`,
+      ),
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
   it("falls back to novice state when stored data is missing or invalid", () => {
     const storage = createStorage()
     storage.setItem(TRAINING_STATE_STORAGE_KEY, "{")
