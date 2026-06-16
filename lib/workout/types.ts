@@ -66,6 +66,8 @@ export interface TrainingState {
   benchmarkExerciseIds?: string[]
   stalledExercises?: number
   phaseTransitionReady?: boolean
+  currentBlock?: "accumulation" | "intensification" | "deload"
+  blockStartSession?: number
   manualDowngrade?: {
     from: TrainingPhase
     at: number

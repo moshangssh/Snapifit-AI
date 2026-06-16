@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   confirmBenchmarkSelection,
   detectPhaseTransition,
+  generateSession,
   shouldShowBenchmarkSelection,
 } from "@/lib/workout/engine/adaptive-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
@@ -162,5 +163,19 @@ describe("adaptive workout engine", () => {
 
     expect(result.manualDowngrade).toBeUndefined()
     expect(result.phase).toBe("intermediate")
+  })
+
+  it("delegates session generation to the intermediate engine when state phase is intermediate", () => {
+    const plan = generateSession(
+      makeState(72, {
+        phase: "intermediate",
+        benchmarkExerciseIds: Array.from({ length: 10 }, (_, index) =>
+          `exercise-${index + 1}`,
+        ),
+      }),
+    )
+
+    expect(plan.phase).toBe("intermediate")
+    expect(plan.templateIndex).toBe(0)
   })
 })

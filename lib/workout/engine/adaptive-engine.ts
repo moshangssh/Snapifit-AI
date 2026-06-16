@@ -1,4 +1,13 @@
 import type { TrainingPhase, TrainingState } from "@/lib/workout/types"
+import {
+  generateSession as generateIntermediateSession,
+  type GeneratedIntermediateWorkoutPlan,
+} from "@/lib/workout/engine/intermediate-engine"
+import {
+  generateSession as generateNoviceSession,
+  type GeneratedWorkoutPlan,
+} from "@/lib/workout/engine/novice-engine"
+import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
 export type PhaseTransitionReason =
   | "novice_session_threshold"
@@ -67,4 +76,22 @@ export function confirmBenchmarkSelection(
     phaseTransitionReady: false,
     manualDowngrade: undefined,
   }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: {
+    effectiveUserWeightKg?: number
+    recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
+  } = {},
+): GeneratedWorkoutPlan | GeneratedIntermediateWorkoutPlan {
+  if (state.phase === "intermediate") {
+    return generateIntermediateSession(state, options)
+  }
+
+  if (state.phase === "advanced") {
+    throw new Error("Advanced workout engine is not implemented yet")
+  }
+
+  return generateNoviceSession(state, options)
 }
