@@ -27,8 +27,10 @@ import {
 import {
   DEFAULT_TRAINING_STATE,
   readTrainingState,
+  setExerciseBlacklisted,
   writeTrainingState,
 } from "@/lib/workout/engine/training-state"
+import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
 import type { AIConfig, ModelConfig } from "@/lib/types"
 import type { OpenAIModel } from "@/lib/ai/types"
 import { validateOptionalAIConfig } from "@/lib/ai/config"
@@ -50,6 +52,7 @@ import {
   Loader2,
   RefreshCw,
   UploadCloud,
+  X,
 } from "lucide-react"
 
 const defaultUserProfile = {
@@ -612,6 +615,17 @@ function SettingsContent() {
     toast({
       title: "黑名单已清空",
       description: "后续训练计划会重新使用完整动作池",
+    })
+  }, [toast])
+
+  const handleRemoveFromBlacklist = useCallback((exerciseId: string) => {
+    const currentState = readTrainingState()
+    const nextState = setExerciseBlacklisted(currentState, exerciseId, false)
+    writeTrainingState(nextState)
+    setTrainingState(nextState)
+    toast({
+      title: "已从黑名单移除",
+      description: "此动作将在后续训练中重新出现",
     })
   }, [toast])
 
@@ -1260,19 +1274,40 @@ function SettingsContent() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">{"训练动作黑名单"}</h3>
+                <h3 className="text-lg font-medium">训练动作黑名单</h3>
                 <p className="text-sm text-muted-foreground">
                   {trainingState.blacklistedExerciseIds.length === 0
                     ? "暂无被标记为感觉不对的动作"
                     : `已排除 ${trainingState.blacklistedExerciseIds.length} 个动作`}
                 </p>
                 {trainingState.blacklistedExerciseIds.length > 0 && (
-                  <div className="max-h-32 overflow-auto rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                    {trainingState.blacklistedExerciseIds.map((exerciseId) => (
-                      <div key={exerciseId} className="font-mono">
-                        {exerciseId}
-                      </div>
-                    ))}
+                  <div className="max-h-48 overflow-auto rounded-md border bg-muted/30 p-3">
+                    <div className="space-y-2">
+                      {trainingState.blacklistedExerciseIds.map((exerciseId) => {
+                        const exercise = STRENGTH_EXERCISES.find((ex) => ex.id === exerciseId)
+                        return (
+                          <div
+                            key={exerciseId}
+                            className="flex items-center justify-between rounded-md bg-background px-3 py-2 text-sm"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium">{exercise?.name ?? "未知动作"}</div>
+                              <div className="text-xs text-muted-foreground font-mono">
+                                {exerciseId}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveFromBlacklist(exerciseId)}
+                              className="ml-2 h-7 w-7 p-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
                 <Button
@@ -1280,7 +1315,7 @@ function SettingsContent() {
                   disabled={trainingState.blacklistedExerciseIds.length === 0}
                   onClick={handleClearExerciseBlacklist}
                 >
-                  {"清空动作黑名单"}
+                  清空动作黑名单
                 </Button>
               </div>
 

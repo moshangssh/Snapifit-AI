@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { format, subDays } from "date-fns"
 import { Dumbbell, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ import {
   workoutSessionToExerciseEntries,
 } from "@/lib/workout/session"
 import {
+  DEFAULT_TRAINING_STATE,
   readTrainingState,
   recordCompletedTrainingSession,
   setExerciseBlacklisted,
@@ -85,6 +86,11 @@ export default function WorkoutPage() {
   } = useWorkoutSessions()
   const [isGenerating, setIsGenerating] = useState(false)
   const [isFinishing, setIsFinishing] = useState(false)
+  const [trainingState, setTrainingState] = useState(DEFAULT_TRAINING_STATE)
+
+  useEffect(() => {
+    setTrainingState(readTrainingState())
+  }, [])
 
   const loadRecentLogs = useCallback(async () => {
     const today = new Date()
@@ -132,7 +138,18 @@ export default function WorkoutPage() {
       }
 
       const plan = await response.json()
-      writeTrainingState(plan.trainingState)
+      const currentState = readTrainingState()
+      const mergedState = {
+        ...plan.trainingState,
+        blacklistedExerciseIds: [
+          ...new Set([
+            ...currentState.blacklistedExerciseIds,
+            ...plan.trainingState.blacklistedExerciseIds,
+          ]),
+        ],
+      }
+      writeTrainingState(mergedState)
+      setTrainingState(mergedState)
       const session = createWorkoutSessionFromPlan({
         sessionRole: hasCompletedWorkout ? "next" : "current",
         effectiveUserWeightKg,
@@ -387,15 +404,15 @@ export default function WorkoutPage() {
           (item) => item.exerciseId === exerciseId,
         )
         if (exercise?.catalogExerciseId) {
-          writeTrainingState(
-            setExerciseBlacklisted(
-              readTrainingState(),
-              exercise.catalogExerciseId,
-              discomfortFlag,
-            ),
+          const nextState = setExerciseBlacklisted(
+            trainingState,
+            exercise.catalogExerciseId,
+            discomfortFlag,
           )
+          writeTrainingState(nextState)
+          setTrainingState(nextState)
         }
-        return updateSession((session) =>
+        updateSession((session) =>
           setWorkoutExerciseDiscomfortFlag(
             session,
             exerciseId,
