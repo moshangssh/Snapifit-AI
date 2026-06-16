@@ -64,6 +64,22 @@ export function writeTrainingState(
   return normalized
 }
 
+export function setExerciseBlacklisted(
+  state: TrainingState,
+  exerciseId: string,
+  isBlacklisted: boolean,
+): TrainingState {
+  const normalized = normalizeTrainingState(state)
+  if (!exerciseId) return normalized
+
+  return {
+    ...normalized,
+    blacklistedExerciseIds: isBlacklisted
+      ? Array.from(new Set([...normalized.blacklistedExerciseIds, exerciseId]))
+      : normalized.blacklistedExerciseIds.filter((id) => id !== exerciseId),
+  }
+}
+
 export function recordCompletedTrainingSession(
   state: TrainingState,
 ): TrainingState {
