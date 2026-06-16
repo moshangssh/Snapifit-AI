@@ -24,6 +24,13 @@ import {
   exportStores,
   replaceStores,
 } from "@/lib/indexed-db-utils"
+import {
+  DEFAULT_TRAINING_STATE,
+  readTrainingState,
+  setExerciseBlacklisted,
+  writeTrainingState,
+} from "@/lib/workout/engine/training-state"
+import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
 import type { AIConfig, ModelConfig } from "@/lib/types"
 import type { OpenAIModel } from "@/lib/ai/types"
 import { validateOptionalAIConfig } from "@/lib/ai/config"
@@ -45,6 +52,7 @@ import {
   Loader2,
   RefreshCw,
   UploadCloud,
+  X,
 } from "lucide-react"
 
 const defaultUserProfile = {
@@ -90,6 +98,7 @@ function SettingsContent() {
   const searchParams = useSearchParams()
   const [userProfile, setUserProfile] = useLocalStorage("userProfile", defaultUserProfile)
   const [aiConfig, setAIConfig] = useLocalStorage<AIConfig>("aiConfig", defaultAIConfig)
+  const [trainingState, setTrainingState] = useState(DEFAULT_TRAINING_STATE)
 
   // 获取URL参数中的tab值，默认为profile
   const [activeTab, setActiveTab] = useState(() => {
@@ -247,6 +256,10 @@ function SettingsContent() {
   useEffect(() => {
     setAIFormData(aiConfig)
   }, [aiConfig])
+
+  useEffect(() => {
+    setTrainingState(readTrainingState())
+  }, [])
 
   // 处理表单输入变化
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -591,6 +604,29 @@ function SettingsContent() {
         variant: "destructive",
       })
     }
+  }, [toast])
+
+  const handleClearExerciseBlacklist = useCallback(() => {
+    const nextState = writeTrainingState({
+      ...readTrainingState(),
+      blacklistedExerciseIds: [],
+    })
+    setTrainingState(nextState)
+    toast({
+      title: "黑名单已清空",
+      description: "后续训练计划会重新使用完整动作池",
+    })
+  }, [toast])
+
+  const handleRemoveFromBlacklist = useCallback((exerciseId: string) => {
+    const currentState = readTrainingState()
+    const nextState = setExerciseBlacklisted(currentState, exerciseId, false)
+    writeTrainingState(nextState)
+    setTrainingState(nextState)
+    toast({
+      title: "已从黑名单移除",
+      description: "此动作将在后续训练中重新出现",
+    })
   }, [toast])
 
   // 渲染模型选择器
@@ -1237,6 +1273,52 @@ function SettingsContent() {
               <CardDescription>{"导出或导入您的健康数据，或清空所有数据"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">训练动作黑名单</h3>
+                <p className="text-sm text-muted-foreground">
+                  {trainingState.blacklistedExerciseIds.length === 0
+                    ? "暂无被标记为感觉不对的动作"
+                    : `已排除 ${trainingState.blacklistedExerciseIds.length} 个动作`}
+                </p>
+                {trainingState.blacklistedExerciseIds.length > 0 && (
+                  <div className="max-h-48 overflow-auto rounded-md border bg-muted/30 p-3">
+                    <div className="space-y-2">
+                      {trainingState.blacklistedExerciseIds.map((exerciseId) => {
+                        const exercise = STRENGTH_EXERCISES.find((ex) => ex.id === exerciseId)
+                        return (
+                          <div
+                            key={exerciseId}
+                            className="flex items-center justify-between rounded-md bg-background px-3 py-2 text-sm"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium">{exercise?.name ?? "未知动作"}</div>
+                              <div className="text-xs text-muted-foreground font-mono">
+                                {exerciseId}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveFromBlacklist(exerciseId)}
+                              className="ml-2 h-7 w-7 p-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  disabled={trainingState.blacklistedExerciseIds.length === 0}
+                  onClick={handleClearExerciseBlacklist}
+                >
+                  清空动作黑名单
+                </Button>
+              </div>
+
               <div className="space-y-2">
                 <h3 className="text-lg font-medium">{"导出数据"}</h3>
                 <p className="text-sm text-muted-foreground">{"将您的所有健康数据导出为 JSON 文件，以便备份或迁移"}</p>

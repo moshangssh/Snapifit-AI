@@ -3,6 +3,7 @@ import {
   DEFAULT_TRAINING_STATE,
   readTrainingState,
   recordCompletedTrainingSession,
+  setExerciseBlacklisted,
   TRAINING_STATE_STORAGE_KEY,
   writeTrainingState,
 } from "@/lib/workout/engine/training-state"
@@ -31,7 +32,10 @@ function createStorage() {
 describe("training state storage", () => {
   it("persists completed session count in localStorage-compatible storage", () => {
     const storage = createStorage()
-    const nextState = recordCompletedTrainingSession(DEFAULT_TRAINING_STATE)
+    const nextState = {
+      ...recordCompletedTrainingSession(DEFAULT_TRAINING_STATE),
+      blacklistedExerciseIds: ["exercise-a", "exercise-b"],
+    }
 
     writeTrainingState(nextState, storage)
 
@@ -39,10 +43,24 @@ describe("training state storage", () => {
       {
         phase: "novice",
         completedSessionCount: 1,
-        blacklistedExerciseIds: [],
+        blacklistedExerciseIds: ["exercise-a", "exercise-b"],
       },
     )
     expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
+  it("adds and removes blacklisted exercise ids without duplicates", () => {
+    const withExercise = setExerciseBlacklisted(
+      DEFAULT_TRAINING_STATE,
+      "exercise-a",
+      true,
+    )
+    const deduped = setExerciseBlacklisted(withExercise, "exercise-a", true)
+    const removed = setExerciseBlacklisted(deduped, "exercise-a", false)
+
+    expect(withExercise.blacklistedExerciseIds).toEqual(["exercise-a"])
+    expect(deduped.blacklistedExerciseIds).toEqual(["exercise-a"])
+    expect(removed.blacklistedExerciseIds).toEqual([])
   })
 
   it("falls back to novice state when stored data is missing or invalid", () => {
