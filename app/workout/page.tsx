@@ -131,9 +131,6 @@ export default function WorkoutPage() {
       }
 
       const plan = await response.json()
-      if (plan.trainingState) {
-        writeTrainingState(plan.trainingState)
-      }
       const session = createWorkoutSessionFromPlan({
         sessionRole: hasCompletedWorkout ? "next" : "current",
         effectiveUserWeightKg,
@@ -288,7 +285,9 @@ export default function WorkoutPage() {
         status: "completed",
         completedAt,
       })
-      writeTrainingState(recordCompletedTrainingSession(readTrainingState()))
+      const currentState = readTrainingState()
+      const updatedState = recordCompletedTrainingSession(currentState)
+      writeTrainingState(updatedState)
       toast({ title: "训练已完成", description: "结果已写入今日运动记录。" })
     } catch (error) {
       console.error(error)

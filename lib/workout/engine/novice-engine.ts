@@ -340,8 +340,35 @@ function resolveMainExerciseReplacements(input: {
     )
 
     if (!replacement) {
-      console.warn(`无法为动作 ${exercise.id} 找到替换动作`)
-      resolvedExercises.push(exercise)
+      console.warn(
+        `无法为动作 ${exercise.id} 找到替换动作，清空该肌群的黑名单并重试`,
+      )
+      const sameMuscleBlacklist = blockedForReplacement.filter((id) => {
+        const ex = STRENGTH_EXERCISES.find((e) => e.id === id)
+        return ex?.primaryMuscle === exercise.primaryMuscle
+      })
+      const filteredBlacklist = blockedForReplacement.filter(
+        (id) => !sameMuscleBlacklist.includes(id),
+      )
+      const fallbackReplacement = findReplacement(
+        exercise,
+        STRENGTH_EXERCISES.filter((item) => item.tags.includes("NOVICE_CORE")),
+        filteredBlacklist,
+      )
+
+      if (fallbackReplacement) {
+        blacklist = nextBlacklist
+        conservativeStartIds.add(fallbackReplacement.id)
+        resolvedExercises.push(fallbackReplacement)
+        console.warn(
+          `成功找到替换动作 ${fallbackReplacement.id}（清空了 ${sameMuscleBlacklist.length} 项黑名单）`,
+        )
+      } else {
+        console.warn(
+          `即使清空黑名单也无法为动作 ${exercise.id} 找到替换，保留原动作`,
+        )
+        resolvedExercises.push(exercise)
+      }
       continue
     }
 

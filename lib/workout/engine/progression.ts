@@ -160,7 +160,14 @@ export function evaluateProgression(
   }
 
   if (!completedAllTargetReps(previousExercise)) {
-    const weight = latestCompletedWeightKg(previousExercise) ?? fallbackWeight
+    const weight = latestCompletedWeightKg(previousExercise)
+    if (typeof weight !== "number") {
+      return {
+        action: "maintain",
+        weight: fallbackWeight,
+        plannedReps: NORMAL_REPS,
+      }
+    }
     const consecutiveFailures = consecutiveFailuresAtWeight(exercises, weight)
     const shouldReplace = consecutiveFailures >= REPLACE_FAILURE_THRESHOLD
     const shouldReduceReps = consecutiveFailures >= REDUCE_REPS_FAILURE_THRESHOLD
@@ -176,11 +183,18 @@ export function evaluateProgression(
     }
   }
 
+  const completedWeight = latestCompletedWeightKg(previousExercise)
+  if (typeof completedWeight !== "number") {
+    return {
+      action: "maintain",
+      weight: fallbackWeight,
+      plannedReps: NORMAL_REPS,
+    }
+  }
+
   return {
     action: "add_weight",
-    weight:
-      (latestCompletedWeightKg(previousExercise) ?? fallbackWeight) +
-      incrementKg(options.primaryMuscle),
+    weight: completedWeight + incrementKg(options.primaryMuscle),
     plannedReps: NORMAL_REPS,
   }
 }
