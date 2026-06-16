@@ -18,7 +18,7 @@ export function normalizeTrainingState(value: unknown): TrainingState {
   if (!value || typeof value !== "object") return DEFAULT_TRAINING_STATE
 
   const state = value as Partial<TrainingState>
-  return {
+  const normalized: TrainingState = {
     phase: isTrainingPhase(state.phase)
       ? state.phase
       : DEFAULT_TRAINING_STATE.phase,
@@ -34,6 +34,37 @@ export function normalizeTrainingState(value: unknown): TrainingState {
         )
       : DEFAULT_TRAINING_STATE.blacklistedExerciseIds,
   }
+
+  if (
+    typeof state.stalledExercises === "number" &&
+    Number.isFinite(state.stalledExercises) &&
+    state.stalledExercises >= 0
+  ) {
+    normalized.stalledExercises = Math.floor(state.stalledExercises)
+  }
+
+  if (typeof state.phaseTransitionReady === "boolean") {
+    normalized.phaseTransitionReady = state.phaseTransitionReady
+  }
+
+  if (
+    state.manualDowngrade &&
+    isTrainingPhase(state.manualDowngrade.from) &&
+    typeof state.manualDowngrade.at === "number" &&
+    Number.isFinite(state.manualDowngrade.at) &&
+    state.manualDowngrade.at >= 0 &&
+    typeof state.manualDowngrade.upgradeAfter === "number" &&
+    Number.isFinite(state.manualDowngrade.upgradeAfter) &&
+    state.manualDowngrade.upgradeAfter > 0
+  ) {
+    normalized.manualDowngrade = {
+      from: state.manualDowngrade.from,
+      at: Math.floor(state.manualDowngrade.at),
+      upgradeAfter: Math.floor(state.manualDowngrade.upgradeAfter),
+    }
+  }
+
+  return normalized
 }
 
 export function readTrainingState(storage?: Storage): TrainingState {

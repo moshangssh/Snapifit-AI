@@ -138,6 +138,23 @@ export default function WorkoutPage() {
       }
 
       const plan = await response.json()
+      if (plan.needBenchmarkSelection) {
+        writeTrainingState(plan.trainingState)
+        setTrainingState(plan.trainingState)
+
+        const reasonMessages: Record<string, string> = {
+          novice_session_threshold: "你已完成 72 次新手训练",
+          novice_stalled_exercises: "检测到 4 个动作进展停滞",
+          manual_downgrade_upgrade_window: "手动降级的恢复期已结束",
+        }
+
+        toast({
+          title: "准备进入中级阶段",
+          description: `${reasonMessages[plan.reason] || "满足阶段转换条件"}，请选择中级基准动作。`,
+        })
+        return
+      }
+
       const currentState = readTrainingState()
       const mergedState = {
         ...plan.trainingState,

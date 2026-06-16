@@ -1,4 +1,5 @@
 import { AIError, handleAIError } from "@/lib/ai/errors"
+import { detectPhaseTransition } from "@/lib/workout/engine/adaptive-engine"
 import { generateSession } from "@/lib/workout/engine/novice-engine"
 import {
   normalizeTrainingState,
@@ -24,8 +25,25 @@ export async function POST(req: Request) {
       throw new AIError("INVALID_INPUT", "Invalid workout plan input")
     }
 
+    const normalizedTrainingState = normalizeTrainingState(trainingState)
+    const phaseTransition = detectPhaseTransition(normalizedTrainingState)
+
+    if (phaseTransition.phaseTransitionReady) {
+      return Response.json({
+        needBenchmarkSelection: true,
+        nextPhase: phaseTransition.nextPhase,
+        reason: phaseTransition.reason,
+        trainingState: {
+          ...normalizedTrainingState,
+          phaseTransitionReady: true,
+          // 清除已完成的手动降级记录
+          manualDowngrade: undefined,
+        },
+      })
+    }
+
     return Response.json(
-      generateSession(normalizeTrainingState(trainingState), {
+      generateSession(normalizedTrainingState, {
         effectiveUserWeightKg,
         recentWorkoutSessionSummaries: recentWorkoutSessionSummaries ?? [],
       }),

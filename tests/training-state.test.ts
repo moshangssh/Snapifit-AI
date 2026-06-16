@@ -63,6 +63,25 @@ describe("training state storage", () => {
     expect(removed.blacklistedExerciseIds).toEqual([])
   })
 
+  it("persists phase transition and manual downgrade metadata", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      completedSessionCount: 80,
+      phaseTransitionReady: true,
+      stalledExercises: 4,
+      manualDowngrade: {
+        from: "intermediate" as const,
+        at: 72,
+        upgradeAfter: 8,
+      },
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
   it("falls back to novice state when stored data is missing or invalid", () => {
     const storage = createStorage()
     storage.setItem(TRAINING_STATE_STORAGE_KEY, "{")
