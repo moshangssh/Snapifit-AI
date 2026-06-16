@@ -290,6 +290,30 @@ describe("novice workout engine", () => {
     ).not.toContain(blacklistedExerciseId)
   })
 
+  it("keeps more than five blacklisted exercises out across ten generated sessions", () => {
+    const blacklistedExerciseIds = Array.from(
+      new Set(
+        [0, 1, 2, 3].flatMap((completedSessionCount) =>
+          generateSession(makeState(completedSessionCount)).exercises
+            .map((exercise) => exercise.catalogExerciseId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ),
+    ).slice(0, 6)
+
+    expect(blacklistedExerciseIds.length).toBeGreaterThan(5)
+
+    const generatedExerciseIds = Array.from({ length: 10 }, (_, index) =>
+      generateSession(makeState(index, blacklistedExerciseIds)).exercises
+        .map((exercise) => exercise.catalogExerciseId)
+        .filter((id): id is string => Boolean(id)),
+    ).flat()
+
+    for (const blacklistedExerciseId of blacklistedExerciseIds) {
+      expect(generatedExerciseIds).not.toContain(blacklistedExerciseId)
+    }
+  })
+
   it("does not select duplicate exercises between warmup and main phases", () => {
     const session = generateSession(makeState(0))
     const warmupIds = session.exercises

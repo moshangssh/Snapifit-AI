@@ -27,6 +27,7 @@ import {
 import {
   readTrainingState,
   recordCompletedTrainingSession,
+  setExerciseBlacklisted,
   writeTrainingState,
 } from "@/lib/workout/engine/training-state"
 import { buildWorkoutPlanContextSnapshot, getEffectiveUserWeightKg } from "@/lib/workout/context"
@@ -131,6 +132,7 @@ export default function WorkoutPage() {
       }
 
       const plan = await response.json()
+      writeTrainingState(plan.trainingState)
       const session = createWorkoutSessionFromPlan({
         sessionRole: hasCompletedWorkout ? "next" : "current",
         effectiveUserWeightKg,
@@ -380,15 +382,27 @@ export default function WorkoutPage() {
       onReplaceExercise={(exerciseId, name) =>
         updateSession((session) => replaceWorkoutExercise(session, exerciseId, name))
       }
-      onToggleDiscomfortFlag={(exerciseId, discomfortFlag) =>
-        updateSession((session) =>
+      onToggleDiscomfortFlag={(exerciseId, discomfortFlag) => {
+        const exercise = activeSession.exercises.find(
+          (item) => item.exerciseId === exerciseId,
+        )
+        if (exercise?.catalogExerciseId) {
+          writeTrainingState(
+            setExerciseBlacklisted(
+              readTrainingState(),
+              exercise.catalogExerciseId,
+              discomfortFlag,
+            ),
+          )
+        }
+        return updateSession((session) =>
           setWorkoutExerciseDiscomfortFlag(
             session,
             exerciseId,
             discomfortFlag,
           ),
         )
-      }
+      }}
       onToggleSkipExercise={(exerciseId, isSkipped) =>
         updateSession((session) =>
           setWorkoutExerciseSkipped(session, exerciseId, isSkipped),
