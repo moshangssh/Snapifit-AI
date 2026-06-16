@@ -1,5 +1,9 @@
 import type { TrainingPhase, TrainingState } from "@/lib/workout/types"
 import {
+  generateSession as generateAdvancedSession,
+  type GeneratedAdvancedWorkoutPlan,
+} from "@/lib/workout/engine/advanced-engine"
+import {
   generateSession as generateIntermediateSession,
   type GeneratedIntermediateWorkoutPlan,
 } from "@/lib/workout/engine/intermediate-engine"
@@ -7,11 +11,15 @@ import {
   generateSession as generateNoviceSession,
   type GeneratedWorkoutPlan,
 } from "@/lib/workout/engine/novice-engine"
-import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
+import type {
+  RecentWorkoutSessionSummary,
+  WorkoutPlanContextSnapshot,
+} from "@/lib/workout/types"
 
 export type PhaseTransitionReason =
   | "novice_session_threshold"
   | "novice_stalled_exercises"
+  | "intermediate_session_threshold"
   | "manual_downgrade_upgrade_window"
 
 export type PhaseTransitionDetection =
@@ -58,6 +66,14 @@ export function detectPhaseTransition(
     }
   }
 
+  if (state.phase === "intermediate" && state.completedSessionCount >= 240) {
+    return {
+      phaseTransitionReady: true,
+      nextPhase: "advanced",
+      reason: "intermediate_session_threshold",
+    }
+  }
+
   return { phaseTransitionReady: false }
 }
 
@@ -78,19 +94,37 @@ export function confirmBenchmarkSelection(
   }
 }
 
+export function confirmLifetimeBenchmarkSelection(
+  state: TrainingState,
+  lifetimeBenchmarkIds: string[],
+): TrainingState {
+  return {
+    ...state,
+    phase: "advanced",
+    lifetimeBenchmarkIds: lifetimeBenchmarkIds.slice(0, 5),
+    lastDeloadSession: state.completedSessionCount,
+    phaseTransitionReady: false,
+    manualDowngrade: undefined,
+  }
+}
+
 export function generateSession(
   state: TrainingState,
   options: {
     effectiveUserWeightKg?: number
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
+    fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
   } = {},
-): GeneratedWorkoutPlan | GeneratedIntermediateWorkoutPlan {
+):
+  | GeneratedWorkoutPlan
+  | GeneratedIntermediateWorkoutPlan
+  | GeneratedAdvancedWorkoutPlan {
   if (state.phase === "intermediate") {
     return generateIntermediateSession(state, options)
   }
 
   if (state.phase === "advanced") {
-    throw new Error("Advanced workout engine is not implemented yet")
+    return generateAdvancedSession(state, options)
   }
 
   return generateNoviceSession(state, options)

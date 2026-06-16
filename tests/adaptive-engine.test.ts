@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   confirmBenchmarkSelection,
+  confirmLifetimeBenchmarkSelection,
   detectPhaseTransition,
   generateSession,
   shouldShowBenchmarkSelection,
@@ -66,6 +67,35 @@ describe("adaptive workout engine", () => {
             at: 72,
             upgradeAfter: 8,
           },
+        }),
+      ),
+    ).toEqual({
+      phaseTransitionReady: false,
+    })
+  })
+
+  it("detects intermediate to advanced readiness after 240 completed sessions", () => {
+    expect(
+      detectPhaseTransition(
+        makeState(240, {
+          phase: "intermediate",
+          benchmarkExerciseIds: Array.from({ length: 10 }, (_, index) =>
+            `exercise-${index + 1}`,
+          ),
+        }),
+      ),
+    ).toEqual({
+      phaseTransitionReady: true,
+      nextPhase: "advanced",
+      reason: "intermediate_session_threshold",
+    })
+    expect(
+      detectPhaseTransition(
+        makeState(239, {
+          phase: "intermediate",
+          benchmarkExerciseIds: Array.from({ length: 10 }, (_, index) =>
+            `exercise-${index + 1}`,
+          ),
         }),
       ),
     ).toEqual({
@@ -163,6 +193,49 @@ describe("adaptive workout engine", () => {
 
     expect(result.manualDowngrade).toBeUndefined()
     expect(result.phase).toBe("intermediate")
+  })
+
+  it("confirms five lifetime benchmarks and moves training state to advanced", () => {
+    const benchmarkExerciseIds = Array.from({ length: 10 }, (_, index) =>
+      `exercise-${index + 1}`,
+    )
+    const lifetimeBenchmarkIds = benchmarkExerciseIds.slice(0, 5)
+
+    expect(
+      confirmLifetimeBenchmarkSelection(
+        makeState(240, {
+          phase: "intermediate",
+          phaseTransitionReady: true,
+          benchmarkExerciseIds,
+        }),
+        lifetimeBenchmarkIds,
+      ),
+    ).toEqual({
+      phase: "advanced",
+      completedSessionCount: 240,
+      blacklistedExerciseIds: [],
+      benchmarkExerciseIds,
+      lifetimeBenchmarkIds,
+      lastDeloadSession: 240,
+      phaseTransitionReady: false,
+    })
+  })
+
+  it("caps lifetime benchmark selection at five", () => {
+    const benchmarkExerciseIds = Array.from({ length: 10 }, (_, index) =>
+      `exercise-${index + 1}`,
+    )
+
+    const result = confirmLifetimeBenchmarkSelection(
+      makeState(240, {
+        phase: "intermediate",
+        phaseTransitionReady: true,
+        benchmarkExerciseIds,
+      }),
+      benchmarkExerciseIds,
+    )
+
+    expect(result.lifetimeBenchmarkIds).toEqual(benchmarkExerciseIds.slice(0, 5))
   })
 
   it("delegates session generation to the intermediate engine when state phase is intermediate", () => {

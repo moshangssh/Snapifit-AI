@@ -64,10 +64,12 @@ export interface TrainingState {
   completedSessionCount: number
   blacklistedExerciseIds: string[]
   benchmarkExerciseIds?: string[]
+  lifetimeBenchmarkIds?: string[]
   stalledExercises?: number
   phaseTransitionReady?: boolean
   currentBlock?: "accumulation" | "intensification" | "deload"
   blockStartSession?: number
+  lastDeloadSession?: number
   manualDowngrade?: {
     from: TrainingPhase
     at: number

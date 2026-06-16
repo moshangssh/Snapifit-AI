@@ -33,24 +33,43 @@ export async function POST(req: Request) {
     const phaseTransition = detectPhaseTransition(normalizedTrainingState)
 
     if (phaseTransition.phaseTransitionReady) {
+      const candidatePool =
+        phaseTransition.nextPhase === "advanced"
+          ? STRENGTH_EXERCISES.filter((exercise) =>
+              (normalizedTrainingState.benchmarkExerciseIds ?? []).includes(
+                exercise.id,
+              ),
+            )
+          : STRENGTH_EXERCISES
       const benchmarkCandidates = getBenchmarkCandidateDetails(
         recentWorkoutSessionSummaries ?? [],
-        STRENGTH_EXERCISES,
+        candidatePool,
       )
 
-      // 验证候选质量：至少要有 6 个训练组覆盖，且有实际训练记录
-      const trainedCandidates = benchmarkCandidates.filter(
-        (candidate) => candidate.trainingCount > 0,
-      )
-      const trainedGroups = new Set(
-        trainedCandidates.map((candidate) => candidate.trainingGroup),
-      )
+      if (phaseTransition.nextPhase === "advanced") {
+        if (benchmarkCandidates.length < 5) {
+          throw new AIError(
+            "INSUFFICIENT_TRAINING_HISTORY",
+            `进阶阶段基准动作候选不足：需要至少 5 个候选动作，当前只有 ${benchmarkCandidates.length} 个。请继续中级训练以积累更多动作数据。`,
+          )
+        }
+      }
 
-      if (trainedGroups.size < 6) {
-        throw new AIError(
-          "INSUFFICIENT_TRAINING_HISTORY",
-          `基准动作候选不足：需要至少覆盖 6 个训练组（胸/背/肩/腿/臂/核心），当前只训练了 ${trainedGroups.size} 个训练组。请继续新手训练。`,
+      if (phaseTransition.nextPhase === "intermediate") {
+        // 验证候选质量：至少要有 6 个训练组覆盖，且有实际训练记录
+        const trainedCandidates = benchmarkCandidates.filter(
+          (candidate) => candidate.trainingCount > 0,
         )
+        const trainedGroups = new Set(
+          trainedCandidates.map((candidate) => candidate.trainingGroup),
+        )
+
+        if (trainedGroups.size < 6) {
+          throw new AIError(
+            "INSUFFICIENT_TRAINING_HISTORY",
+            `基准动作候选不足：需要至少覆盖 6 个训练组（胸/背/肩/腿/臂/核心），当前只训练了 ${trainedGroups.size} 个训练组。请继续新手训练。`,
+          )
+        }
       }
 
       return Response.json({
@@ -71,6 +90,7 @@ export async function POST(req: Request) {
       generateSession(normalizedTrainingState, {
         effectiveUserWeightKg,
         recentWorkoutSessionSummaries: recentWorkoutSessionSummaries ?? [],
+        fatigueSnapshot,
       }),
     )
   } catch (error) {

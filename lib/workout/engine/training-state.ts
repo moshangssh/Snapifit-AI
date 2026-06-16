@@ -63,6 +63,12 @@ export function normalizeTrainingState(value: unknown): TrainingState {
     )
   }
 
+  if (Array.isArray(state.lifetimeBenchmarkIds)) {
+    normalized.lifetimeBenchmarkIds = state.lifetimeBenchmarkIds.filter(
+      (item): item is string => typeof item === "string",
+    )
+  }
+
   if (isIntermediateBlock(state.currentBlock)) {
     normalized.currentBlock = state.currentBlock
   }
@@ -73,6 +79,14 @@ export function normalizeTrainingState(value: unknown): TrainingState {
     state.blockStartSession > 0
   ) {
     normalized.blockStartSession = Math.floor(state.blockStartSession)
+  }
+
+  if (
+    typeof state.lastDeloadSession === "number" &&
+    Number.isFinite(state.lastDeloadSession) &&
+    state.lastDeloadSession >= 0
+  ) {
+    normalized.lastDeloadSession = Math.floor(state.lastDeloadSession)
   }
 
   if (

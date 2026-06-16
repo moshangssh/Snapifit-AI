@@ -26,7 +26,10 @@ import {
   updateWorkoutSetValue,
   workoutSessionToExerciseEntries,
 } from "@/lib/workout/session"
-import { confirmBenchmarkSelection } from "@/lib/workout/engine/adaptive-engine"
+import {
+  confirmBenchmarkSelection,
+  confirmLifetimeBenchmarkSelection,
+} from "@/lib/workout/engine/adaptive-engine"
 import type { BenchmarkCandidateDetail } from "@/lib/workout/engine/benchmark-selection"
 import {
   DEFAULT_TRAINING_STATE,
@@ -151,18 +154,27 @@ export default function WorkoutPage() {
         setTrainingState(plan.trainingState)
         const candidates = (plan.benchmarkCandidates ??
           []) as BenchmarkCandidateDetail[]
+        const nextPhase = plan.nextPhase as "intermediate" | "advanced"
         setBenchmarkCandidates(candidates)
-        setSelectedBenchmarkIds(candidates.map((candidate) => candidate.id))
+        setSelectedBenchmarkIds(
+          nextPhase === "advanced"
+            ? candidates.slice(0, 5).map((candidate) => candidate.id)
+            : candidates.map((candidate) => candidate.id),
+        )
 
         const reasonMessages: Record<string, string> = {
           novice_session_threshold: "你已完成 72 次新手训练",
           novice_stalled_exercises: "检测到 4 个动作进展停滞",
+          intermediate_session_threshold: "你已完成 240 次中级训练",
           manual_downgrade_upgrade_window: "手动降级的恢复期已结束",
         }
 
         toast({
-          title: "准备进入中级阶段",
-          description: `${reasonMessages[plan.reason] || "满足阶段转换条件"}，请选择中级基准动作。`,
+          title:
+            nextPhase === "advanced" ? "准备进入高级阶段" : "准备进入中级阶段",
+          description: `${reasonMessages[plan.reason] || "满足阶段转换条件"}，请选择${
+            nextPhase === "advanced" ? "终生" : "中级"
+          }基准动作。`,
         })
         return
       }
@@ -210,17 +222,19 @@ export default function WorkoutPage() {
   ])
 
   const confirmBenchmarks = useCallback(() => {
-    const nextState = confirmBenchmarkSelection(
-      trainingState,
-      selectedBenchmarkIds,
-    )
+    const isAdvancedSelection = trainingState.phase === "intermediate"
+    const nextState = isAdvancedSelection
+      ? confirmLifetimeBenchmarkSelection(trainingState, selectedBenchmarkIds)
+      : confirmBenchmarkSelection(trainingState, selectedBenchmarkIds)
     writeTrainingState(nextState)
     setTrainingState(nextState)
     setBenchmarkCandidates([])
     setSelectedBenchmarkIds([])
     toast({
-      title: "已进入中级阶段",
-      description: `${selectedBenchmarkIds.length} 个基准动作已保存。`,
+      title: isAdvancedSelection ? "已进入高级阶段" : "已进入中级阶段",
+      description: `${selectedBenchmarkIds.length} 个${
+        isAdvancedSelection ? "终生" : ""
+      }基准动作已保存。`,
     })
   }, [trainingState, selectedBenchmarkIds, toast])
 
@@ -403,6 +417,9 @@ export default function WorkoutPage() {
           <BenchmarkSelectionCard
             candidates={benchmarkCandidates}
             selectedIds={selectedBenchmarkIds}
+            nextPhase={
+              trainingState.phase === "intermediate" ? "advanced" : "intermediate"
+            }
             onSelectedIdsChange={setSelectedBenchmarkIds}
             onConfirm={confirmBenchmarks}
           />
@@ -490,16 +507,21 @@ export default function WorkoutPage() {
 function BenchmarkSelectionCard({
   candidates,
   selectedIds,
+  nextPhase,
   onSelectedIdsChange,
   onConfirm,
 }: {
   candidates: BenchmarkCandidateDetail[]
   selectedIds: string[]
+  nextPhase: "intermediate" | "advanced"
   onSelectedIdsChange: (ids: string[]) => void
   onConfirm: () => void
 }) {
   const selectedSet = new Set(selectedIds)
-  const canConfirm = selectedIds.length >= 8 && selectedIds.length <= 10
+  const maxSelection = nextPhase === "advanced" ? 5 : 10
+  const minSelection = nextPhase === "advanced" ? 5 : 8
+  const canConfirm =
+    selectedIds.length >= minSelection && selectedIds.length <= maxSelection
 
   return (
     <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
@@ -507,10 +529,14 @@ function BenchmarkSelectionCard({
         <div className="flex flex-col gap-3 sm720:flex-row sm720:items-start sm720:justify-between">
           <div className="space-y-1">
             <h2 className="text-[22px] font-bold tracking-tight">
-              选择中级基准动作
+              {nextPhase === "advanced"
+                ? "选择终生基准动作"
+                : "选择中级基准动作"}
             </h2>
             <p className="text-sm text-muted-foreground">
-              已选择 {selectedIds.length}/8-10（至少 8 个，最多 10 个）
+              已选择 {selectedIds.length}/
+              {nextPhase === "advanced" ? "5" : "8-10"}（
+              {nextPhase === "advanced" ? "必须 5 个" : "至少 8 个，最多 10 个"}）
             </p>
           </div>
           <Badge variant="secondary" className="w-fit">
@@ -534,7 +560,7 @@ function BenchmarkSelectionCard({
                       onSelectedIdsChange(
                         selectedSet.has(candidate.id)
                           ? selectedIds
-                          : [...selectedIds, candidate.id].slice(0, 10),
+                          : [...selectedIds, candidate.id].slice(0, maxSelection),
                       )
                     } else {
                       onSelectedIdsChange(
@@ -575,7 +601,7 @@ function BenchmarkSelectionCard({
 
         <div className="flex justify-end">
           <Button variant="ink" disabled={!canConfirm} onClick={onConfirm}>
-            确认基准动作
+            确认{nextPhase === "advanced" ? "终生" : ""}基准动作
           </Button>
         </div>
       </CardContent>

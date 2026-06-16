@@ -135,6 +135,26 @@ function createMinimalTrainingHistory(): RecentWorkoutSessionSummary[] {
   ]
 }
 
+function intermediateBenchmarkIds(): string[] {
+  const names = [
+    "器械卧推",
+    "单臂坐姿划船",
+    "哑铃坐姿侧平举",
+    "窄距45度腿举",
+    "哑铃蜘蛛弯举",
+    "坐姿腹部绳索卷腹",
+  ]
+  const requiredIds = names.map((name) => findExerciseByName(name).id)
+  const remainingIds = STRENGTH_EXERCISES.filter(
+    (exercise) =>
+      exercise.tags.includes("NOVICE_CORE") && !requiredIds.includes(exercise.id),
+  )
+    .slice(0, 4)
+    .map((exercise) => exercise.id)
+
+  return [...requiredIds, ...remainingIds]
+}
+
 describe("workout plan route", () => {
   it("returns a deterministic novice plan without AI config", async () => {
     const { POST } = await import("@/app/api/ai/workout-plan/route")
@@ -242,6 +262,44 @@ describe("workout plan route", () => {
     expect(payload.reason).toBe("manual_downgrade_upgrade_window")
     expect(payload.trainingState.phaseTransitionReady).toBe(true)
     expect(payload.trainingState.manualDowngrade).toBeUndefined()
+  })
+
+  it("returns lifetime benchmark selection response after 240 completed intermediate sessions", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+    const benchmarkExerciseIds = intermediateBenchmarkIds()
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        recentWorkoutSessionSummaries: [],
+        trainingState: {
+          phase: "intermediate",
+          completedSessionCount: 240,
+          blacklistedExerciseIds: [],
+          benchmarkExerciseIds,
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toEqual({
+      needBenchmarkSelection: true,
+      nextPhase: "advanced",
+      reason: "intermediate_session_threshold",
+      benchmarkCandidates: expect.any(Array),
+      trainingState: {
+        phase: "intermediate",
+        completedSessionCount: 240,
+        blacklistedExerciseIds: [],
+        benchmarkExerciseIds,
+        phaseTransitionReady: true,
+      },
+    })
+    expect(payload.benchmarkCandidates).toHaveLength(10)
+    expect(
+      payload.benchmarkCandidates.map((candidate: { id: string }) => candidate.id),
+    ).toEqual(expect.arrayContaining(benchmarkExerciseIds))
   })
 
   it("uses recent catalog exercise history when calculating next weights", async () => {
