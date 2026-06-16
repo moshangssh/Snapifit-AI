@@ -19,6 +19,7 @@ import {
   FALLBACK_STRENGTH_ANALYSIS,
   removeWorkoutSessionEntries,
   replaceWorkoutExercise,
+  setWorkoutExerciseDiscomfortFlag,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
   workoutSessionToExerciseEntries,
@@ -284,7 +285,9 @@ export default function WorkoutPage() {
         status: "completed",
         completedAt,
       })
-      writeTrainingState(recordCompletedTrainingSession(readTrainingState()))
+      const currentState = readTrainingState()
+      const updatedState = recordCompletedTrainingSession(currentState)
+      writeTrainingState(updatedState)
       toast({ title: "训练已完成", description: "结果已写入今日运动记录。" })
     } catch (error) {
       console.error(error)
@@ -376,6 +379,15 @@ export default function WorkoutPage() {
       }
       onReplaceExercise={(exerciseId, name) =>
         updateSession((session) => replaceWorkoutExercise(session, exerciseId, name))
+      }
+      onToggleDiscomfortFlag={(exerciseId, discomfortFlag) =>
+        updateSession((session) =>
+          setWorkoutExerciseDiscomfortFlag(
+            session,
+            exerciseId,
+            discomfortFlag,
+          ),
+        )
       }
       onToggleSkipExercise={(exerciseId, isSkipped) =>
         updateSession((session) =>

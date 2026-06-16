@@ -76,6 +76,7 @@ export interface RecentWorkoutSessionSummary {
     workingSetReps?: number
     wasReplaced: boolean
     wasSkipped: boolean
+    discomfortFlag?: boolean
     muscleGroups: string[]
     sets?: Array<{
       plannedWeightKg?: number

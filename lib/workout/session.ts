@@ -226,6 +226,23 @@ export function setWorkoutExerciseSkipped(
   return refreshWorkoutSessionDerived({ ...session, exercises })
 }
 
+export function setWorkoutExerciseDiscomfortFlag(
+  session: WorkoutSession,
+  exerciseId: string,
+  discomfortFlag: boolean,
+): WorkoutSession {
+  const exercises = session.exercises.map((exercise) =>
+    exercise.exerciseId === exerciseId
+      ? {
+          ...exercise,
+          discomfortFlag,
+        }
+      : exercise,
+  )
+
+  return refreshWorkoutSessionDerived({ ...session, exercises })
+}
+
 export function canCompleteWorkoutSession(session: WorkoutSession): boolean {
   if (session.status !== "active") return false
   return session.exercises.every((exercise) =>

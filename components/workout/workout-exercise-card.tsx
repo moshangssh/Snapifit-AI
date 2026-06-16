@@ -3,6 +3,7 @@
 import { useRef } from "react"
 import { Check, Circle, Minus, SkipForward, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { DiscomfortFlagDialog } from "@/components/workout/discomfort-flag-dialog"
 import { ReplaceExerciseDialog } from "@/components/workout/replace-exercise-dialog"
 import { WorkoutSetNumberInput } from "@/components/workout/workout-set-number-input"
 import { MUSCLE_LABELS_ZH } from "@/lib/muscle-groups"
@@ -36,6 +37,7 @@ interface WorkoutExerciseCardProps {
   ) => void
   onCompleteSet: (exerciseId: string, setIndex: number) => void
   onReplaceExercise: (exerciseId: string, name: string) => void
+  onToggleDiscomfortFlag: (exerciseId: string, discomfortFlag: boolean) => void
   onToggleSkipExercise: (exerciseId: string, isSkipped: boolean) => void
 }
 
@@ -45,6 +47,7 @@ export function WorkoutExerciseCard({
   onUpdateSetValue,
   onCompleteSet,
   onReplaceExercise,
+  onToggleDiscomfortFlag,
   onToggleSkipExercise,
 }: WorkoutExerciseCardProps) {
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
@@ -140,6 +143,16 @@ export function WorkoutExerciseCard({
           <ReplaceExerciseDialog
             displayName={displayName}
             onReplace={(name) => onReplaceExercise(exercise.exerciseId, name)}
+          />
+          <DiscomfortFlagDialog
+            displayName={displayName}
+            isMarked={exercise.discomfortFlag ?? false}
+            onConfirm={() =>
+              onToggleDiscomfortFlag(
+                exercise.exerciseId,
+                !exercise.discomfortFlag,
+              )
+            }
           />
           <Button
             variant={exercise.isExerciseSkipped ? "secondary" : "bare"}
