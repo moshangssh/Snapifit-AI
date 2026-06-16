@@ -5,6 +5,7 @@ import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
 const EXERCISE_ID = "machine-chest-press"
 
+// Synthetic dates for deterministic testing
 function completedExercise(input: {
   completedAt: string
   actualReps: [number, number, number]
@@ -59,7 +60,7 @@ describe("novice progression rules", () => {
       ]),
     ).toEqual({
       action: "add_weight",
-      weight: 41.25,
+      weight: 41.25, // 40kg + 1.25kg (upper body standard increment)
       plannedReps: 10,
     })
   })
@@ -99,21 +100,24 @@ describe("novice progression rules", () => {
   })
 
   it("replaces the exercise after three consecutive failures", () => {
-    expect(
-      evaluate([
-        completedExercise({
-          completedAt: "2026-06-21T08:00:00.000Z",
-          actualReps: [10, 8, 8],
-        }),
-        completedExercise({
-          completedAt: "2026-06-18T08:00:00.000Z",
-          actualReps: [10, 8, 8],
-        }),
-        completedExercise({
-          completedAt: "2026-06-15T08:00:00.000Z",
-          actualReps: [10, 8, 8],
-        }),
-      ]).action,
-    ).toBe("replace")
+    const result = evaluate([
+      completedExercise({
+        completedAt: "2026-06-21T08:00:00.000Z",
+        actualReps: [10, 8, 8],
+      }),
+      completedExercise({
+        completedAt: "2026-06-18T08:00:00.000Z",
+        actualReps: [10, 8, 8],
+      }),
+      completedExercise({
+        completedAt: "2026-06-15T08:00:00.000Z",
+        actualReps: [10, 8, 8],
+      }),
+    ])
+
+    expect(result.action).toBe("replace")
+    expect(result.weight).toBe(40)
+    // After multiple failures, reps are reduced before replacement
+    expect(result.plannedReps).toBe(8)
   })
 })

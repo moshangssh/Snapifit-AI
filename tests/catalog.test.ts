@@ -10,11 +10,14 @@ import {
 
 describe("workout exercise catalog", () => {
   it("loads the complete curated catalog with stable ids and required tags", () => {
+    // Total catalog size is fixed at 106 exercises for V1
     expect(ALL_EXERCISES).toHaveLength(106)
 
+    // All IDs must be unique
     const ids = new Set(ALL_EXERCISES.map((exercise) => exercise.id))
     expect(ids.size).toBe(ALL_EXERCISES.length)
 
+    // All exercises must have complete metadata
     expect(
       ALL_EXERCISES.every(
         (exercise) =>
@@ -72,10 +75,13 @@ describe("workout exercise catalog", () => {
     const intermediate = getExercisesByPhase("intermediate")
     const advanced = getExercisesByPhase("advanced")
 
+    // Novice phase core exercises are fixed at 20 for Starting Strength style progression
     expect(novice).toHaveLength(20)
     expect(
       novice.every((exercise) => exercise.tags.includes("NOVICE_CORE")),
     ).toBe(true)
+
+    // Intermediate expands beyond novice core
     expect(intermediate.length).toBeGreaterThan(novice.length)
     expect(
       intermediate.every(
@@ -84,6 +90,8 @@ describe("workout exercise catalog", () => {
           exercise.tags.includes("INTERMEDIATE_VARIANT"),
       ),
     ).toBe(true)
+
+    // Advanced includes all strength exercises
     expect(advanced).toHaveLength(STRENGTH_EXERCISES.length)
   })
 

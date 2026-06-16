@@ -9,6 +9,13 @@ describe("novice deload rules", () => {
     expect(shouldDeload(11)).toBe(false)
     expect(shouldDeload(12)).toBe(true)
     expect(shouldDeload(24)).toBe(true)
+    expect(shouldDeload(36)).toBe(true)
+  })
+
+  it("handles edge cases correctly", () => {
+    expect(shouldDeload(0)).toBe(false)
+    expect(shouldDeload(1)).toBe(false)
+    expect(shouldDeload(11)).toBe(false)
   })
 
   it("lasts for three generated sessions", () => {
