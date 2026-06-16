@@ -18,6 +18,7 @@ export type PhaseTransitionDetection =
 export function detectPhaseTransition(
   state: TrainingState,
 ): PhaseTransitionDetection {
+  // 如果存在手动降级记录，优先处理
   if (state.manualDowngrade) {
     const readyAt = state.manualDowngrade.at + state.manualDowngrade.upgradeAfter
 
@@ -28,7 +29,7 @@ export function detectPhaseTransition(
         reason: "manual_downgrade_upgrade_window",
       }
     }
-
+    // 在手动降级恢复期内，阻止其他自然阶段转换
     return { phaseTransitionReady: false }
   }
 

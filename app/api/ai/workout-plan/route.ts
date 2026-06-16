@@ -36,6 +36,8 @@ export async function POST(req: Request) {
         trainingState: {
           ...normalizedTrainingState,
           phaseTransitionReady: true,
+          // 清除已完成的手动降级记录
+          manualDowngrade: undefined,
         },
       })
     }

@@ -129,6 +129,7 @@ describe("workout plan route", () => {
     expect(payload.needBenchmarkSelection).toBe(true)
     expect(payload.reason).toBe("manual_downgrade_upgrade_window")
     expect(payload.trainingState.phaseTransitionReady).toBe(true)
+    expect(payload.trainingState.manualDowngrade).toBeUndefined()
   })
 
   it("uses recent catalog exercise history when calculating next weights", async () => {
