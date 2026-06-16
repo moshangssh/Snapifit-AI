@@ -138,6 +138,16 @@ export default function WorkoutPage() {
       }
 
       const plan = await response.json()
+      if (plan.needBenchmarkSelection) {
+        writeTrainingState(plan.trainingState)
+        setTrainingState(plan.trainingState)
+        toast({
+          title: "需要选择基准动作",
+          description: "确认中级阶段基准动作后再生成下一次训练。",
+        })
+        return
+      }
+
       const currentState = readTrainingState()
       const mergedState = {
         ...plan.trainingState,

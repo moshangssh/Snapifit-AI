@@ -54,6 +54,83 @@ describe("workout plan route", () => {
     ).toBe(true)
   })
 
+  it("returns benchmark selection response after 72 completed novice sessions", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        trainingState: {
+          phase: "novice",
+          completedSessionCount: 72,
+          blacklistedExerciseIds: [],
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toEqual({
+      needBenchmarkSelection: true,
+      nextPhase: "intermediate",
+      reason: "novice_session_threshold",
+      trainingState: {
+        phase: "novice",
+        completedSessionCount: 72,
+        blacklistedExerciseIds: [],
+        phaseTransitionReady: true,
+      },
+    })
+  })
+
+  it("still returns a novice plan after 71 completed sessions", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        trainingState: {
+          phase: "novice",
+          completedSessionCount: 71,
+          blacklistedExerciseIds: [],
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.needBenchmarkSelection).toBeUndefined()
+    expect(payload.trainingState.phaseTransitionReady).toBeUndefined()
+    expect(payload.phase).toBe("novice")
+    expect(payload.exercises.length).toBeGreaterThan(0)
+  })
+
+  it("returns benchmark selection response after a manual downgrade upgrade window", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        trainingState: {
+          phase: "novice",
+          completedSessionCount: 80,
+          blacklistedExerciseIds: [],
+          manualDowngrade: {
+            from: "intermediate",
+            at: 72,
+            upgradeAfter: 8,
+          },
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.needBenchmarkSelection).toBe(true)
+    expect(payload.reason).toBe("manual_downgrade_upgrade_window")
+    expect(payload.trainingState.phaseTransitionReady).toBe(true)
+  })
+
   it("uses recent catalog exercise history when calculating next weights", async () => {
     const { POST } = await import("@/app/api/ai/workout-plan/route")
 
