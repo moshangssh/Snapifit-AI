@@ -116,6 +116,86 @@ describe("novice workout engine", () => {
     }
   })
 
+  it("deloads for three sessions after every twelve completed sessions", () => {
+    const firstDeloadTemplate = generateSession(makeState(12), {
+      effectiveUserWeightKg: 72,
+    })
+    const normalMain = firstDeloadTemplate.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const completedNormal = {
+      completedAt: "2026-06-15T08:00:00.000Z",
+      exercises: normalMain.map((exercise) => ({
+        catalogExerciseId: exercise.catalogExerciseId,
+        exerciseName: exercise.plannedExerciseName,
+        phase: exercise.phase,
+        completedSets: 3,
+        workingSetWeightKg: 100,
+        workingSetReps: 10,
+        wasReplaced: false,
+        wasSkipped: false,
+        muscleGroups: exercise.plannedAnalysis.muscleGroups,
+        sets: Array.from({ length: 3 }, () => ({
+          plannedWeightKg: 100,
+          plannedReps: 10,
+          actualWeightKg: 100,
+          actualReps: 10,
+          isCompleted: true,
+          isSkipped: false,
+        })),
+      })),
+    }
+
+    const deloadWindows = [12, 13, 14, 24, 25, 26].map((count) =>
+      generateSession(makeState(count), {
+        effectiveUserWeightKg: 72,
+        recentWorkoutSessionSummaries: [completedNormal],
+      }),
+    )
+    const normalAfterDeload = generateSession(makeState(15), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [completedNormal],
+    })
+
+    expect(deloadWindows.map((session) => session.templateName)).toEqual([
+      "上A",
+      "下A",
+      "上B",
+      "上A",
+      "下A",
+      "上B",
+    ])
+    expect(normalAfterDeload.templateName).toBe("下B")
+
+    for (const session of deloadWindows) {
+      expect(session.isDeload).toBe(true)
+
+      const mainExercises = session.exercises.filter(
+        (exercise) => exercise.phase === "main",
+      )
+      expect(mainExercises.length).toBeGreaterThanOrEqual(4)
+
+      for (const exercise of mainExercises) {
+        expect(exercise.sets).toHaveLength(2)
+      }
+    }
+
+    const matchingDeloadExercise = deloadWindows[0].exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === normalMain[0].catalogExerciseId,
+    )
+
+    expect(
+      matchingDeloadExercise?.sets.map((set) => set.plannedWeightKg),
+    ).toEqual([70, 70])
+    expect(normalAfterDeload.isDeload).toBe(false)
+    for (const exercise of normalAfterDeload.exercises.filter(
+      (item) => item.phase === "main",
+    )) {
+      expect(exercise.sets).toHaveLength(3)
+    }
+  })
+
   it("uses conservative starting weights when a main exercise has no history", () => {
     const upperSession = generateSession(makeState(0), {
       effectiveUserWeightKg: 70,

@@ -9,6 +9,10 @@ import {
   selectExercises,
   type ASCoreFocus,
 } from "@/lib/workout/engine/selection"
+import {
+  calculateDeloadParams,
+  shouldDeload,
+} from "@/lib/workout/engine/deload"
 import { evaluateProgression } from "@/lib/workout/engine/progression"
 import { findReplacement } from "@/lib/workout/engine/replacement"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
@@ -208,6 +212,69 @@ function catalogDraft(
   }
 }
 
+function latestNormalWorkingWeightKg(
+  history: RecentWorkoutSessionSummary[],
+  exerciseId: string,
+) {
+  const latestExercise = [...history]
+    .sort(
+      (left, right) =>
+        new Date(right.completedAt).getTime() -
+        new Date(left.completedAt).getTime(),
+    )
+    .flatMap((session) => session.exercises)
+    .find(
+      (exercise) =>
+        exercise.catalogExerciseId === exerciseId &&
+        (exercise.phase === undefined || exercise.phase === "main") &&
+        !exercise.wasSkipped &&
+        !exercise.wasReplaced &&
+        exercise.completedSets >= 3,
+    )
+
+  if (!latestExercise) return undefined
+
+  const completedWeights = (latestExercise.sets ?? [])
+    .filter((set) => set.isCompleted && !set.isSkipped)
+    .map((set) => set.actualWeightKg)
+    .filter((weight): weight is number => typeof weight === "number")
+
+  if (completedWeights.length === 0) return latestExercise.workingSetWeightKg
+
+  return Math.max(...completedWeights)
+}
+
+function applyDeload(
+  draft: WorkoutPlanExerciseDraft,
+  recentWorkoutSessionSummaries: RecentWorkoutSessionSummary[],
+): WorkoutPlanExerciseDraft {
+  const originalWeight =
+    draft.catalogExerciseId
+      ? latestNormalWorkingWeightKg(
+          recentWorkoutSessionSummaries,
+          draft.catalogExerciseId,
+        )
+      : undefined
+  const fallbackWeight = draft.sets[0]?.plannedWeightKg
+
+  if (typeof originalWeight !== "number" && typeof fallbackWeight !== "number") {
+    return draft
+  }
+
+  const deload = calculateDeloadParams(
+    originalWeight ?? (fallbackWeight as number),
+    3,
+  )
+
+  return {
+    ...draft,
+    sets: Array.from({ length: deload.sets }, () => ({
+      plannedWeightKg: deload.weight,
+      plannedReps: draft.sets[0]?.plannedReps,
+    })),
+  }
+}
+
 function withUniqueIds(ids: readonly string[]) {
   return Array.from(new Set(ids))
 }
@@ -394,6 +461,7 @@ export function generateSession(
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
+  const isDeload = shouldDeload(state.completedSessionCount)
   const templateIndex = state.completedSessionCount % TEMPLATES.length
   const template = TEMPLATES[templateIndex]
   const rotationOffset = Math.floor(state.completedSessionCount / TEMPLATES.length)
@@ -403,12 +471,18 @@ export function generateSession(
     state.blacklistedExerciseIds,
     rotationOffset,
   )
-  const resolvedMain = resolveMainExerciseReplacements({
-    exercises: mainExercises,
-    state,
-    recentWorkoutSessionSummaries,
-    effectiveUserWeightKg,
-  })
+  const resolvedMain = isDeload
+    ? {
+        exercises: mainExercises,
+        trainingState: state,
+        conservativeStartIds: new Set<string>(),
+      }
+    : resolveMainExerciseReplacements({
+        exercises: mainExercises,
+        state,
+        recentWorkoutSessionSummaries,
+        effectiveUserWeightKg,
+      })
   const trainingState = {
     ...resolvedMain.trainingState,
     blacklistedExerciseIds: withUniqueIds([
@@ -446,16 +520,20 @@ export function generateSession(
       catalogDraft(exercise.id, "warmup", 1, effectiveUserWeightKg),
     ),
   ]
-  const main = resolvedMain.exercises.map((exercise) =>
-    catalogDraft(
+  const main = resolvedMain.exercises.map((exercise) => {
+    const draft = catalogDraft(
       exercise.id,
       "main",
-      3,
+      isDeload ? 2 : 3,
       effectiveUserWeightKg,
-      recentWorkoutSessionSummaries,
+      isDeload ? [] : recentWorkoutSessionSummaries,
       resolvedMain.conservativeStartIds.has(exercise.id),
-    ),
-  )
+    )
+
+    return isDeload
+      ? applyDeload(draft, recentWorkoutSessionSummaries)
+      : draft
+  })
   const cooldown = [
     ...cooldownAS.map((exercise) =>
       catalogDraft(exercise.id, "cooldown", 1, effectiveUserWeightKg),
@@ -473,7 +551,7 @@ export function generateSession(
     templateIndex,
     templateName: template.name,
     phase: "novice",
-    isDeload: false,
+    isDeload,
     trainingState,
     exercises: [...warmup, ...main, ...cooldown],
   }
