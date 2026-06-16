@@ -19,6 +19,7 @@ import {
   FALLBACK_STRENGTH_ANALYSIS,
   removeWorkoutSessionEntries,
   replaceWorkoutExercise,
+  setWorkoutExerciseDiscomfortFlag,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
   workoutSessionToExerciseEntries,
@@ -130,6 +131,9 @@ export default function WorkoutPage() {
       }
 
       const plan = await response.json()
+      if (plan.trainingState) {
+        writeTrainingState(plan.trainingState)
+      }
       const session = createWorkoutSessionFromPlan({
         sessionRole: hasCompletedWorkout ? "next" : "current",
         effectiveUserWeightKg,
@@ -376,6 +380,15 @@ export default function WorkoutPage() {
       }
       onReplaceExercise={(exerciseId, name) =>
         updateSession((session) => replaceWorkoutExercise(session, exerciseId, name))
+      }
+      onToggleDiscomfortFlag={(exerciseId, discomfortFlag) =>
+        updateSession((session) =>
+          setWorkoutExerciseDiscomfortFlag(
+            session,
+            exerciseId,
+            discomfortFlag,
+          ),
+        )
       }
       onToggleSkipExercise={(exerciseId, isSkipped) =>
         updateSession((session) =>

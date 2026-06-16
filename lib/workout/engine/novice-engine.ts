@@ -10,6 +10,7 @@ import {
   type ASCoreFocus,
 } from "@/lib/workout/engine/selection"
 import { evaluateProgression } from "@/lib/workout/engine/progression"
+import { findReplacement } from "@/lib/workout/engine/replacement"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   RecentWorkoutSessionSummary,
@@ -26,6 +27,7 @@ export interface GeneratedWorkoutPlan {
   templateName: TemplateName
   phase: "novice"
   isDeload: boolean
+  trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
 }
 
@@ -165,16 +167,21 @@ function catalogDraft(
   setCount: number,
   effectiveUserWeightKg: number,
   recentWorkoutSessionSummaries: RecentWorkoutSessionSummary[] = [],
+  forceConservativeStart = false,
 ): WorkoutPlanExerciseDraft {
   const exercise = getExercise(id)
   const isStrength = STRENGTH_EXERCISES.some((item) => item.id === id)
   const exerciseType = isStrength ? "strength" : "flexibility"
   const progression =
     phase === "main" && isStrength
-      ? evaluateProgression(recentWorkoutSessionSummaries, exercise.id, {
-          primaryMuscle: exercise.primaryMuscle,
-          effectiveUserWeightKg,
-        })
+      ? evaluateProgression(
+          forceConservativeStart ? [] : recentWorkoutSessionSummaries,
+          exercise.id,
+          {
+            primaryMuscle: exercise.primaryMuscle,
+            effectiveUserWeightKg,
+          },
+        )
       : null
 
   return {
@@ -199,6 +206,22 @@ function catalogDraft(
       effectiveUserWeightKg,
     ),
   }
+}
+
+function withUniqueIds(ids: readonly string[]) {
+  return Array.from(new Set(ids))
+}
+
+function discomfortExerciseIds(history: RecentWorkoutSessionSummary[]) {
+  return withUniqueIds(
+    history.flatMap((session) =>
+      session.exercises
+        .filter(
+          (exercise) => exercise.discomfortFlag && exercise.catalogExerciseId,
+        )
+        .map((exercise) => exercise.catalogExerciseId as string),
+    ),
+  )
 }
 
 function cooldownDraft(
@@ -274,6 +297,69 @@ function selectByMuscleSlots(
   return selected
 }
 
+function resolveMainExerciseReplacements(input: {
+  exercises: Exercise[]
+  state: TrainingState
+  recentWorkoutSessionSummaries: RecentWorkoutSessionSummary[]
+  effectiveUserWeightKg: number
+}): {
+  exercises: Exercise[]
+  trainingState: TrainingState
+  conservativeStartIds: Set<string>
+} {
+  const conservativeStartIds = new Set<string>()
+  const selectedIds = input.exercises.map((exercise) => exercise.id)
+  const resolvedExercises: Exercise[] = []
+  let blacklist = input.state.blacklistedExerciseIds
+
+  for (const exercise of input.exercises) {
+    const progression = evaluateProgression(
+      input.recentWorkoutSessionSummaries,
+      exercise.id,
+      {
+        primaryMuscle: exercise.primaryMuscle,
+        effectiveUserWeightKg: input.effectiveUserWeightKg,
+      },
+    )
+
+    if (progression.action !== "replace") {
+      resolvedExercises.push(exercise)
+      continue
+    }
+
+    const nextBlacklist = withUniqueIds([...blacklist, exercise.id])
+    const blockedForReplacement = withUniqueIds([
+      ...nextBlacklist,
+      ...resolvedExercises.map((item) => item.id),
+      ...selectedIds.filter((id) => id !== exercise.id),
+    ])
+    const replacement = findReplacement(
+      exercise,
+      STRENGTH_EXERCISES.filter((item) => item.tags.includes("NOVICE_CORE")),
+      blockedForReplacement,
+    )
+
+    if (!replacement) {
+      console.warn(`无法为动作 ${exercise.id} 找到替换动作`)
+      resolvedExercises.push(exercise)
+      continue
+    }
+
+    blacklist = nextBlacklist
+    conservativeStartIds.add(replacement.id)
+    resolvedExercises.push(replacement)
+  }
+
+  return {
+    exercises: resolvedExercises,
+    conservativeStartIds,
+    trainingState: {
+      ...input.state,
+      blacklistedExerciseIds: blacklist,
+    },
+  }
+}
+
 export function generateSession(
   state: TrainingState,
   options: GenerateSessionOptions = {},
@@ -284,12 +370,26 @@ export function generateSession(
   const templateIndex = state.completedSessionCount % TEMPLATES.length
   const template = TEMPLATES[templateIndex]
   const rotationOffset = Math.floor(state.completedSessionCount / TEMPLATES.length)
-  const blacklist = state.blacklistedExerciseIds
+  const discomfortIds = discomfortExerciseIds(recentWorkoutSessionSummaries)
   const mainExercises = selectByMuscleSlots(
     template.mainMuscles,
-    blacklist,
+    state.blacklistedExerciseIds,
     rotationOffset,
   )
+  const resolvedMain = resolveMainExerciseReplacements({
+    exercises: mainExercises,
+    state,
+    recentWorkoutSessionSummaries,
+    effectiveUserWeightKg,
+  })
+  const trainingState = {
+    ...resolvedMain.trainingState,
+    blacklistedExerciseIds: withUniqueIds([
+      ...resolvedMain.trainingState.blacklistedExerciseIds,
+      ...discomfortIds,
+    ]),
+  }
+  const blacklist = trainingState.blacklistedExerciseIds
   const warmupAS = selectASCore({
     focus: template.asFocus,
     blacklist,
@@ -300,7 +400,7 @@ export function generateSession(
     template.warmupSupportMuscles,
     blacklist,
     rotationOffset + 1,
-    mainExercises.map((exercise) => exercise.id),
+    resolvedMain.exercises.map((exercise) => exercise.id),
   )
   // Use rotationOffset + 1 for cooldown to ensure different AS movements
   // are selected compared to warmup (which uses rotationOffset + 0)
@@ -319,13 +419,14 @@ export function generateSession(
       catalogDraft(exercise.id, "warmup", 1, effectiveUserWeightKg),
     ),
   ]
-  const main = mainExercises.map((exercise) =>
+  const main = resolvedMain.exercises.map((exercise) =>
     catalogDraft(
       exercise.id,
       "main",
       3,
       effectiveUserWeightKg,
       recentWorkoutSessionSummaries,
+      resolvedMain.conservativeStartIds.has(exercise.id),
     ),
   )
   const cooldown = [
@@ -346,6 +447,7 @@ export function generateSession(
     templateName: template.name,
     phase: "novice",
     isDeload: false,
+    trainingState,
     exercises: [...warmup, ...main, ...cooldown],
   }
 }

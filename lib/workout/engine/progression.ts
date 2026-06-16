@@ -14,7 +14,8 @@ interface ProgressionResult {
   plannedReps: number
 }
 
-const FAILURE_THRESHOLD = 2
+const REDUCE_REPS_FAILURE_THRESHOLD = 2
+const REPLACE_FAILURE_THRESHOLD = 3
 const NORMAL_REPS = 10
 const REDUCED_REPS = 8
 const WEIGHT_EPSILON = 0.01 // 10g tolerance for floating point comparison
@@ -120,6 +121,7 @@ function consecutiveFailuresAtWeight(
 
   for (const exercise of exercises) {
     const exerciseWeight = latestCompletedWeightKg(exercise)
+    if (typeof exerciseWeight !== "number") break
     if (Math.abs(exerciseWeight - weight) > WEIGHT_EPSILON) break
     if (completedAllTargetReps(exercise)) break
 
@@ -149,14 +151,28 @@ export function evaluateProgression(
     }
   }
 
+  if (previousExercise.discomfortFlag) {
+    return {
+      action: "replace",
+      weight: fallbackWeight,
+      plannedReps: NORMAL_REPS,
+    }
+  }
+
   if (!completedAllTargetReps(previousExercise)) {
     const weight = latestCompletedWeightKg(previousExercise) ?? fallbackWeight
     const consecutiveFailures = consecutiveFailuresAtWeight(exercises, weight)
+    const shouldReplace = consecutiveFailures >= REPLACE_FAILURE_THRESHOLD
+    const shouldReduceReps = consecutiveFailures >= REDUCE_REPS_FAILURE_THRESHOLD
 
     return {
-      action: consecutiveFailures >= FAILURE_THRESHOLD ? "reduce_reps" : "maintain",
+      action: shouldReplace
+        ? "replace"
+        : shouldReduceReps
+          ? "reduce_reps"
+          : "maintain",
       weight,
-      plannedReps: consecutiveFailures >= FAILURE_THRESHOLD ? REDUCED_REPS : NORMAL_REPS,
+      plannedReps: shouldReduceReps ? REDUCED_REPS : NORMAL_REPS,
     }
   }
 

@@ -30,6 +30,7 @@ interface WorkoutPlanWorkbenchProps {
   ) => void
   onCompleteSet: (exerciseId: string, setIndex: number) => void
   onReplaceExercise: (exerciseId: string, name: string) => void
+  onToggleDiscomfortFlag: (exerciseId: string, discomfortFlag: boolean) => void
   onToggleSkipExercise: (exerciseId: string, isSkipped: boolean) => void
 }
 
@@ -41,6 +42,7 @@ export function WorkoutPlanWorkbench({
   onUpdateSetValue,
   onCompleteSet,
   onReplaceExercise,
+  onToggleDiscomfortFlag,
   onToggleSkipExercise,
 }: WorkoutPlanWorkbenchProps) {
   const title =
@@ -162,6 +164,7 @@ export function WorkoutPlanWorkbench({
                 onUpdateSetValue={onUpdateSetValue}
                 onCompleteSet={onCompleteSet}
                 onReplaceExercise={onReplaceExercise}
+                onToggleDiscomfortFlag={onToggleDiscomfortFlag}
                 onToggleSkipExercise={onToggleSkipExercise}
               />
             ))}

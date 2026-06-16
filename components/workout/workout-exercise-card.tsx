@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef } from "react"
-import { Check, Circle, Minus, SkipForward, Zap } from "lucide-react"
+import { AlertTriangle, Check, Circle, Minus, SkipForward, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ReplaceExerciseDialog } from "@/components/workout/replace-exercise-dialog"
 import { WorkoutSetNumberInput } from "@/components/workout/workout-set-number-input"
@@ -36,6 +36,7 @@ interface WorkoutExerciseCardProps {
   ) => void
   onCompleteSet: (exerciseId: string, setIndex: number) => void
   onReplaceExercise: (exerciseId: string, name: string) => void
+  onToggleDiscomfortFlag: (exerciseId: string, discomfortFlag: boolean) => void
   onToggleSkipExercise: (exerciseId: string, isSkipped: boolean) => void
 }
 
@@ -45,6 +46,7 @@ export function WorkoutExerciseCard({
   onUpdateSetValue,
   onCompleteSet,
   onReplaceExercise,
+  onToggleDiscomfortFlag,
   onToggleSkipExercise,
 }: WorkoutExerciseCardProps) {
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
@@ -141,6 +143,20 @@ export function WorkoutExerciseCard({
             displayName={displayName}
             onReplace={(name) => onReplaceExercise(exercise.exerciseId, name)}
           />
+          <Button
+            variant={exercise.discomfortFlag ? "secondary" : "bare"}
+            size="sm"
+            className="text-xs"
+            onClick={() =>
+              onToggleDiscomfortFlag(
+                exercise.exerciseId,
+                !exercise.discomfortFlag,
+              )
+            }
+          >
+            <AlertTriangle className="mr-1.5 h-4 w-4" />
+            {exercise.discomfortFlag ? "取消不适" : "感觉不对"}
+          </Button>
           <Button
             variant={exercise.isExerciseSkipped ? "secondary" : "bare"}
             size="sm"

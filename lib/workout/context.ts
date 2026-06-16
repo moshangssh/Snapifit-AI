@@ -41,6 +41,7 @@ export function summarizeWorkoutSession(
         workingSetReps: workingSet?.reps,
         wasReplaced: Boolean(exercise.actualExerciseName),
         wasSkipped: exercise.isExerciseSkipped,
+        discomfortFlag: exercise.discomfortFlag,
         muscleGroups: (
           exercise.enrichedAnalysis ?? exercise.plannedAnalysis
         ).muscleGroups,

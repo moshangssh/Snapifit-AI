@@ -7,6 +7,7 @@ import {
   FALLBACK_STRENGTH_ANALYSIS,
   removeWorkoutSessionEntries,
   replaceWorkoutExercise,
+  setWorkoutExerciseDiscomfortFlag,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
   workoutSessionToExerciseEntries,
@@ -162,6 +163,47 @@ describe("workout session core", () => {
         isSkipped: false,
       })),
     )
+  })
+
+  it("summarizes discomfort flags for replacement decisions", () => {
+    const plan = generateSession(
+      {
+        phase: "novice",
+        completedSessionCount: 4,
+        blacklistedExerciseIds: [],
+      },
+      { effectiveUserWeightKg: 72 },
+    )
+    let session = createWorkoutSessionFromPlan({
+      ...makeInput(),
+      exercises: plan.exercises,
+      templateIndex: plan.templateIndex,
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+    })
+    const mainExercise = session.exercises.find(
+      (exercise) => exercise.phase === "main",
+    )
+
+    expect(mainExercise?.catalogExerciseId).toBeTruthy()
+
+    session = setWorkoutExerciseDiscomfortFlag(
+      session,
+      mainExercise?.exerciseId ?? "",
+      true,
+    )
+
+    const summary = summarizeWorkoutSession({
+      ...session,
+      status: "completed",
+      completedAt: "2026-04-23T09:30:00.000Z",
+    })
+    const exerciseSummary = summary.exercises.find(
+      (exercise) =>
+        exercise.catalogExerciseId === mainExercise?.catalogExerciseId,
+    )
+
+    expect(exerciseSummary?.discomfortFlag).toBe(true)
   })
 
   it("syncs changed weight only to later untouched unfinished sets", () => {

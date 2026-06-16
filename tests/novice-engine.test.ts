@@ -242,7 +242,7 @@ describe("novice workout engine", () => {
     )
 
     for (const session of sessions) {
-      const expectedDimensions =
+      const expectedDimensions: readonly (readonly string[])[] =
         session.templateName === "上A" || session.templateName === "上B"
           ? [AS_DIMENSIONS.upperThoracic, AS_DIMENSIONS.upperScapular]
           : [AS_DIMENSIONS.lowerHip, AS_DIMENSIONS.lowerSpine]
@@ -477,6 +477,129 @@ describe("novice workout engine", () => {
       chestExercise?.sets[0].plannedWeightKg,
     ])
     expect(reducedChest?.sets.map((set) => set.plannedReps)).toEqual([8, 8, 8])
+  })
+
+  it("replaces an exercise after three consecutive failures at the same weight", () => {
+    const baseline = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+    })
+    const mainExercises = baseline.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const chestExercise = mainExercises.find((exercise) =>
+      exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+
+    expect(chestExercise?.catalogExerciseId).toBeTruthy()
+
+    const failedAt40Kg = (completedAt: string) => {
+      const summary = completedSummary(completedAt, mainExercises, (setIndex) =>
+        setIndex === 0 ? 10 : 8,
+      )
+
+      return {
+        ...summary,
+        exercises: summary.exercises.map((exercise) =>
+          exercise.catalogExerciseId === chestExercise?.catalogExerciseId
+            ? {
+                ...exercise,
+                workingSetWeightKg: 40,
+                sets: exercise.sets.map((set) => ({
+                  ...set,
+                  plannedWeightKg: 40,
+                  actualWeightKg: 40,
+                })),
+              }
+            : exercise,
+        ),
+      }
+    }
+
+    const replaced = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [
+        failedAt40Kg("2026-06-21T08:00:00.000Z"),
+        failedAt40Kg("2026-06-18T08:00:00.000Z"),
+        failedAt40Kg("2026-06-15T08:00:00.000Z"),
+      ],
+    })
+    const replacement = replaced.exercises.find(
+      (exercise) =>
+        exercise.phase === "main" &&
+        exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+
+    expect(replacement?.catalogExerciseId).toBeTruthy()
+    expect(replacement?.catalogExerciseId).not.toBe(
+      chestExercise?.catalogExerciseId,
+    )
+    expect(
+      replaced.exercises.map((exercise) => exercise.catalogExerciseId),
+    ).not.toContain(chestExercise?.catalogExerciseId)
+    expect(replaced.trainingState.blacklistedExerciseIds).toContain(
+      chestExercise?.catalogExerciseId,
+    )
+    replacement?.sets.forEach((set) => {
+      expect(set.plannedWeightKg).toBeCloseTo(21.6)
+    })
+  })
+
+  it("immediately replaces an exercise marked with discomfort", () => {
+    const strengthById = new Map(
+      STRENGTH_EXERCISES.map((exercise) => [exercise.id, exercise]),
+    )
+    const baseline = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+    })
+    const mainExercises = baseline.exercises.filter(
+      (exercise) => exercise.phase === "main",
+    )
+    const chestExercise = mainExercises.find((exercise) =>
+      exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+
+    expect(chestExercise?.catalogExerciseId).toBeTruthy()
+
+    const discomfortSummary = completedSummary(
+      "2026-06-15T08:00:00.000Z",
+      mainExercises,
+      () => 10,
+    )
+    discomfortSummary.exercises = discomfortSummary.exercises.map((exercise) =>
+      exercise.catalogExerciseId === chestExercise?.catalogExerciseId
+        ? { ...exercise, discomfortFlag: true }
+        : exercise,
+    )
+
+    const replaced = generateSession(makeState(4), {
+      effectiveUserWeightKg: 72,
+      recentWorkoutSessionSummaries: [discomfortSummary],
+    })
+    const replacement = replaced.exercises.find(
+      (exercise) =>
+        exercise.phase === "main" &&
+        exercise.plannedAnalysis.muscleGroups.includes("chest"),
+    )
+    const originalCatalog = strengthById.get(
+      chestExercise?.catalogExerciseId ?? "",
+    )
+    const replacementCatalog = strengthById.get(
+      replacement?.catalogExerciseId ?? "",
+    )
+
+    expect(replacement?.catalogExerciseId).not.toBe(
+      chestExercise?.catalogExerciseId,
+    )
+    expect(
+      replaced.exercises.map((exercise) => exercise.catalogExerciseId),
+    ).not.toContain(chestExercise?.catalogExerciseId)
+    expect(replaced.trainingState.blacklistedExerciseIds).toContain(
+      chestExercise?.catalogExerciseId,
+    )
+    expect(replacementCatalog?.primaryMuscle).toBe(
+      originalCatalog?.primaryMuscle,
+    )
+    expect(replacementCatalog?.mechanics).toBe(originalCatalog?.mechanics)
   })
 
   it.each([
