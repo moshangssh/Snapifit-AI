@@ -674,7 +674,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     tags: ['INTERMEDIATE_VARIANT', 'STRENGTH'],
   },
   {
-    id: '11abe949-7bce-4971-95c0-f754772ee813',
+    id: 'e14e762d-0ff7-4ec0-8c64-2da9c9fce21d',
     name: '负重下斜卷腹',
     nameEn: 'Weighted Decline Crunch',
     primaryMuscle: 'CORE',
@@ -785,7 +785,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     tags: ['ADVANCED', 'STRENGTH'],
   },
   {
-    id: '12b4858c-6c84-43b4-964d-cfd590ff7958',
+    id: 'c438df57-599e-4cf7-b10e-601352d8f069',
     name: '单臂哑铃腕屈曲',
     nameEn: 'One-Arm Wrist Curl Dumbbell',
     primaryMuscle: 'FOREARMS',
