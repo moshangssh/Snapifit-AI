@@ -74,12 +74,20 @@ describe("workout plan route", () => {
       needBenchmarkSelection: true,
       nextPhase: "intermediate",
       reason: "novice_session_threshold",
+      benchmarkCandidates: expect.any(Array),
       trainingState: {
         phase: "novice",
         completedSessionCount: 72,
         blacklistedExerciseIds: [],
         phaseTransitionReady: true,
       },
+    })
+    expect(payload.benchmarkCandidates).toHaveLength(10)
+    expect(payload.benchmarkCandidates[0]).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+      trainingCount: expect.any(Number),
+      progressWeightKg: expect.any(Number),
     })
   })
 

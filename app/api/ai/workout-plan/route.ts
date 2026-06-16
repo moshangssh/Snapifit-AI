@@ -1,5 +1,7 @@
 import { AIError, handleAIError } from "@/lib/ai/errors"
 import { detectPhaseTransition } from "@/lib/workout/engine/adaptive-engine"
+import { getBenchmarkCandidateDetails } from "@/lib/workout/engine/benchmark-selection"
+import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
 import { generateSession } from "@/lib/workout/engine/novice-engine"
 import {
   normalizeTrainingState,
@@ -33,6 +35,10 @@ export async function POST(req: Request) {
         needBenchmarkSelection: true,
         nextPhase: phaseTransition.nextPhase,
         reason: phaseTransition.reason,
+        benchmarkCandidates: getBenchmarkCandidateDetails(
+          recentWorkoutSessionSummaries ?? [],
+          STRENGTH_EXERCISES,
+        ),
         trainingState: {
           ...normalizedTrainingState,
           phaseTransitionReady: true,

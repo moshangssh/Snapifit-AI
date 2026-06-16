@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  confirmBenchmarkSelection,
   detectPhaseTransition,
   shouldShowBenchmarkSelection,
 } from "@/lib/workout/engine/adaptive-engine"
@@ -76,5 +77,24 @@ describe("adaptive workout engine", () => {
       shouldShowBenchmarkSelection(makeState(72, { phaseTransitionReady: true })),
     ).toBe(true)
     expect(shouldShowBenchmarkSelection(makeState(72))).toBe(false)
+  })
+
+  it("confirms benchmark selection and moves training state to intermediate", () => {
+    const benchmarkExerciseIds = Array.from({ length: 10 }, (_, index) =>
+      `exercise-${index + 1}`,
+    )
+
+    expect(
+      confirmBenchmarkSelection(
+        makeState(72, { phaseTransitionReady: true }),
+        benchmarkExerciseIds,
+      ),
+    ).toEqual({
+      phase: "intermediate",
+      completedSessionCount: 72,
+      blacklistedExerciseIds: [],
+      benchmarkExerciseIds,
+      phaseTransitionReady: false,
+    })
   })
 })

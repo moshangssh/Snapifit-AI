@@ -55,3 +55,16 @@ export function detectPhaseTransition(
 export function shouldShowBenchmarkSelection(state: TrainingState): boolean {
   return state.phaseTransitionReady === true
 }
+
+export function confirmBenchmarkSelection(
+  state: TrainingState,
+  benchmarkExerciseIds: string[],
+): TrainingState {
+  return {
+    ...state,
+    phase: "intermediate",
+    benchmarkExerciseIds: benchmarkExerciseIds.slice(0, 10),
+    phaseTransitionReady: false,
+    manualDowngrade: undefined,
+  }
+}
