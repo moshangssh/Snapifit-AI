@@ -54,6 +54,7 @@ export function calculateProgress(
       if (
         exercise.catalogExerciseId !== exerciseId ||
         exercise.wasSkipped ||
+        exercise.wasReplaced ||
         exercise.completedSets <= 0 ||
         typeof exercise.workingSetWeightKg !== "number"
       ) {
@@ -174,6 +175,7 @@ function countCompletedAppearances(
         (exercise) =>
           exercise.catalogExerciseId === exerciseId &&
           !exercise.wasSkipped &&
+          !exercise.wasReplaced &&
           exercise.completedSets > 0,
       ).length,
     0,

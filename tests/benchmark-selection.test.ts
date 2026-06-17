@@ -93,6 +93,35 @@ describe("benchmark exercise selection", () => {
     })
   })
 
+  it("ignores replaced exercises in benchmark history statistics", () => {
+    const replacedSession = session(
+      "2026-01-01T08:00:00.000Z",
+      IDS.chestProgress,
+      100,
+    )
+    replacedSession.exercises = replacedSession.exercises.map((exercise) => ({
+      ...exercise,
+      exerciseName: "用户替换动作",
+      wasReplaced: true,
+    }))
+    const history = [replacedSession]
+
+    expect(calculateProgress(history, IDS.chestProgress)).toEqual({
+      progressWeightKg: 0,
+    })
+
+    const selectedDetails = getBenchmarkCandidateDetails(
+      history,
+      STRENGTH_EXERCISES,
+    )
+    expect(
+      selectedDetails.find((detail) => detail.id === IDS.chestProgress),
+    ).toMatchObject({
+      trainingCount: 0,
+      progressWeightKg: 0,
+    })
+  })
+
   it("selects 10 benchmark candidates with six training groups covered", () => {
     const history = [
       ...repeatHistory(IDS.chestFrequent, 5, 60, 65),
