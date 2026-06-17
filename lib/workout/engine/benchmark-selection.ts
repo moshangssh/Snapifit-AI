@@ -74,11 +74,22 @@ export function calculateProgress(
   }
 }
 
+export interface BenchmarkCandidateOptions {
+  /**
+   * 是否仅从带 NOVICE_CORE 标签的动作中筛选候选。
+   * 新手→中级转换时为 true（基准动作必须来自新手核心池）；
+   * 中级→高级转换时为 false（候选池已由调用方限定为用户的中级基准动作）。
+   * @default true
+   */
+  requireNoviceCore?: boolean
+}
+
 export function selectBenchmarkCandidates(
   history: RecentWorkoutSessionSummary[],
   novicePool: readonly Exercise[],
+  options: BenchmarkCandidateOptions = {},
 ): string[] {
-  return getBenchmarkCandidateDetails(history, novicePool).map(
+  return getBenchmarkCandidateDetails(history, novicePool, options).map(
     (candidate) => candidate.id,
   )
 }
@@ -86,8 +97,9 @@ export function selectBenchmarkCandidates(
 export function getBenchmarkCandidateDetails(
   history: RecentWorkoutSessionSummary[],
   novicePool: readonly Exercise[],
+  options: BenchmarkCandidateOptions = {},
 ): BenchmarkCandidateDetail[] {
-  const details = buildCandidateDetails(history, novicePool)
+  const details = buildCandidateDetails(history, novicePool, options)
   const selected: BenchmarkCandidateDetail[] = []
 
   for (const group of REQUIRED_GROUPS) {
@@ -115,9 +127,15 @@ export function getBenchmarkCandidateDetails(
 function buildCandidateDetails(
   history: RecentWorkoutSessionSummary[],
   novicePool: readonly Exercise[],
+  options: BenchmarkCandidateOptions = {},
 ): BenchmarkCandidateDetail[] {
+  const requireNoviceCore = options.requireNoviceCore ?? true
+
   return novicePool
-    .filter((exercise) => exercise.tags.includes("NOVICE_CORE"))
+    .filter(
+      (exercise) =>
+        !requireNoviceCore || exercise.tags.includes("NOVICE_CORE"),
+    )
     .map((exercise) => {
       const progress = calculateProgress(history, exercise.id)
       return {

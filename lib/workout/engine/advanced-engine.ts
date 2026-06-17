@@ -1,5 +1,6 @@
-import type { MuscleKey } from "@/lib/muscle-groups"
 import {
+  EXERCISES_BY_ID,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   type Exercise,
   type MuscleGroup,
@@ -45,6 +46,8 @@ interface TrainingTypeConfig {
   plannedReps: number
   rpe: 7 | 8 | 9
   repRange: [number, number]
+  /** 训练类型对应的 MET 估值：力量组间歇长（约 6），耐力持续负荷高（约 4） */
+  mets: number
 }
 
 // ADVANCED_SESSION_START is imported from deload.ts (the canonical source)
@@ -82,43 +85,27 @@ const TEMPLATES: TemplateDefinition[] = [
 ]
 
 const TRAINING_TYPE_CONFIG: Record<TrainingType, TrainingTypeConfig> = {
-  strength: { plannedReps: 5, rpe: 9, repRange: [3, 5] },
-  hypertrophy: { plannedReps: 12, rpe: 8, repRange: [8, 12] },
-  endurance: { plannedReps: 20, rpe: 7, repRange: [15, 20] },
+  strength: { plannedReps: 5, rpe: 9, repRange: [3, 5], mets: 6 },
+  hypertrophy: { plannedReps: 12, rpe: 8, repRange: [8, 12], mets: 5 },
+  endurance: { plannedReps: 20, rpe: 7, repRange: [15, 20], mets: 4 },
 }
 
-const EXERCISES_BY_ID = new Map(
-  STRENGTH_EXERCISES.map((exercise) => [exercise.id, exercise]),
-)
-
-const MUSCLE_MAP: Record<MuscleGroup, MuscleKey[]> = {
-  CHEST: ["chest"],
-  BACK: ["upper-back"],
-  SHOULDERS: ["front-deltoids"],
-  QUADS: ["quadriceps"],
-  GLUTES: ["glutes"],
-  HAMSTRINGS: ["hamstrings"],
-  BICEPS: ["biceps"],
-  TRICEPS: ["triceps"],
-  CORE: ["abs"],
-  FOREARMS: ["forearms"],
-  CALVES: ["calves"],
-}
 
 function analysis(
   muscle: MuscleGroup,
   setCount: number,
   effectiveUserWeightKg: number,
+  mets: number,
 ): WorkoutExerciseAnalysis {
   const estimatedDurationMinutes = setCount * 3
 
   return {
     exerciseType: "strength",
     muscleGroups: MUSCLE_MAP[muscle],
-    estimatedMets: 5,
+    estimatedMets: mets,
     estimatedDurationMinutes,
     caloriesBurnedEstimated: Math.round(
-      (5 * effectiveUserWeightKg * estimatedDurationMinutes) / 60,
+      (mets * effectiveUserWeightKg * estimatedDurationMinutes) / 60,
     ),
     isEstimated: true,
   }
@@ -275,6 +262,7 @@ function draftMainExercise(
       exercise.primaryMuscle,
       setCount,
       effectiveUserWeightKg,
+      config.mets,
     ),
   }
 }

@@ -33,20 +33,24 @@ export async function POST(req: Request) {
     const phaseTransition = detectPhaseTransition(normalizedTrainingState)
 
     if (phaseTransition.phaseTransitionReady) {
-      const candidatePool =
-        phaseTransition.nextPhase === "advanced"
-          ? STRENGTH_EXERCISES.filter((exercise) =>
-              (normalizedTrainingState.benchmarkExerciseIds ?? []).includes(
-                exercise.id,
-              ),
-            )
-          : STRENGTH_EXERCISES
+      // 中级→高级：从用户已选定的中级基准动作中挑选终生基准动作；
+      // 新手→中级：从完整力量库的新手核心动作中挑选。
+      const isAdvancedTransition = phaseTransition.nextPhase === "advanced"
+      const candidatePool = isAdvancedTransition
+        ? STRENGTH_EXERCISES.filter((exercise) =>
+            (normalizedTrainingState.benchmarkExerciseIds ?? []).includes(
+              exercise.id,
+            ),
+          )
+        : STRENGTH_EXERCISES
       const benchmarkCandidates = getBenchmarkCandidateDetails(
         recentWorkoutSessionSummaries ?? [],
         candidatePool,
+        // 高级候选池已限定为用户的中级基准动作，无需再按 NOVICE_CORE 过滤
+        { requireNoviceCore: !isAdvancedTransition },
       )
 
-      if (phaseTransition.nextPhase === "advanced") {
+      if (isAdvancedTransition) {
         if (benchmarkCandidates.length < 5) {
           throw new AIError(
             "INSUFFICIENT_TRAINING_HISTORY",

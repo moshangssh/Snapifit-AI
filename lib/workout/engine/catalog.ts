@@ -13,6 +13,8 @@
  * @see docs/adr/0006-exercise-catalog-96-selected-from-824.md
  */
 
+import type { MuscleKey } from "@/lib/muscle-groups"
+
 export type MuscleGroup =
   | 'CHEST'
   | 'BACK'
@@ -1395,6 +1397,30 @@ export const AS_CORE_EXERCISES: Exercise[] = [
     tags: ['AS_CORE', 'MOBILITY', 'STRETCH', 'WARMUP'],
   }
 ]
+
+/**
+ * 按 ID 快速查找力量训练动作
+ */
+export const EXERCISES_BY_ID = new Map(
+  STRENGTH_EXERCISES.map(ex => [ex.id, ex]),
+)
+
+/**
+ * 肌群到 MuscleKey 的映射
+ */
+export const MUSCLE_MAP: Record<MuscleGroup, MuscleKey[]> = {
+  CHEST: ["chest"],
+  BACK: ["upper-back"],
+  SHOULDERS: ["front-deltoids"],
+  QUADS: ["quadriceps"],
+  GLUTES: ["glutes"],
+  HAMSTRINGS: ["hamstrings"],
+  BICEPS: ["biceps"],
+  TRICEPS: ["triceps"],
+  CORE: ["abs"],
+  FOREARMS: ["forearms"],
+  CALVES: ["calves"],
+}
 
 /**
  * 完整动作库（106 个）

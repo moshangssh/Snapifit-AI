@@ -1,4 +1,6 @@
 import {
+  EXERCISES_BY_ID,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   findVariants,
   type Exercise,
@@ -10,7 +12,6 @@ import type {
   WorkoutExerciseAnalysis,
   WorkoutPlanExerciseDraft,
 } from "@/lib/workout/types"
-import type { MuscleKey } from "@/lib/muscle-groups"
 
 type TemplateName = "上A" | "下A" | "上B" | "下B" | "上C" | "下C"
 type IntermediateBlock = "accumulation" | "intensification" | "deload"
@@ -48,24 +49,6 @@ const TEMPLATES: TemplateDefinition[] = [
   { name: "上C", mainMuscles: ["CHEST", "BACK", "SHOULDERS", "TRICEPS"] },
   { name: "下C", mainMuscles: ["QUADS", "GLUTES", "CORE"] },
 ]
-
-const EXERCISES_BY_ID = new Map(
-  STRENGTH_EXERCISES.map((exercise) => [exercise.id, exercise]),
-)
-
-const MUSCLE_MAP: Record<MuscleGroup, MuscleKey[]> = {
-  CHEST: ["chest"],
-  BACK: ["upper-back"],
-  SHOULDERS: ["front-deltoids"],
-  QUADS: ["quadriceps"],
-  GLUTES: ["glutes"],
-  HAMSTRINGS: ["hamstrings"],
-  BICEPS: ["biceps"],
-  TRICEPS: ["triceps"],
-  CORE: ["abs"],
-  FOREARMS: ["forearms"],
-  CALVES: ["calves"],
-}
 
 function analysis(
   muscle: MuscleGroup,
@@ -342,6 +325,14 @@ function selectVariantsForTemplate(
   return selected
 }
 
+/**
+ * 判断当前课次（块内序号）使用基准动作还是匹配变式。
+ *
+ * 每个块状周期（42 次）的结构为：积累 18 + 强化 18 + 减载 6。
+ * 在积累块和强化块中，前 6 次用基准动作做"测试"以记录进展（benchmarkSessions），
+ * 之后切换到匹配变式以增加多样性；减载块全程使用基准动作，
+ * 因为减载周需要在熟悉的动作上以轻负荷恢复，不引入新变式。
+ */
 function usesBenchmarkExercises(blockSessionIndex: number): boolean {
   const accBenchmark = BLOCK_CONFIG.accumulation.benchmarkSessions
   const accEnd = BLOCK_CONFIG.accumulation.sessions
