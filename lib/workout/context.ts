@@ -9,6 +9,9 @@ import type {
   WorkoutSessionSet,
 } from "@/lib/workout/types"
 
+// 中高级阶段按 6 个模板轮转，计划上下文需覆盖完整微周期。
+export const WORKOUT_PLAN_HISTORY_SESSION_LIMIT = 6
+
 export function getEffectiveUserWeightKg(
   logsByDateDesc: DailyLog[],
   userProfile: UserProfile,
@@ -90,7 +93,7 @@ export function buildWorkoutPlanContextSnapshot(input: {
     generatedAt: input.now,
     userGoal: input.userProfile.goal,
     recentWorkoutSessionSummaries: input.recentCompletedSessions
-      .slice(0, 5)
+      .slice(0, WORKOUT_PLAN_HISTORY_SESSION_LIMIT)
       .map(summarizeWorkoutSession),
     recentExerciseEntries: summarizeExerciseEntries(
       input.recentLogsByDateDesc.slice(0, 14),

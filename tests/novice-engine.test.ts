@@ -116,6 +116,20 @@ describe("novice workout engine", () => {
     }
   })
 
+  it("labels AS core exercises in generated plans", () => {
+    const session = generateSession(makeState(0))
+    const asCoreIds = new Set(AS_CORE_EXERCISES.map((exercise) => exercise.id))
+    const asExercises = session.exercises.filter(
+      (exercise) =>
+        exercise.catalogExerciseId && asCoreIds.has(exercise.catalogExerciseId),
+    )
+
+    expect(asExercises).toHaveLength(4)
+    for (const exercise of asExercises) {
+      expect(exercise.labels).toEqual(["AS"])
+    }
+  })
+
   it("deloads for three sessions after every twelve completed sessions", () => {
     const firstDeloadTemplate = generateSession(makeState(12), {
       effectiveUserWeightKg: 72,

@@ -36,7 +36,11 @@ import {
   setExerciseBlacklisted,
   writeTrainingState,
 } from "@/lib/workout/engine/training-state"
-import { buildWorkoutPlanContextSnapshot, getEffectiveUserWeightKg } from "@/lib/workout/context"
+import {
+  buildWorkoutPlanContextSnapshot,
+  getEffectiveUserWeightKg,
+  WORKOUT_PLAN_HISTORY_SESSION_LIMIT,
+} from "@/lib/workout/context"
 import type { WorkoutExerciseAnalysis, WorkoutSession } from "@/lib/workout/types"
 import { WorkoutPlanWorkbench } from "@/components/workout/workout-plan-workbench"
 import { BenchmarkSelectionCard } from "@/components/workout/benchmark-selection-card"
@@ -118,7 +122,9 @@ export default function WorkoutPage() {
     try {
       const now = new Date().toISOString()
       const recentLogs = await loadRecentLogs()
-      const recentCompletedSessions = await getCompletedSessions(5)
+      const recentCompletedSessions = await getCompletedSessions(
+        WORKOUT_PLAN_HISTORY_SESSION_LIMIT,
+      )
       const effectiveUserWeightKg = getEffectiveUserWeightKg(recentLogs, userProfile)
       const planContext = buildWorkoutPlanContextSnapshot({
         now,

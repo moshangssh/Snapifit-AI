@@ -49,6 +49,7 @@ export interface WorkoutSessionExercise {
   actualExerciseName?: string
   notes?: string
   tips: string[]
+  labels?: string[]
   sets: WorkoutSessionSet[]
   isExerciseSkipped: boolean
   analysisStatus: WorkoutExerciseAnalysisStatus
@@ -156,6 +157,7 @@ export interface WorkoutPlanExerciseDraft {
   phase: WorkoutExercisePhase
   notes?: string
   tips: string[]
+  labels?: string[]
   sets: Array<{
     plannedWeightKg?: number
     plannedReps?: number

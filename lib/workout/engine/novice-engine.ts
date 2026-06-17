@@ -196,6 +196,7 @@ function catalogDraft(
         ? "作为本模板的固定主训练动作。"
         : "服务于本模板的活动度和准备度。",
     tips: ["保持动作可控。", "出现不适就降低幅度或停止。"],
+    labels: exercise.tags.includes("AS_CORE") ? ["AS"] : undefined,
     catalogExerciseId: exercise.id,
     sets: Array.from({ length: setCount }, () => ({
       plannedWeightKg: isStrength

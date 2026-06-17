@@ -8,6 +8,7 @@ import { ReplaceExerciseDialog } from "@/components/workout/replace-exercise-dia
 import { WorkoutSetNumberInput } from "@/components/workout/workout-set-number-input"
 import { MUSCLE_LABELS_ZH } from "@/lib/muscle-groups"
 import { cn } from "@/lib/utils"
+import { getWorkoutExerciseLabels } from "@/lib/workout/exercise-labels"
 import type {
   WorkoutExercisePhase,
   WorkoutSessionExercise,
@@ -53,6 +54,7 @@ export function WorkoutExerciseCard({
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
   const phase = exercise.phase ?? "main"
   const tips = exercise.tips ?? []
+  const labels = getWorkoutExerciseLabels(exercise)
   const isDone = isExerciseDone(exercise)
   const statusLabel = getExerciseStatusLabel(exercise, isCurrent, isDone)
   const currentSet = exercise.sets.find(
@@ -73,9 +75,19 @@ export function WorkoutExerciseCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="m-0 text-[15px] font-semibold leading-snug">
-            {displayName}
-          </h3>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <h3 className="m-0 min-w-0 text-[15px] font-semibold leading-snug">
+              {displayName}
+            </h3>
+            {labels.map((label) => (
+              <span
+                key={label}
+                className="shrink-0 rounded-full border border-[hsl(var(--c-ai)/0.35)] bg-[hsl(var(--c-ai)/0.08)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-c-ai"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
           <div className="mt-0.5 text-xs text-muted-foreground">
             {PHASE_LABELS[phase]} · {exercise.sets.length} 组
             {exercise.actualExerciseName ? " · 已替换" : ""}
