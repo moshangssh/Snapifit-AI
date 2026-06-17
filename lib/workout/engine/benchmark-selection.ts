@@ -49,23 +49,38 @@ export function calculateProgress(
   history: RecentWorkoutSessionSummary[],
   exerciseId: string,
 ): ExerciseProgress {
-  const weights = history
-    .flatMap((session) => session.exercises)
-    .filter(
-      (exercise) =>
-        exercise.catalogExerciseId === exerciseId &&
-        !exercise.wasSkipped &&
-        exercise.completedSets > 0,
-    )
-    .map((exercise) => exercise.workingSetWeightKg)
-    .filter((weight): weight is number => typeof weight === "number")
+  const completedWeights = history.flatMap((session) =>
+    session.exercises.flatMap((exercise) => {
+      if (
+        exercise.catalogExerciseId !== exerciseId ||
+        exercise.wasSkipped ||
+        exercise.completedSets <= 0 ||
+        typeof exercise.workingSetWeightKg !== "number"
+      ) {
+        return []
+      }
 
-  if (weights.length === 0) {
+      return [
+        {
+          completedAt: session.completedAt,
+          weightKg: exercise.workingSetWeightKg,
+        },
+      ]
+    }),
+  )
+
+  if (completedWeights.length === 0) {
     return { progressWeightKg: 0 }
   }
 
-  const initialWeightKg = weights[0]
-  const latestPrWeightKg = Math.max(...weights)
+  const initialWeightKg = completedWeights.reduce((earliest, entry) =>
+    Date.parse(entry.completedAt) < Date.parse(earliest.completedAt)
+      ? entry
+      : earliest,
+  ).weightKg
+  const latestPrWeightKg = Math.max(
+    ...completedWeights.map((entry) => entry.weightKg),
+  )
 
   return {
     initialWeightKg,

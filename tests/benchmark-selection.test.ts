@@ -83,6 +83,16 @@ describe("benchmark exercise selection", () => {
     })
   })
 
+  it("uses the earliest completed session weight as initial progress", () => {
+    const history = repeatHistory(IDS.chestProgress, 3, 70, 100).toReversed()
+
+    expect(calculateProgress(history, IDS.chestProgress)).toEqual({
+      initialWeightKg: 70,
+      latestPrWeightKg: 100,
+      progressWeightKg: 30,
+    })
+  })
+
   it("selects 10 benchmark candidates with six training groups covered", () => {
     const history = [
       ...repeatHistory(IDS.chestFrequent, 5, 60, 65),
