@@ -318,3 +318,75 @@ describe("intermediate workout engine", () => {
     }
   })
 })
+
+describe("intermediate workout engine AS safety lock", () => {
+  // Anchor the SHOULDERS benchmark on the machine shoulder press (a vertical_push
+  // movement) so its matched variants include the lockable dumbbell overhead press.
+  const MACHINE_SHOULDER_PRESS_ID = "6b0ffef6-8dd1-4b89-999a-a11d85d9e16f"
+
+  function asBenchmarkIds(): string[] {
+    return Array.from(new Set([MACHINE_SHOULDER_PRESS_ID, ...benchmarkIds()]))
+  }
+
+  function asState(
+    completedSessionCount: number,
+    overrides: Partial<TrainingState> = {},
+  ): TrainingState {
+    return makeState(completedSessionCount, {
+      benchmarkExerciseIds: asBenchmarkIds(),
+      ...overrides,
+    })
+  }
+
+  function mainExercisesFor(state: TrainingState) {
+    return generateSession(state)
+      .exercises.filter((exercise) => exercise.phase === "main")
+      .map((exercise) =>
+        STRENGTH_EXERCISES.find(
+          (item) => item.id === exercise.catalogExerciseId,
+        ),
+      )
+      .filter((exercise): exercise is (typeof STRENGTH_EXERCISES)[number] =>
+        exercise !== undefined,
+      )
+  }
+
+  const isOverheadPress = (exercise: (typeof STRENGTH_EXERCISES)[number]) =>
+    exercise.movementPattern === "vertical_push" &&
+    (exercise.angle === "overhead" ||
+      exercise.equipment === "BARBELL" ||
+      exercise.equipment === "DUMBBELL")
+
+  it("never prescribes locked overhead/axial movements across a full block cycle by default", () => {
+    for (let count = 72; count < 72 + 42; count++) {
+      const exercises = mainExercisesFor(asState(count))
+
+      expect(exercises.some(isOverheadPress)).toBe(false)
+      expect(
+        exercises.some(
+          (exercise) =>
+            (exercise.movementPattern === "squat_pattern" ||
+              exercise.movementPattern === "hinge_pattern") &&
+            exercise.equipment === "BARBELL",
+        ),
+      ).toBe(false)
+    }
+  })
+
+  it("allows a dumbbell overhead press variant only once overhead press is unlocked", () => {
+    let lockedHits = 0
+    let unlockedHits = 0
+
+    for (let count = 72; count < 72 + 42; count++) {
+      lockedHits += mainExercisesFor(asState(count)).filter(
+        isOverheadPress,
+      ).length
+      unlockedHits += mainExercisesFor(
+        asState(count, { unlockedRiskCategories: ["overhead_press"] }),
+      ).filter(isOverheadPress).length
+    }
+
+    expect(lockedHits).toBe(0)
+    expect(unlockedHits).toBeGreaterThan(0)
+  })
+})

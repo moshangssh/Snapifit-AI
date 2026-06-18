@@ -108,4 +108,27 @@ describe("workout exercise selection", () => {
     expect(selected).toBeDefined()
     expect(blacklistFirst2).not.toContain(selected.id)
   })
+
+  it("excludes AS-locked movements from the pool unless their category is unlocked", () => {
+    const lockedByDefault = selectExercises({
+      muscle: "QUADS",
+      pool: STRENGTH_EXERCISES,
+    })
+    const withUnlock = selectExercises({
+      muscle: "QUADS",
+      pool: STRENGTH_EXERCISES,
+      unlockedRiskCategories: ["axial_loaded_lower"],
+    })
+
+    const hasBarbellSquat = (list: typeof lockedByDefault) =>
+      list.some(
+        (exercise) =>
+          exercise.nameEn === "Barbell Squat" ||
+          (exercise.movementPattern === "squat_pattern" &&
+            exercise.equipment === "BARBELL"),
+      )
+
+    expect(hasBarbellSquat(lockedByDefault)).toBe(false)
+    expect(hasBarbellSquat(withUnlock)).toBe(true)
+  })
 })

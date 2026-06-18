@@ -156,3 +156,148 @@ describe("advanced workout engine", () => {
     expect(session258.trainingState.lastDeloadSession).toBe(257)
   })
 })
+
+describe("advanced workout engine AS safety lock", () => {
+  function poolState(
+    completedSessionCount: number,
+    overrides: Partial<TrainingState> = {},
+  ): TrainingState {
+    // No lifetime benchmarks => every template (including strength) draws from
+    // the full strength pool, so the safety lock is exercised everywhere.
+    return {
+      phase: "advanced",
+      completedSessionCount,
+      blacklistedExerciseIds: [],
+      lastDeloadSession: 240,
+      ...overrides,
+    }
+  }
+
+  function mainCatalogExercises(state: TrainingState) {
+    return generateSession(state)
+      .exercises.filter((exercise) => exercise.phase === "main")
+      .map((exercise) =>
+        STRENGTH_EXERCISES.find((item) => item.id === exercise.catalogExerciseId),
+      )
+      .filter((exercise): exercise is (typeof STRENGTH_EXERCISES)[number] =>
+        exercise !== undefined,
+      )
+  }
+
+  const isAxialBarbell = (exercise: (typeof STRENGTH_EXERCISES)[number]) =>
+    (exercise.movementPattern === "squat_pattern" ||
+      exercise.movementPattern === "hinge_pattern") &&
+    exercise.equipment === "BARBELL"
+
+  const isOverheadPress = (exercise: (typeof STRENGTH_EXERCISES)[number]) =>
+    exercise.movementPattern === "vertical_push" &&
+    (exercise.angle === "overhead" ||
+      exercise.equipment === "BARBELL" ||
+      exercise.equipment === "DUMBBELL")
+
+  it("never prescribes barbell squat/hinge, overhead press, or the snatch by default", () => {
+    for (let count = 240; count < 240 + 60; count++) {
+      const exercises = mainCatalogExercises(poolState(count))
+
+      expect(exercises.some(isAxialBarbell)).toBe(false)
+      expect(exercises.some(isOverheadPress)).toBe(false)
+      expect(exercises.some((exercise) => exercise.nameEn === "Snatch")).toBe(
+        false,
+      )
+    }
+  })
+
+  it("keeps every main slot filled with safe alternatives while everything is locked", () => {
+    const expectedMainCount = [240, 241, 242, 243, 244, 245].map(
+      (count) =>
+        generateSession(poolState(count)).exercises.filter(
+          (exercise) => exercise.phase === "main",
+        ).length,
+    )
+
+    // 力量上 4, 力量下 3, 肌肥大上 5, 肌肥大下 4, 耐力上 4, 耐力下 4
+    expect(expectedMainCount).toEqual([4, 3, 5, 4, 4, 4])
+
+    for (let count = 240; count < 240 + 24; count++) {
+      const exercises = mainCatalogExercises(poolState(count))
+      const ids = exercises.map((exercise) => exercise.id)
+      // no empty slots collapsed and no duplicate filler
+      expect(new Set(ids).size).toBe(ids.length)
+      expect(exercises.every((exercise) => exercise.equipment !== "BARBELL" ||
+        exercise.movementPattern === "horizontal_push" ||
+        exercise.movementPattern === "horizontal_pull" ||
+        exercise.movementPattern === "incline_push" ||
+        exercise.movementPattern === "calf_raise")).toBe(true)
+    }
+  })
+
+  it("surfaces barbell axial lifts only after that category is unlocked", () => {
+    const lockedHits = []
+    const unlockedHits = []
+
+    for (let count = 240; count < 240 + 60; count++) {
+      lockedHits.push(...mainCatalogExercises(poolState(count)).filter(isAxialBarbell))
+      unlockedHits.push(
+        ...mainCatalogExercises(
+          poolState(count, { unlockedRiskCategories: ["axial_loaded_lower"] }),
+        ).filter(isAxialBarbell),
+      )
+    }
+
+    expect(lockedHits).toHaveLength(0)
+    expect(unlockedHits.length).toBeGreaterThan(0)
+  })
+
+  it("labels manually unlocked risk movements so they are distinguishable from default-safe ones", () => {
+    for (let count = 240; count < 240 + 60; count++) {
+      const plan = generateSession(
+        poolState(count, { unlockedRiskCategories: ["axial_loaded_lower"] }),
+      )
+
+      for (const draft of plan.exercises) {
+        if (draft.phase !== "main") continue
+        const exercise = STRENGTH_EXERCISES.find(
+          (item) => item.id === draft.catalogExerciseId,
+        )
+        const isAxial = exercise ? isAxialBarbell(exercise) : false
+
+        if (isAxial) {
+          expect(draft.labels ?? []).toContain("AS·已解锁")
+        } else {
+          expect(draft.labels ?? []).not.toContain("AS·已解锁")
+        }
+      }
+    }
+  })
+
+  it("does not re-prescribe a locked movement that appears in history", () => {
+    const snatch = STRENGTH_EXERCISES.find((item) => item.nameEn === "Snatch")!
+    const history = [
+      {
+        completedAt: "2026-01-01T00:00:00.000Z",
+        exercises: [
+          {
+            catalogExerciseId: snatch.id,
+            exerciseName: snatch.name,
+            phase: "main" as const,
+            completedSets: 3,
+            workingSetWeightKg: 60,
+            workingSetReps: 5,
+            wasReplaced: false,
+            wasSkipped: false,
+            muscleGroups: ["quadriceps"],
+          },
+        ],
+      },
+    ]
+
+    for (let count = 240; count < 240 + 12; count++) {
+      const ids = generateSession(poolState(count), {
+        recentWorkoutSessionSummaries: history,
+      })
+        .exercises.map((exercise) => exercise.catalogExerciseId)
+
+      expect(ids).not.toContain(snatch.id)
+    }
+  })
+})

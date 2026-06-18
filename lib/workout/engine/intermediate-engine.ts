@@ -6,6 +6,7 @@ import {
   type Exercise,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
+import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   RecentWorkoutSessionSummary,
@@ -95,15 +96,21 @@ function draftMainExercise(
     plannedReps: number
     plannedWeightKg: number
     setCount?: number
+    unlockedRiskCategories?: readonly string[]
   },
 ): WorkoutPlanExerciseDraft {
   const setCount = options.setCount ?? 3
+  const unlockedRisk = unlockedRiskCategoryOf(
+    exercise,
+    options.unlockedRiskCategories,
+  )
 
   return {
     plannedExerciseName: exercise.name,
     phase: "main",
     notes: "中级块状周期主训练动作。",
     tips: ["保持动作可控。", "完成目标次数后按块内规则渐进。"],
+    labels: unlockedRisk ? [AS_UNLOCKED_LABEL] : undefined,
     catalogExerciseId: exercise.id,
     sets: Array.from({ length: setCount }, () => ({
       plannedWeightKg: options.plannedWeightKg,
@@ -247,9 +254,12 @@ function plannedDeloadWeightKg(
 }
 
 function benchmarkPool(state: TrainingState): Exercise[] {
-  return (state.benchmarkExerciseIds ?? [])
-    .map((id) => EXERCISES_BY_ID.get(id))
-    .filter((exercise): exercise is Exercise => exercise !== undefined)
+  return filterASSafe(
+    (state.benchmarkExerciseIds ?? [])
+      .map((id) => EXERCISES_BY_ID.get(id))
+      .filter((exercise): exercise is Exercise => exercise !== undefined),
+    state.unlockedRiskCategories,
+  )
 }
 
 function selectBenchmarksForTemplate(
@@ -286,8 +296,11 @@ function intermediateVariantPool(state: TrainingState): Exercise[] {
     ...(state.benchmarkExerciseIds ?? []),
   ])
   const variantsById = new Map<string, Exercise>()
-  const pool = STRENGTH_EXERCISES.filter((exercise) =>
-    exercise.tags.includes("INTERMEDIATE_VARIANT"),
+  const pool = filterASSafe(
+    STRENGTH_EXERCISES.filter((exercise) =>
+      exercise.tags.includes("INTERMEDIATE_VARIANT"),
+    ),
+    state.unlockedRiskCategories,
   )
 
   for (const benchmark of benchmarkPool(state)) {
@@ -374,6 +387,7 @@ export function generateSession(
     draftMainExercise(exercise, effectiveUserWeightKg, {
       plannedReps: block === "accumulation" ? 10 : 6,
       setCount: block === "deload" ? 2 : 3,
+      unlockedRiskCategories: state.unlockedRiskCategories,
       plannedWeightKg:
         block === "accumulation"
           ? plannedAccumulationWeightKg(exercise, recentWorkoutSessionSummaries)

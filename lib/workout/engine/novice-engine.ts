@@ -4,6 +4,7 @@ import {
   type Exercise,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
+import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
 import {
   selectASCore,
   selectExercises,
@@ -172,6 +173,7 @@ function catalogDraft(
   effectiveUserWeightKg: number,
   recentWorkoutSessionSummaries: RecentWorkoutSessionSummary[] = [],
   forceConservativeStart = false,
+  unlockedRiskCategories?: readonly string[],
 ): WorkoutPlanExerciseDraft {
   const exercise = getExercise(id)
   const isStrength = STRENGTH_EXERCISES.some((item) => item.id === id)
@@ -187,6 +189,11 @@ function catalogDraft(
           },
         )
       : null
+  const labels: string[] = []
+  if (exercise.tags.includes("AS_CORE")) labels.push("AS")
+  if (unlockedRiskCategoryOf(exercise, unlockedRiskCategories)) {
+    labels.push(AS_UNLOCKED_LABEL)
+  }
 
   return {
     plannedExerciseName: exercise.name,
@@ -196,7 +203,7 @@ function catalogDraft(
         ? "作为本模板的固定主训练动作。"
         : "服务于本模板的活动度和准备度。",
     tips: ["保持动作可控。", "出现不适就降低幅度或停止。"],
-    labels: exercise.tags.includes("AS_CORE") ? ["AS"] : undefined,
+    labels: labels.length > 0 ? labels : undefined,
     catalogExerciseId: exercise.id,
     sets: Array.from({ length: setCount }, () => ({
       plannedWeightKg: isStrength
@@ -317,6 +324,7 @@ function selectByMuscleSlots(
   blacklist: string[],
   offset: number,
   extraExcludeIds: string[] = [],
+  unlockedRiskCategories: readonly string[] = [],
 ): Exercise[] {
   const selected: Exercise[] = []
 
@@ -332,6 +340,7 @@ function selectByMuscleSlots(
       excludeIds,
       count: 1,
       offset: offset + index,
+      unlockedRiskCategories,
     })
 
     if (exercise) {
@@ -345,6 +354,7 @@ function selectByMuscleSlots(
       excludeIds: blacklist,
       count: 1,
       offset: offset + index,
+      unlockedRiskCategories,
     })
 
     if (fallback) {
@@ -379,6 +389,12 @@ function resolveMainExerciseReplacements(input: {
   const selectedIds = input.exercises.map((exercise) => exercise.id)
   const resolvedExercises: Exercise[] = []
   let blacklist = input.state.blacklistedExerciseIds
+  // Replacements must also respect the AS safety lock, so a discomfort swap can
+  // never pull a locked movement into the plan.
+  const replacementPool = filterASSafe(
+    STRENGTH_EXERCISES.filter((item) => item.tags.includes("NOVICE_CORE")),
+    input.state.unlockedRiskCategories,
+  )
 
   for (const exercise of input.exercises) {
     const progression = evaluateProgression(
@@ -403,7 +419,7 @@ function resolveMainExerciseReplacements(input: {
     ])
     const replacement = findReplacement(
       exercise,
-      STRENGTH_EXERCISES.filter((item) => item.tags.includes("NOVICE_CORE")),
+      replacementPool,
       blockedForReplacement,
     )
 
@@ -420,7 +436,7 @@ function resolveMainExerciseReplacements(input: {
       )
       const fallbackReplacement = findReplacement(
         exercise,
-        STRENGTH_EXERCISES.filter((item) => item.tags.includes("NOVICE_CORE")),
+        replacementPool,
         filteredBlacklist,
       )
 
@@ -467,10 +483,13 @@ export function generateSession(
   const template = TEMPLATES[templateIndex]
   const rotationOffset = Math.floor(state.completedSessionCount / TEMPLATES.length)
   const discomfortIds = discomfortExerciseIds(recentWorkoutSessionSummaries)
+  const unlockedRiskCategories = state.unlockedRiskCategories
   const mainExercises = selectByMuscleSlots(
     template.mainMuscles,
     state.blacklistedExerciseIds,
     rotationOffset,
+    [],
+    unlockedRiskCategories,
   )
   const resolvedMain = isDeload
     ? {
@@ -503,6 +522,7 @@ export function generateSession(
     blacklist,
     rotationOffset + 1,
     resolvedMain.exercises.map((exercise) => exercise.id),
+    unlockedRiskCategories,
   )
   // Use rotationOffset + 1 for cooldown to ensure different AS movements
   // are selected compared to warmup (which uses rotationOffset + 0)
@@ -529,6 +549,7 @@ export function generateSession(
       effectiveUserWeightKg,
       isDeload ? [] : recentWorkoutSessionSummaries,
       resolvedMain.conservativeStartIds.has(exercise.id),
+      unlockedRiskCategories,
     )
 
     return isDeload
