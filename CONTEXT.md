@@ -53,7 +53,7 @@ The user's current stage of progression: Novice Linear (0-6 months), Intermediat
 _Avoid_: 训练水平 (static label; phases are dynamic and transition-based)
 
 **渐进规则 (Progression Rule)**:
-The algorithm that decides when to increase weight, maintain, reduce reps, or switch exercises. Novice phase uses linear progression (add weight each session if target reps met). Intermediate uses block periodization. Advanced uses daily undulating periodization.
+The algorithm that decides when to increase weight, maintain, reduce reps, or switch exercises. Novice phase uses linear progression (add weight each session if target reps met). Intermediate uses block periodization. Advanced uses daily undulating periodization with RPE-anchored e1RM autoregulation — load floats with recent demonstrated performance rather than a fixed per-session increment.
 _Avoid_: 加重规则 (too narrow; progression includes deload and reps adjustment, not just adding weight)
 
 **减载 (Deload)**:
@@ -95,7 +95,7 @@ The engine supports three training phases with automatic transition:
 **高级波动周期化 (Advanced DUP, 18+ months)**:
 - **Templates**: 6 by training type rotation (strength upper/lower → hypertrophy upper/lower → endurance upper/lower, strict 6-session cycle)
 - **Exercise pool**: 5 lifetime benchmarks selected from intermediate 10 benchmarks + full catalog (~50+ exercises)
-- **Progression**: Daily undulating (strength: 3-5 reps @ RPE 9, hypertrophy: 8-12 @ RPE 8, endurance: 15-20 @ RPE 7); each training type tracks progression independently; linear increment when target reps met
+- **Progression**: Daily undulating (strength: 3-5 reps @ RPE 9, hypertrophy: 8-12 @ RPE 8, endurance: 15-20 @ RPE 7); each training type tracks progression independently. Load is RPE-anchored e1RM autoregulation: each session's prescribed weight = recent best e1RM (Epley: weight × (1 + reps/30)) × the training type's target intensity (RPE 9→0.90, RPE 8→0.75, RPE 7→0.62), so RPE drives the weight and load floats with demonstrated performance (a strong session lifts it, a weak one lowers it) — proportional, not a fixed per-session +kg increment. This also resolves the legacy inverted gradient where advanced fixed increments exceeded intermediate's.
 - **Deload**: Fatigue-threshold triggered (≥4 muscle groups with intensity ≥ 60, or maximum 18 sessions), lasting 6 sessions
 - **Benchmark role**: 5 lifetime benchmarks anchor 2+ years of progress, appearing on strength days
 - **Manual downgrade**: User can downgrade to intermediate; lifetime benchmarks preserved; weights restart at 70%; auto-upgrade after 2 microcycles (12 sessions)
