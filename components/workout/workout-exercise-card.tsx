@@ -9,6 +9,7 @@ import { WorkoutSetNumberInput } from "@/components/workout/workout-set-number-i
 import { MUSCLE_LABELS_ZH } from "@/lib/muscle-groups"
 import { cn } from "@/lib/utils"
 import { getWorkoutExerciseLabels } from "@/lib/workout/exercise-labels"
+import { getExerciseGuide } from "@/lib/workout/exercise-guide"
 import type {
   WorkoutExercisePhase,
   WorkoutSessionExercise,
@@ -26,6 +27,14 @@ const SET_REPS_INPUT_CLASS =
 
 const SET_WEIGHT_INPUT_CLASS =
   "h-[14px] w-10 border-0 bg-transparent p-0 text-[11px] leading-none shadow-none ring-offset-0 [appearance:textfield] focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-100 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+
+// 卡片上「动作指南」摘要：技巧/常见错误各取前几条；完整内容留待后续切片的指南 Dialog
+const GUIDE_SUMMARY_LIMIT = 3
+
+// 替换/自由文本动作的 tips 会被清空（session 置 []）。AS 安全提醒须常驻，
+// 缺省时回退到这条通用安全句，避免「注意事项」渲染成只有标题的空盒子——
+// 用户脱离处方时恰恰最需要这条提醒。
+const AS_SAFETY_FALLBACK_TIP = "出现不适就降低幅度或停止。"
 
 interface WorkoutExerciseCardProps {
   exercise: WorkoutSessionExercise
@@ -53,7 +62,13 @@ export function WorkoutExerciseCard({
 }: WorkoutExerciseCardProps) {
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
   const phase = exercise.phase ?? "main"
-  const tips = exercise.tips ?? []
+  const engineTips = exercise.tips ?? []
+  const safetyTips =
+    engineTips.length > 0 ? engineTips : [AS_SAFETY_FALLBACK_TIP]
+  const guide = getExerciseGuide(exercise)
+  const guideTips = guide?.tips.slice(0, GUIDE_SUMMARY_LIMIT) ?? []
+  const guideMistakes =
+    guide?.commonMistakes.slice(0, GUIDE_SUMMARY_LIMIT) ?? []
   const labels = getWorkoutExerciseLabels(exercise)
   const isDone = isExerciseDone(exercise)
   const statusLabel = getExerciseStatusLabel(exercise, isCurrent, isDone)
@@ -112,17 +127,49 @@ export function WorkoutExerciseCard({
           {exercise.notes}
         </p>
       )}
-      {tips.length > 0 && (
-        <div className="mt-3 rounded-lg border border-[hsl(var(--c-ai)/0.22)] bg-[hsl(var(--c-ai)/0.06)] px-3 py-2">
-          <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-c-ai">
-            <Zap className="h-3 w-3" />
-            注意事项
-          </div>
-          <ul className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-foreground/80">
-            {tips.map((tip) => (
-              <li key={tip}>{tip}</li>
-            ))}
-          </ul>
+      {/* AS 安全提醒：无条件渲染、视觉独立置顶（来自引擎 tips，绝不被指南内容替换） */}
+      <div className="mt-3 rounded-lg border border-[hsl(var(--c-ai)/0.22)] bg-[hsl(var(--c-ai)/0.06)] px-3 py-2">
+        <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-c-ai">
+          <Zap className="h-3 w-3" />
+          注意事项
+        </div>
+        <ul className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-foreground/80">
+          {safetyTips.map((tip) => (
+            <li key={tip}>{tip}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* 动作指南内联摘要：仅当该动作能在 catalog 查到源内容时渲染（无源内容只剩上方 AS 提醒） */}
+      {guide && (
+        <div className="mt-2 rounded-lg border border-border bg-[var(--surface-subtle)] px-3 py-2">
+          <p className="m-0 text-xs leading-relaxed text-foreground/80">
+            {guide.description}
+          </p>
+          {guideTips.length > 0 && (
+            <div className="mt-2">
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                技巧
+              </div>
+              <ul className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-foreground/80">
+                {guideTips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {guideMistakes.length > 0 && (
+            <div className="mt-2">
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                常见错误
+              </div>
+              <ul className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-foreground/80">
+                {guideMistakes.map((mistake) => (
+                  <li key={mistake}>{mistake}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

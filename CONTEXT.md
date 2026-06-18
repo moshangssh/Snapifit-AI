@@ -68,6 +68,10 @@ _Avoid_: 康复动作 (rehab implies pathology treatment; AS core is maintenance
 A user-applied signal indicating an exercise caused pain or unease (distinct from muscular fatigue). Triggers immediate exercise replacement and adds the exercise to a blacklist. Prevents the engine from waiting 3 failed attempts before switching, which is critical for AS safety.
 _Avoid_: 疼痛标记 (too clinical), 跳过 (skip implies laziness; this is a safety signal)
 
+**动作指南 (Exercise Guide)**:
+The per-exercise reference content surfaced for a catalog movement: overview, step-by-step instructions, technique tips, common mistakes, and a demo video. It is keyed off the exercise's catalog identity (not the session record) and is purely educational — it never overrides the engine's prescription or the AS safety reminder. The training card shows a compact summary (overview + a few tips/mistakes); the full content, including video and all steps, lives behind a "动作指南" button. Movements with no source content (custom or AI-generated) simply omit the guide.
+_Avoid_: 注意事项 (this names only the AS safety reminder — a fixed, engine-authored safety line shown on every exercise; the guide is the richer, movement-specific content layered beneath it), 教程 (tutorial implies a course; this is reference content)
+
 ### Phase Progression
 
 The engine supports three training phases with automatic transition:
