@@ -28,7 +28,18 @@ describe("exercise guide lookup", () => {
     ).toBeNull()
   })
 
-  it("returns null when no catalog id is present (replaced / free-text exercise)", () => {
+  it("returns null when no catalog id is present (free-text exercise)", () => {
     expect(getExerciseGuide({})).toBeNull()
+  })
+
+  it("returns null for a replaced exercise even though it retains the original catalog id", () => {
+    // replaceWorkoutExercise 出于引擎追踪保留了原 catalogExerciseId，但展示的是
+    // 用户自填的自由文本动作；不能再把原动作的指南挂在新名字下（否则误导）。
+    expect(
+      getExerciseGuide({
+        catalogExerciseId: KNOWN_CATALOG_ID,
+        actualExerciseName: "弹力带胸推",
+      }),
+    ).toBeNull()
   })
 })
