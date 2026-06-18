@@ -46,7 +46,6 @@ interface TemplateDefinition {
 interface TrainingTypeConfig {
   plannedReps: number
   rpe: 7 | 8 | 9
-  repRange: [number, number]
   /** 训练类型对应的 MET 估值：力量组间歇长（约 6），耐力持续负荷高（约 4） */
   mets: number
 }
@@ -91,9 +90,9 @@ export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
 ]
 
 const TRAINING_TYPE_CONFIG: Record<TrainingType, TrainingTypeConfig> = {
-  strength: { plannedReps: 5, rpe: 9, repRange: [3, 5], mets: 6 },
-  hypertrophy: { plannedReps: 12, rpe: 8, repRange: [8, 12], mets: 5 },
-  endurance: { plannedReps: 20, rpe: 7, repRange: [15, 20], mets: 4 },
+  strength: { plannedReps: 5, rpe: 9, mets: 6 },
+  hypertrophy: { plannedReps: 12, rpe: 8, mets: 5 },
+  endurance: { plannedReps: 20, rpe: 7, mets: 4 },
 }
 
 
@@ -138,22 +137,28 @@ function plannedWeightKg(exercise: Exercise) {
   }
 }
 
-function incrementKg(exercise: Exercise): number {
-  return ["QUADS", "GLUTES", "HAMSTRINGS", "CALVES"].includes(
-    exercise.primaryMuscle,
-  )
-    ? 2.5
-    : 1.25
-}
-
 function roundToQuarterKg(weight: number): number {
   return Math.round(weight * 4) / 4
+}
+
+/**
+ * 目标 RPE → 目标强度（占 e1RM 的比例）。
+ * RPE 由此真正参与配重决策：同一表现下，力量日(RPE9)配重高于耐力日(RPE7)。
+ */
+const RPE_INTENSITY: Record<TrainingTypeConfig["rpe"], number> = {
+  9: 0.9, // 力量
+  8: 0.75, // 肌肥大
+  7: 0.62, // 耐力
+}
+
+/** Epley 估计 1RM：重量 × (1 + 次数/30) */
+function estimatedOneRepMaxKg(weightKg: number, reps: number): number {
+  return weightKg * (1 + reps / 30)
 }
 
 function latestCompletedExercise(
   history: RecentWorkoutSessionSummary[],
   exerciseId: string,
-  repRange: [number, number],
 ) {
   return [...history]
     .sort(
@@ -162,69 +167,48 @@ function latestCompletedExercise(
         new Date(left.completedAt).getTime(),
     )
     .flatMap((session) => session.exercises)
-    .find((exercise) => {
-      if (
-        exercise.catalogExerciseId !== exerciseId ||
-        (exercise.phase !== undefined && exercise.phase !== "main") ||
-        exercise.wasSkipped ||
-        exercise.wasReplaced
-      ) {
-        return false
-      }
-
-      const reps = exercise.workingSetReps
-      return (
-        typeof reps !== "number" ||
-        (reps >= repRange[0] && reps <= repRange[1])
-      )
-    })
+    .find(
+      (exercise) =>
+        exercise.catalogExerciseId === exerciseId &&
+        (exercise.phase === undefined || exercise.phase === "main") &&
+        !exercise.wasSkipped &&
+        !exercise.wasReplaced,
+    )
 }
 
-function latestWeightKg(
+/**
+ * 该动作最近一次完成表现里、最佳工作组的 e1RM —— 自回归的「已证容量」。
+ * 表现好（更大重量/更多次数）→ e1RM 升；状态差/未达标 → e1RM 降，配重随之波动，
+ * 而非每课次固定线性加重。
+ */
+function recentEstimatedOneRepMaxKg(
   summary: ReturnType<typeof latestCompletedExercise>,
-  targetReps: number,
 ): number | undefined {
   if (!summary) return undefined
 
-  const sets = summary.sets ?? []
-  if (sets.length > 0) {
-    const successfulSetWeights = sets
-      .filter(
-        (set) =>
-          set.isCompleted &&
-          !set.isSkipped &&
-          (set.actualReps ?? 0) >= targetReps,
-      )
-      .map((set) => set.actualWeightKg)
-      .filter((weight): weight is number => typeof weight === "number")
+  const setE1RMs = (summary.sets ?? [])
+    .filter((set) => set.isCompleted && !set.isSkipped)
+    .map((set) =>
+      typeof set.actualWeightKg === "number" &&
+      typeof set.actualReps === "number"
+        ? estimatedOneRepMaxKg(set.actualWeightKg, set.actualReps)
+        : undefined,
+    )
+    .filter((value): value is number => typeof value === "number")
 
-    return successfulSetWeights.length > 0
-      ? Math.max(...successfulSetWeights)
-      : undefined
-  }
+  if (setE1RMs.length > 0) return Math.max(...setE1RMs)
 
-  return summary.workingSetWeightKg
-}
-
-function completedTargetReps(
-  summary: ReturnType<typeof latestCompletedExercise>,
-  targetReps: number,
-): boolean {
-  if (!summary) return false
-
-  const sets = summary.sets ?? []
-  if (sets.length > 0) {
-    const completedSets = sets.filter((set) => set.isCompleted && !set.isSkipped)
-
-    return (
-      completedSets.length >= 3 &&
-      completedSets.every((set) => (set.actualReps ?? 0) >= targetReps)
+  if (
+    typeof summary.workingSetWeightKg === "number" &&
+    typeof summary.workingSetReps === "number"
+  ) {
+    return estimatedOneRepMaxKg(
+      summary.workingSetWeightKg,
+      summary.workingSetReps,
     )
   }
 
-  return (
-    summary.completedSets >= 3 && (summary.workingSetReps ?? 0) >= targetReps
-  )
+  return undefined
 }
 
 function plannedTrainingTypeWeightKg(
@@ -232,17 +216,15 @@ function plannedTrainingTypeWeightKg(
   config: TrainingTypeConfig,
   history: RecentWorkoutSessionSummary[],
 ): number {
-  const latest = latestCompletedExercise(history, exercise.id, config.repRange)
-  const latestWeight = latestWeightKg(latest, config.plannedReps)
+  const e1rm = recentEstimatedOneRepMaxKg(
+    latestCompletedExercise(history, exercise.id),
+  )
 
-  if (
-    typeof latestWeight === "number" &&
-    completedTargetReps(latest, config.plannedReps)
-  ) {
-    return roundToQuarterKg(latestWeight + incrementKg(exercise))
+  if (typeof e1rm === "number") {
+    return roundToQuarterKg(e1rm * RPE_INTENSITY[config.rpe])
   }
 
-  return roundToQuarterKg(latestWeight ?? plannedWeightKg(exercise))
+  return roundToQuarterKg(plannedWeightKg(exercise))
 }
 
 function draftMainExercise(
@@ -261,7 +243,10 @@ function draftMainExercise(
     plannedExerciseName: exercise.name,
     phase: "main",
     notes: `高级 DUP 主训练动作，目标 RPE ${config.rpe}。`,
-    tips: ["保持动作可控。", "同一训练类型内完成目标次数后再加重。"],
+    tips: [
+      "保持动作可控。",
+      `配重按上次表现自回归：以目标 RPE ${config.rpe} 锚定强度，状态好自动上调、变差则回落。`,
+    ],
     labels: unlockedRisk ? [AS_UNLOCKED_LABEL] : undefined,
     catalogExerciseId: exercise.id,
     sets: Array.from({ length: setCount }, () => ({

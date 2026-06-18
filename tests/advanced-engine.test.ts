@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
 import { generateSession } from "@/lib/workout/engine/advanced-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
+import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
 function lifetimeBenchmarkIds(): string[] {
   const novice = STRENGTH_EXERCISES.filter((exercise) =>
@@ -174,6 +175,119 @@ describe("advanced workout engine", () => {
     expect(session257.isDeload).toBe(false)
     expect(session258.isDeload).toBe(true)
     expect(session258.trainingState.lastDeloadSession).toBe(257)
+  })
+})
+
+describe("advanced workout engine e1RM autoregulation", () => {
+  function sessionWith(
+    exerciseId: string,
+    weightKg: number,
+    reps: number,
+    completedAt = "2026-06-01T00:00:00.000Z",
+    sets = 3,
+  ): RecentWorkoutSessionSummary {
+    return {
+      completedAt,
+      exercises: [
+        {
+          catalogExerciseId: exerciseId,
+          exerciseName: "benchmark",
+          phase: "main",
+          completedSets: sets,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: ["chest"],
+          sets: Array.from({ length: sets }, () => ({
+            plannedWeightKg: weightKg,
+            plannedReps: reps,
+            actualWeightKg: weightKg,
+            actualReps: reps,
+            isCompleted: true,
+            isSkipped: false,
+          })),
+        },
+      ],
+    }
+  }
+
+  function mainDraftFor(
+    history: RecentWorkoutSessionSummary[],
+    completedSessionCount: number,
+    exerciseId: string,
+  ) {
+    return generateSession(makeState(completedSessionCount), {
+      recentWorkoutSessionSummaries: history,
+    }).exercises.find(
+      (exercise) =>
+        exercise.phase === "main" && exercise.catalogExerciseId === exerciseId,
+    )
+  }
+
+  it("autoregulates strength load to e1RM × intensity, not a fixed +kg step", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    // e1RM = 50 × (1 + 5/30) = 58.333; strength intensity 0.90 → 52.5 (≠ 50 + 1.25)
+    const draft = mainDraftFor([sessionWith(chestId, 50, 5)], 240, chestId)
+
+    expect(draft).toBeDefined()
+    expect(draft?.sets[0]?.plannedWeightKg).toBe(52.5)
+  })
+
+  it("lowers the next load after an underperforming session, not a fixed ladder", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    // Earlier strong session (60×5 → e1RM 70 → 63) then a more recent weak one
+    // (50×4 → e1RM 56.667 → 51). Autoregulation tracks the latest, dropping to 51 —
+    // a linear "+kg when target met" ladder could never reduce below a prior weight.
+    const history = [
+      sessionWith(chestId, 60, 5, "2026-06-01T00:00:00.000Z"),
+      sessionWith(chestId, 50, 4, "2026-06-08T00:00:00.000Z"),
+    ]
+    const draft = mainDraftFor(history, 240, chestId)
+
+    expect(draft?.sets[0]?.plannedWeightKg).toBe(51)
+  })
+
+  it("makes RPE drive the load: same capacity, heavier on hypertrophy than endurance", () => {
+    // An exercise the rotation places on both 肌肥大上 (242, RPE 8) and 耐力上 (244, RPE 7).
+    const hypIds = new Set(
+      generateSession(makeState(242))
+        .exercises.filter((exercise) => exercise.phase === "main")
+        .map((exercise) => exercise.catalogExerciseId),
+    )
+    const sharedId = generateSession(makeState(244))
+      .exercises.filter((exercise) => exercise.phase === "main")
+      .map((exercise) => exercise.catalogExerciseId)
+      .find((id) => typeof id === "string" && hypIds.has(id))
+    expect(sharedId).toBeDefined()
+
+    // 40 × 10 → e1RM 53.333; hypertrophy RPE8 ×0.75 = 40.0; endurance RPE7 ×0.62 = 33.0
+    const history = [sessionWith(sharedId!, 40, 10)]
+    const hypertrophy = mainDraftFor(history, 242, sharedId!)
+    const endurance = mainDraftFor(history, 244, sharedId!)
+
+    expect(hypertrophy?.sets[0]?.plannedWeightKg).toBe(40)
+    expect(endurance?.sets[0]?.plannedWeightKg).toBe(33)
+  })
+
+  it("scales the progression step with load instead of a fixed +kg ladder", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    // Hitting the strength rep target lifts load ~5% (e1RM×0.9 at 5 reps), so the
+    // absolute step grows with the weight — proportional, not the legacy fixed step
+    // that made advanced increments (1.25/2.5kg) larger than intermediate (0.5/1kg).
+    const light = mainDraftFor([sessionWith(chestId, 40, 5)], 240, chestId)
+    const heavy = mainDraftFor([sessionWith(chestId, 80, 5)], 240, chestId)
+    const lightStep = (light?.sets[0]?.plannedWeightKg ?? 0) - 40 // 42 - 40 = 2
+    const heavyStep = (heavy?.sets[0]?.plannedWeightKg ?? 0) - 80 // 84 - 80 = 4
+
+    expect(heavyStep).toBeGreaterThan(lightStep)
+    expect(heavyStep).toBeCloseTo(lightStep * 2, 5)
+  })
+
+  it("frames load as RPE-anchored autoregulation, not 'add weight when reps met'", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    const tips = (mainDraftFor([], 240, chestId)?.tips ?? []).join("")
+
+    expect(tips).toContain("自回归")
+    expect(tips).not.toContain("完成目标次数后再加重")
   })
 })
 
