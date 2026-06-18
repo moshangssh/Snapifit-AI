@@ -4,6 +4,7 @@ import { useRef } from "react"
 import { Check, Circle, Minus, SkipForward, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DiscomfortFlagDialog } from "@/components/workout/discomfort-flag-dialog"
+import { ExerciseGuideDialog } from "@/components/workout/exercise-guide-dialog"
 import { ReplaceExerciseDialog } from "@/components/workout/replace-exercise-dialog"
 import { WorkoutSetNumberInput } from "@/components/workout/workout-set-number-input"
 import { MUSCLE_LABELS_ZH } from "@/lib/muscle-groups"
@@ -224,6 +225,15 @@ export function WorkoutExerciseCard({
             <SkipForward className="mr-1.5 h-4 w-4" />
             {exercise.isExerciseSkipped ? "取消跳过" : "跳过"}
           </Button>
+          {/* 动作指南按钮：仅当查表有内联内容时显示（与替换/感觉不对/跳过同排同风格） */}
+          {guide && exercise.catalogExerciseId && (
+            <ExerciseGuideDialog
+              catalogExerciseId={exercise.catalogExerciseId}
+              displayName={displayName}
+              guide={guide}
+              muscleLabels={muscleLabels}
+            />
+          )}
         </div>
       )}
     </section>
