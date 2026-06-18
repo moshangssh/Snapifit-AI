@@ -880,7 +880,9 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     equipment: 'MACHINE',
     mechanics: 'ISOLATION',
     laterality: 'UNILATERAL',
-    tags: ['ADVANCED', 'STRENGTH'],
+    // 提升为新手核心：钢索/器械引导、无轴向负重(AS 安全)、低技术门槛的臀中肌外展。
+    // 下A/下B 主项需 2 个臀动作 + 热身激活需 1 个,原novice池仅 2 个臀会迫使热身复制主项动作。(issue #47)
+    tags: ['NOVICE_CORE', 'STRENGTH'],
   },
   {
     id: '26268881-afd6-445d-9a8b-a149d8dafdaa',

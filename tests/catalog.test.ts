@@ -80,8 +80,10 @@ describe("workout exercise catalog", () => {
     const intermediate = getExercisesByPhase("intermediate")
     const advanced = getExercisesByPhase("advanced")
 
-    // Novice phase core exercises are fixed at 20 for Starting Strength style progression
-    expect(novice).toHaveLength(20)
+    // Novice phase core exercises: 21 after promoting 钢索髋关节外展 (cable hip
+    // abduction) to NOVICE_CORE so 下A/下B can fill 2 main glute slots + 1 warmup
+    // activation without duplicating a main lift. (issue #47 follow-up)
+    expect(novice).toHaveLength(21)
     expect(
       novice.every((exercise) => exercise.tags.includes("NOVICE_CORE")),
     ).toBe(true)

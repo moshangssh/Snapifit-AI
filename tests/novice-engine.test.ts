@@ -408,20 +408,24 @@ describe("novice workout engine", () => {
     }
   })
 
-  it("does not select duplicate exercises between warmup and main phases", () => {
-    const session = generateSession(makeState(0))
-    const warmupIds = session.exercises
-      .filter((exercise) => exercise.phase === "warmup")
-      .map((exercise) => exercise.catalogExerciseId)
-      .filter(Boolean)
-    const mainIds = session.exercises
-      .filter((exercise) => exercise.phase === "main")
-      .map((exercise) => exercise.catalogExerciseId)
-      .filter(Boolean)
+  // Two full template rotations: catches offset-dependent picks, not just 上A.
+  it.each([0, 1, 2, 3, 4, 5, 6, 7])(
+    "does not select duplicate exercises between warmup and main phases (session %i)",
+    (completedSessionCount) => {
+      const session = generateSession(makeState(completedSessionCount))
+      const warmupIds = session.exercises
+        .filter((exercise) => exercise.phase === "warmup")
+        .map((exercise) => exercise.catalogExerciseId)
+        .filter(Boolean)
+      const mainIds = session.exercises
+        .filter((exercise) => exercise.phase === "main")
+        .map((exercise) => exercise.catalogExerciseId)
+        .filter(Boolean)
 
-    const duplicates = warmupIds.filter((id) => mainIds.includes(id))
-    expect(duplicates).toHaveLength(0)
-  })
+      const duplicates = warmupIds.filter((id) => mainIds.includes(id))
+      expect(duplicates).toHaveLength(0)
+    },
+  )
 
   it("adds weight for catalog exercises that completed all target reps last time", () => {
     const upperBaseline = generateSession(makeState(4), {

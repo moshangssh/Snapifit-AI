@@ -347,10 +347,13 @@ function selectByMuscleSlots(
       continue
     }
 
+    // Fallback relaxes the intra-phase rotation/dedup (offset + already-selected),
+    // but NEVER the cross-phase excludes: a warmup slot must not clone a main lift.
+    // If the pool genuinely can't fill the slot, fall through to the warn below.
     const [fallback] = selectExercises({
       muscle,
       tags: ["NOVICE_CORE"],
-      excludeIds: blacklist,
+      excludeIds: [...blacklist, ...extraExcludeIds],
       count: 1,
       offset: offset + index,
       unlockedRiskCategories,
