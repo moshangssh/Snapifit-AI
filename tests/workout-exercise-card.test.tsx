@@ -129,4 +129,53 @@ describe("WorkoutExerciseCard", () => {
       expect(html).not.toContain("常见错误")
     })
   })
+
+  // 动作指南按钮在「未完成」动作的操作行里（与替换/感觉不对/跳过同排）。
+  // 上面的用例用「已完成」动作（操作行不渲染），这里改用未完成动作触发操作行。
+  describe("exercise guide button in the action row (not done)", () => {
+    const activeSets = [
+      {
+        setIndex: 1,
+        plannedReps: 10,
+        plannedWeightKg: 20,
+        touched: { weight: false, reps: false },
+        isCompleted: false,
+        isSkipped: false,
+      },
+    ]
+
+    it("shows the 动作指南 button for a known catalog exercise with source content", () => {
+      const html = render(makeExercise({ sets: activeSets }))
+      expect(html).toContain("动作指南")
+      // 与现有操作行按钮同排出现
+      expect(html).toContain("替换动作")
+      expect(html).toContain("感觉不对")
+    })
+
+    it("hides the 动作指南 button for a custom exercise with no source content", () => {
+      const html = render(
+        makeExercise({
+          sets: activeSets,
+          plannedExerciseName: "自定义动作",
+          catalogExerciseId: CUSTOM_CATALOG_ID,
+          tips: [ENGINE_TIP],
+        }),
+      )
+      expect(html).not.toContain("动作指南")
+      // 其它操作仍在（确认是条件隐藏指南按钮，而非整行消失）
+      expect(html).toContain("替换动作")
+    })
+
+    it("hides the 动作指南 button for a replaced exercise (guide falls back to null)", () => {
+      const html = render(
+        makeExercise({
+          sets: activeSets,
+          actualExerciseName: "弹力带胸推",
+          tips: [],
+        }),
+      )
+      expect(html).not.toContain("动作指南")
+      expect(html).toContain("替换动作")
+    })
+  })
 })
