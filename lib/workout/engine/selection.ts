@@ -5,6 +5,7 @@ import {
   type ExerciseTag,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
+import { filterASSafe } from "@/lib/workout/engine/as-safety"
 
 export type ASCoreFocus = "upper" | "lower"
 
@@ -16,6 +17,7 @@ interface SelectExercisesInput {
   excludeIds?: readonly string[]
   count?: number
   offset?: number
+  unlockedRiskCategories?: readonly string[]
 }
 
 interface SelectASCoreInput {
@@ -86,7 +88,10 @@ function rotate<T>(items: T[], offset: number): T[] {
 }
 
 export function selectExercises(input: SelectExercisesInput): Exercise[] {
-  const pool = input.pool ?? STRENGTH_EXERCISES
+  const pool = filterASSafe(
+    input.pool ?? STRENGTH_EXERCISES,
+    input.unlockedRiskCategories,
+  )
   const blocked = blockedIds(input)
   const tags = input.tags ?? []
   const filtered = pool.filter(

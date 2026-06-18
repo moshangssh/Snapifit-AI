@@ -44,6 +44,8 @@ import {
 import type { WorkoutExerciseAnalysis, WorkoutSession } from "@/lib/workout/types"
 import { WorkoutPlanWorkbench } from "@/components/workout/workout-plan-workbench"
 import { BenchmarkSelectionCard } from "@/components/workout/benchmark-selection-card"
+import { ASSafetyUnlockCard } from "@/components/workout/as-safety-unlock-card"
+import type { ASRiskCategory } from "@/lib/workout/engine/as-safety"
 
 const defaultUserProfile: UserProfile = {
   weight: 70,
@@ -401,6 +403,25 @@ export default function WorkoutPage() {
     })
   }, [abandonActiveSession, activeSession, toast])
 
+  const toggleRiskCategory = useCallback(
+    (category: ASRiskCategory, unlocked: boolean) => {
+      const existing = trainingState.unlockedRiskCategories ?? []
+      const next = unlocked
+        ? Array.from(new Set([...existing, category]))
+        : existing.filter((item) => item !== category)
+      const nextState = { ...trainingState, unlockedRiskCategories: next }
+      writeTrainingState(nextState)
+      setTrainingState(nextState)
+      toast({
+        title: unlocked ? "已解锁动作类别" : "已重新锁定动作类别",
+        description: unlocked
+          ? "请确认你的医生已同意，再在训练中使用该类动作。"
+          : "该类动作将不再被处方。",
+      })
+    },
+    [trainingState, toast],
+  )
+
   if (!isReady) {
     return (
       <WorkoutPageChrome subtitle="正在读取本地训练状态">
@@ -434,23 +455,30 @@ export default function WorkoutPage() {
 
     return (
       <WorkoutPageChrome subtitle="确定性训练引擎会根据你的课次状态生成本次模板">
-        <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
-          <CardContent className="flex flex-col items-center gap-5 p-10 text-center sm720:p-14">
-            <Tile variant="exercise" size={44}>
-              <Dumbbell />
-            </Tile>
-            <div className="space-y-2">
-              <h2 className="text-[22px] font-bold tracking-tight">{title}</h2>
-              <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                {"训练引擎会读取本地课次状态和训练上下文,生成一份可直接打卡的单次训练计划。"}
-              </p>
-            </div>
-            <Button variant="ink" disabled={isGenerating} onClick={generatePlan}>
-              {isGenerating && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              {isGenerating ? "正在生成..." : "生成训练计划"}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-5">
+          <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
+            <CardContent className="flex flex-col items-center gap-5 p-10 text-center sm720:p-14">
+              <Tile variant="exercise" size={44}>
+                <Dumbbell />
+              </Tile>
+              <div className="space-y-2">
+                <h2 className="text-[22px] font-bold tracking-tight">{title}</h2>
+                <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                  {"训练引擎会读取本地课次状态和训练上下文,生成一份可直接打卡的单次训练计划。"}
+                </p>
+              </div>
+              <Button variant="ink" disabled={isGenerating} onClick={generatePlan}>
+                {isGenerating && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                {isGenerating ? "正在生成..." : "生成训练计划"}
+              </Button>
+            </CardContent>
+          </Card>
+          <ASSafetyUnlockCard
+            unlockedRiskCategories={trainingState.unlockedRiskCategories ?? []}
+            disabled={isGenerating}
+            onToggle={toggleRiskCategory}
+          />
+        </div>
       </WorkoutPageChrome>
     )
   }

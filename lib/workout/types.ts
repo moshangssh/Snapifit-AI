@@ -64,6 +64,11 @@ export interface TrainingState {
   phase: TrainingPhase
   completedSessionCount: number
   blacklistedExerciseIds: string[]
+  /**
+   * 用户（在医生同意后）显式解锁的 AS 风险动作类别。默认空 = 全部锁定。
+   * 取值见 lib/workout/engine/as-safety.ts 的 ASRiskCategory。
+   */
+  unlockedRiskCategories?: string[]
   benchmarkExerciseIds?: string[]
   lifetimeBenchmarkIds?: string[]
   stalledExercises?: number

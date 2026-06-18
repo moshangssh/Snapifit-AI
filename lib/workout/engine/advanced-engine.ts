@@ -5,6 +5,7 @@ import {
   type Exercise,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
+import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
 import {
   ADVANCED_SESSION_START,
   calculateDeloadParams,
@@ -244,15 +245,18 @@ function draftMainExercise(
   config: TrainingTypeConfig,
   plannedWeight: number,
   isDeload: boolean,
+  unlockedRiskCategories?: readonly string[],
 ): WorkoutPlanExerciseDraft {
   const deload = isDeload ? calculateDeloadParams(plannedWeight, 3) : undefined
   const setCount = deload?.sets ?? 3
+  const unlockedRisk = unlockedRiskCategoryOf(exercise, unlockedRiskCategories)
 
   return {
     plannedExerciseName: exercise.name,
     phase: "main",
     notes: `高级 DUP 主训练动作，目标 RPE ${config.rpe}。`,
     tips: ["保持动作可控。", "同一训练类型内完成目标次数后再加重。"],
+    labels: unlockedRisk ? [AS_UNLOCKED_LABEL] : undefined,
     catalogExerciseId: exercise.id,
     sets: Array.from({ length: setCount }, () => ({
       plannedWeightKg: deload?.weight ?? plannedWeight,
@@ -268,15 +272,21 @@ function draftMainExercise(
 }
 
 function lifetimeBenchmarkPool(state: TrainingState): Exercise[] {
-  return (state.lifetimeBenchmarkIds ?? [])
-    .map((id) => EXERCISES_BY_ID.get(id))
-    .filter((exercise): exercise is Exercise => exercise !== undefined)
+  return filterASSafe(
+    (state.lifetimeBenchmarkIds ?? [])
+      .map((id) => EXERCISES_BY_ID.get(id))
+      .filter((exercise): exercise is Exercise => exercise !== undefined),
+    state.unlockedRiskCategories,
+  )
 }
 
 function fullStrengthPool(state: TrainingState): Exercise[] {
   const blocked = new Set(state.blacklistedExerciseIds)
 
-  return STRENGTH_EXERCISES.filter((exercise) => !blocked.has(exercise.id))
+  return filterASSafe(
+    STRENGTH_EXERCISES.filter((exercise) => !blocked.has(exercise.id)),
+    state.unlockedRiskCategories,
+  )
 }
 
 function candidatePoolForTemplate(
@@ -392,6 +402,7 @@ export function generateSession(
           recentWorkoutSessionSummaries,
         ),
         isDeload,
+        state.unlockedRiskCategories,
       ),
     ),
   }

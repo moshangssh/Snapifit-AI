@@ -1,4 +1,5 @@
 import type { TrainingPhase, TrainingState } from "@/lib/workout/types"
+import { normalizeUnlockedRiskCategories } from "@/lib/workout/engine/as-safety"
 
 export type { TrainingPhase, TrainingState }
 
@@ -55,6 +56,13 @@ export function normalizeTrainingState(value: unknown): TrainingState {
 
   if (typeof state.phaseTransitionReady === "boolean") {
     normalized.phaseTransitionReady = state.phaseTransitionReady
+  }
+
+  const unlockedRiskCategories = normalizeUnlockedRiskCategories(
+    state.unlockedRiskCategories,
+  )
+  if (unlockedRiskCategories.length > 0) {
+    normalized.unlockedRiskCategories = unlockedRiskCategories
   }
 
   if (Array.isArray(state.benchmarkExerciseIds)) {

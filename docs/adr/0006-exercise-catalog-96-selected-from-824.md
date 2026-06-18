@@ -58,6 +58,26 @@
 - 重复动作（5-8 种握法的弯举）：~150 个
 - 其他（有氧、爆发力、竞技举重）：~108 个
 
+### AS 安全锁（2026-06-18 补充，见 #46）
+
+筛选阶段排除了**大部分**高风险动作，但高级扩展池仍保留少量条件性杠铃复合动作
+（杠铃深蹲、缺口硬拉、杠铃 / 哑铃推举、抓举等），用于"AS 改善后"的可选进阶。
+原始设计承诺这些动作属"条件性、需显式解锁"，但该闸门一直未落地到代码——任何进入
+高级阶段的用户都会被无条件处方这些动作。
+
+#46 补齐了这一闸门：引擎在**所有阶段**默认排除一组 AS 风险动作模式，除非用户显式解锁。
+判定基于结构化标签（`movementPattern` / `angle` / `equipment`），而非按动作 ID 硬编码，
+因此新增动作会被自动分类：
+
+- **轴向下肢负重** `axial_loaded_lower`：`movementPattern ∈ {squat_pattern, hinge_pattern, calf_raise}` 且 `equipment = BARBELL`（站姿杠铃提踵亦为脊柱轴向压缩）
+- **负重过顶按压** `overhead_press`：`movementPattern = vertical_push` 且（`angle = overhead` 或 `equipment ∈ {BARBELL, DUMBBELL}`）
+- **奥举 / 爆发** `olympic_lift`：`movementPattern = compound` 且 `equipment = BARBELL`（抓举、扛铃台阶上步——二者结构化标签完全相同，统一归此类、默认锁定）
+
+实现于 `lib/workout/engine/as-safety.ts`，在动作选择层统一拦截（新手 / 中级 / 高级三引擎共用）。
+默认全锁；解锁集合持久化在 `TrainingState.unlockedRiskCategories`，由训练设置里的 HITL 开关写入
+（文案明确"请在医生同意后再解锁"）。抓举（Snatch）等与本节"已排除高风险动作"表述相矛盾的遗留条目
+**保留在动作库中，但默认被安全锁覆盖**，因此与安全声明一致。
+
 ### 肌肉刺激维度覆盖验证
 
 所有关键维度已验证充足（每个维度至少 2-3 个动作）：

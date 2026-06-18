@@ -134,4 +134,37 @@ describe("training state storage", () => {
 
     expect(readTrainingState(storage)).toEqual(DEFAULT_TRAINING_STATE)
   })
+
+  it("persists valid AS unlock categories and drops unknown ones", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      unlockedRiskCategories: [
+        "axial_loaded_lower",
+        "axial_loaded_lower",
+        "made_up_category",
+      ],
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual({
+      ...DEFAULT_TRAINING_STATE,
+      unlockedRiskCategories: ["axial_loaded_lower"],
+    })
+  })
+
+  it("omits the AS unlock field entirely when nothing is unlocked", () => {
+    const storage = createStorage()
+
+    writeTrainingState(DEFAULT_TRAINING_STATE, storage)
+
+    expect(
+      JSON.parse(storage.getItem(TRAINING_STATE_STORAGE_KEY) ?? "{}"),
+    ).toEqual({
+      phase: "novice",
+      completedSessionCount: 0,
+      blacklistedExerciseIds: [],
+    })
+  })
 })
