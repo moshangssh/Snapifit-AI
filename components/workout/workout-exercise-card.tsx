@@ -225,7 +225,9 @@ export function WorkoutExerciseCard({
             <SkipForward className="mr-1.5 h-4 w-4" />
             {exercise.isExerciseSkipped ? "取消跳过" : "跳过"}
           </Button>
-          {/* 动作指南按钮：仅当查表有内联内容时显示（与替换/感觉不对/跳过同排同风格） */}
+          {/* 动作指南按钮：仅当查表有内联内容时显示（与替换/感觉不对/跳过同排同风格）。
+              guide 非空已蕴含 catalogExerciseId 存在（见 getExerciseGuide），此处 catalogExerciseId
+              判断仅用于把可选类型收窄为 string，满足 Dialog 的 prop，并非额外业务条件。 */}
           {guide && exercise.catalogExerciseId && (
             <ExerciseGuideDialog
               catalogExerciseId={exercise.catalogExerciseId}

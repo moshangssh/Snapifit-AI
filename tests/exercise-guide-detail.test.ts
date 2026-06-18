@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { ALL_EXERCISES } from "@/lib/workout/engine/catalog"
 import { EXERCISE_GUIDE_DETAIL } from "@/lib/workout/engine/exercise-guide-detail"
+import { EXERCISE_GUIDE_INLINE } from "@/lib/workout/engine/exercise-guide-inline"
 
 interface SourceExercise {
   id: string
@@ -89,5 +90,14 @@ describe("exercise guide detail module", () => {
       expect(entry.videoLightUrl).toBe(source.videoLightUrl ?? "")
       expect(entry.thumbnail).toBe(source.thumbnail1 || source.thumbnail2 || "")
     }
+  })
+
+  // inline 与 detail 由同一脚本单次写出，键必须 1:1。卡片以 inline（guide 非空）为开关，
+  // 却用同一 id 懒加载 detail——若两者漂移（有人只重生成/手改其一），按钮会显示但详情查空。
+  // 这条用例把那条隐性约定钉成断言。
+  it("has detail keys exactly matching the inline module (no drift)", () => {
+    const inlineKeys = Object.keys(EXERCISE_GUIDE_INLINE).sort()
+    const detailKeys = Object.keys(EXERCISE_GUIDE_DETAIL).sort()
+    expect(detailKeys).toEqual(inlineKeys)
   })
 })
