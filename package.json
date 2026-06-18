@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "gen:guide": "node scripts/gen-exercise-guide.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.22",
