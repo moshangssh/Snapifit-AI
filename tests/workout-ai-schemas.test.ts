@@ -412,4 +412,26 @@ describe("workout AI schemas", () => {
 
     expect(normalized.muscleGroups).toEqual(["upper-back", "biceps"])
   })
+
+  it("infers side deltoid for lateral raises and rear deltoid for face pulls / reverse flyes", () => {
+    const base = {
+      exerciseType: "strength" as const,
+      muscleGroups: [] as string[],
+      estimatedMets: 6,
+      estimatedDurationMinutes: 10,
+      caloriesBurnedEstimated: 60,
+      isEstimated: true,
+    }
+    const infer = (name: string) =>
+      normalizeWorkoutExerciseAnalysis(
+        WorkoutExerciseEnrichSchema.parse(base),
+        72,
+        name,
+      ).muscleGroups
+
+    expect(infer("哑铃侧平举")).toEqual(["side-deltoids"])
+    expect(infer("绳索面拉")).toEqual(["back-deltoids"])
+    expect(infer("器械反向飞鸟")).toEqual(["back-deltoids"])
+    expect(infer("坐姿肩推")).toEqual(["front-deltoids"])
+  })
 })

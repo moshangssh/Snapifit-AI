@@ -91,17 +91,27 @@
 
 ### 按肌群分布（力量动作 96 个）
 
+> 2026-06-18 按 #47 校正:腘绳肌弯举改标 HAMSTRINGS、提踵改标 CALVES、缺口硬拉改标
+> HAMSTRINGS、抓举改标 GLUTES；髋内收仍计入 QUADS（口径见下）。下表为校正后实际 `primaryMuscle` 分布。
+
 | 肌群 | 数量 | 占比 |
 |------|------|------|
-| QUADS | 17 | 19.8% |
-| BACK | 14 | 16.3% |
-| SHOULDERS | 14 | 16.3% |
-| CHEST | 11 | 12.8% |
-| CORE | 9 | 10.5% |
-| BICEPS | 7 | 8.1% |
-| GLUTES | 6 | 7.0% |
-| TRICEPS | 6 | 7.0% |
-| FOREARMS | 2 | 2.3% |
+| SHOULDERS | 17 | 17.7% |
+| BACK | 16 | 16.7% |
+| CHEST | 12 | 12.5% |
+| QUADS | 11 | 11.5% |
+| CORE | 9 | 9.4% |
+| GLUTES | 7 | 7.3% |
+| BICEPS | 7 | 7.3% |
+| TRICEPS | 6 | 6.3% |
+| HAMSTRINGS | 4 | 4.2% |
+| FOREARMS | 4 | 4.2% |
+| CALVES | 3 | 3.1% |
+
+> **髋内收口径**:坐姿/钢索髋内收的 `primaryMuscle` 归入 QUADS（动作库无独立 ADDUCTORS
+> 肌群,且无任何模板设内收槽位）。上面"腿部全面"维度里的"内收 2 个"即这 2 个动作,按
+> 概念维度单列、按字段计入 QUADS——两者口径在此统一。三角肌中束/后束不在 `primaryMuscle`
+> 粒度区分,而由 `resolveMuscleKeys` 依 `movementPattern` 派生(侧平举→中束、反向飞鸟/面拉→后束)。
 
 ### 按器械分布
 

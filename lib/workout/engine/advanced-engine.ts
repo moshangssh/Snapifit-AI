@@ -1,7 +1,7 @@
 import {
   EXERCISES_BY_ID,
-  MUSCLE_MAP,
   STRENGTH_EXERCISES,
+  resolveMuscleKeys,
   type Exercise,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
@@ -85,6 +85,11 @@ const TEMPLATES: TemplateDefinition[] = [
   },
 ]
 
+/** 本阶段所有模板引用到的肌群（用于校验目录覆盖，消除 fallback 抓取） */
+export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
+  ...new Set(TEMPLATES.flatMap((template) => template.mainMuscles)),
+]
+
 const TRAINING_TYPE_CONFIG: Record<TrainingType, TrainingTypeConfig> = {
   strength: { plannedReps: 5, rpe: 9, repRange: [3, 5], mets: 6 },
   hypertrophy: { plannedReps: 12, rpe: 8, repRange: [8, 12], mets: 5 },
@@ -93,7 +98,7 @@ const TRAINING_TYPE_CONFIG: Record<TrainingType, TrainingTypeConfig> = {
 
 
 function analysis(
-  muscle: MuscleGroup,
+  exercise: Exercise,
   setCount: number,
   effectiveUserWeightKg: number,
   mets: number,
@@ -102,7 +107,7 @@ function analysis(
 
   return {
     exerciseType: "strength",
-    muscleGroups: MUSCLE_MAP[muscle],
+    muscleGroups: resolveMuscleKeys(exercise),
     estimatedMets: mets,
     estimatedDurationMinutes,
     caloriesBurnedEstimated: Math.round(
@@ -120,6 +125,7 @@ function plannedWeightKg(exercise: Exercise) {
     case "QUADS":
     case "GLUTES":
     case "HAMSTRINGS":
+    case "CALVES":
       return 40
     case "SHOULDERS":
     case "BICEPS":
@@ -263,7 +269,7 @@ function draftMainExercise(
       plannedReps: config.plannedReps,
     })),
     plannedAnalysis: analysis(
-      exercise.primaryMuscle,
+      exercise,
       setCount,
       effectiveUserWeightKg,
       config.mets,

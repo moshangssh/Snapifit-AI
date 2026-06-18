@@ -1,8 +1,8 @@
 import {
   EXERCISES_BY_ID,
-  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   findVariants,
+  resolveMuscleKeys,
   type Exercise,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
@@ -51,8 +51,13 @@ const TEMPLATES: TemplateDefinition[] = [
   { name: "下C", mainMuscles: ["QUADS", "GLUTES", "CORE"] },
 ]
 
+/** 本阶段所有模板引用到的肌群（用于校验目录覆盖，消除 fallback 抓取） */
+export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
+  ...new Set(TEMPLATES.flatMap((template) => template.mainMuscles)),
+]
+
 function analysis(
-  muscle: MuscleGroup,
+  exercise: Exercise,
   setCount: number,
   effectiveUserWeightKg: number,
 ): WorkoutExerciseAnalysis {
@@ -60,7 +65,7 @@ function analysis(
 
   return {
     exerciseType: "strength",
-    muscleGroups: MUSCLE_MAP[muscle],
+    muscleGroups: resolveMuscleKeys(exercise),
     estimatedMets: 5,
     estimatedDurationMinutes,
     caloriesBurnedEstimated: Math.round(
@@ -77,6 +82,8 @@ function plannedWeightKg(exercise: Exercise) {
       return 25
     case "QUADS":
     case "GLUTES":
+    case "HAMSTRINGS":
+    case "CALVES":
       return 35
     case "SHOULDERS":
     case "BICEPS":
@@ -117,7 +124,7 @@ function draftMainExercise(
       plannedReps: options.plannedReps,
     })),
     plannedAnalysis: analysis(
-      exercise.primaryMuscle,
+      exercise,
       setCount,
       effectiveUserWeightKg,
     ),

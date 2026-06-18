@@ -5,6 +5,7 @@ export const MUSCLE_KEYS = [
   "upper-back",
   "lower-back",
   "front-deltoids",
+  "side-deltoids",
   "back-deltoids",
   "biceps",
   "triceps",
@@ -26,6 +27,7 @@ export const MUSCLE_LABELS_ZH: Record<MuscleKey, string> = {
   "upper-back": "上背",
   "lower-back": "下背",
   "front-deltoids": "前三角肌",
+  "side-deltoids": "中三角肌",
   "back-deltoids": "后三角肌",
   "biceps": "肱二头肌",
   "triceps": "肱三头肌",
@@ -41,6 +43,7 @@ export const FRONT_MUSCLES: readonly MuscleKey[] = [
   "abs",
   "obliques",
   "front-deltoids",
+  "side-deltoids",
   "biceps",
   "forearms",
   "quadriceps",
@@ -62,6 +65,7 @@ export const BACK_MUSCLES: readonly MuscleKey[] = [
  *   hamstring | lower-back | obliques | quadriceps | triceps | upper-back | ...
  * 四个不一致点:front/back-deltoids 共用 deltoids(靠 side 视图区分);
  *   forearms→forearm;hamstrings→hamstring;glutes→gluteal(单复数/词形)。
+ *   side-deltoids（中束）库无独立区,与 front 同走 deltoids（正面图同区渲染）。
  */
 export const MUSCLE_TO_LIB_SLUG: Record<MuscleKey, string> = {
   "chest": "chest",
@@ -70,6 +74,7 @@ export const MUSCLE_TO_LIB_SLUG: Record<MuscleKey, string> = {
   "upper-back": "upper-back",
   "lower-back": "lower-back",
   "front-deltoids": "deltoids",
+  "side-deltoids": "deltoids",
   "back-deltoids": "deltoids",
   "biceps": "biceps",
   "triceps": "triceps",

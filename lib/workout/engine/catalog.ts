@@ -209,7 +209,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     name: '器械反向飞鸟',
     nameEn: 'Machine Reverse Flyes',
     primaryMuscle: 'SHOULDERS',
-    movementPattern: 'horizontal_push',
+    movementPattern: 'rear_delt',
     angle: 'neutral',
     equipment: 'MACHINE',
     mechanics: 'ISOLATION',
@@ -232,7 +232,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '3ae8ee86-534c-0824-07b6-e9f105b97c1d',
     name: '俯卧腿弯举',
     nameEn: 'Seated Leg Curl',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'leg_curl',
     angle: 'neutral',
     equipment: 'MACHINE',
@@ -535,7 +535,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '9202e88a-111c-40f8-8464-d567a7fff830',
     name: '坐姿单腿腿弯举',
     nameEn: 'Seated Single Leg Curl',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'leg_curl',
     angle: 'neutral',
     equipment: 'MACHINE',
@@ -571,7 +571,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '12c994b1-6251-4d3e-96e6-8186ee6a0afd',
     name: '负重坐姿提踵',
     nameEn: 'Weighted Seated Calf Raise',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'CALVES',
     movementPattern: 'calf_raise',
     angle: 'neutral',
     equipment: 'MACHINE',
@@ -838,7 +838,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '2187784c-77b0-4106-9b6f-cd5938da82b8',
     name: '单腿哑铃提踵',
     nameEn: 'Single-Leg Calf Raise with Dumbbell',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'CALVES',
     movementPattern: 'calf_raise',
     angle: 'neutral',
     equipment: 'DUMBBELL',
@@ -1018,7 +1018,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '1dd0ba84-d102-4e5a-ad25-58ebfa8edf9f',
     name: '抓举',
     nameEn: 'Snatch',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'GLUTES',
     movementPattern: 'compound',
     angle: 'neutral',
     equipment: 'BARBELL',
@@ -1066,7 +1066,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '085cfcf8-548d-44df-8e92-eb9936752382',
     name: '杠铃提踵',
     nameEn: 'Barbell Calf Raise',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'CALVES',
     movementPattern: 'calf_raise',
     angle: 'neutral',
     equipment: 'BARBELL',
@@ -1102,7 +1102,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '114ad863-9971-40c3-8108-2a983fe656ae',
     name: '缺口硬拉',
     nameEn: 'Deficit Deadlift',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'hinge_pattern',
     angle: 'neutral',
     equipment: 'BARBELL',
@@ -1213,7 +1213,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: 'c72d1396-05a3-4254-a62e-dbbba9813472',
     name: '单腿仰卧腿弯举',
     nameEn: 'Single-Leg Lying Curl',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'leg_curl',
     angle: 'neutral',
     equipment: 'MACHINE',
@@ -1420,6 +1420,29 @@ export const MUSCLE_MAP: Record<MuscleGroup, MuscleKey[]> = {
   CORE: ["abs"],
   FOREARMS: ["forearms"],
   CALVES: ["calves"],
+}
+
+/**
+ * 解析动作命中的 MuscleKey。
+ *
+ * MUSCLE_MAP 以 primaryMuscle 为粒度,无法区分肩部三束——侧平举（中束）、
+ * 反向飞鸟/面拉（后束）会和肩推（前束）混为一谈。这里用 movementPattern 细化
+ * SHOULDERS:lateral_raise→中束、rear_delt→后束、其余→前束;其它肌群仍走 MUSCLE_MAP。
+ * 三个引擎共用此函数,保证处方与 fatigueSnapshot 的肌群口径一致。(issue #47)
+ */
+export function resolveMuscleKeys(exercise: Exercise): MuscleKey[] {
+  if (exercise.primaryMuscle === "SHOULDERS") {
+    switch (exercise.movementPattern) {
+      case "lateral_raise":
+        return ["side-deltoids"]
+      case "rear_delt":
+        return ["back-deltoids"]
+      default:
+        return ["front-deltoids"]
+    }
+  }
+
+  return MUSCLE_MAP[exercise.primaryMuscle]
 }
 
 /**
