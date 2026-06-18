@@ -1,7 +1,7 @@
 # PRD: Deterministic Workout Training Engine
 
 **Created**: 2026-06-14
-**Updated**: 2026-06-15 (grill-with-docs 会话补充)
+**Updated**: 2026-06-15 (grill-with-docs 会话补充); 2026-06-19 (#49: 上肢日均衡化，胸/背 2×/周)
 **Status**: Ready for implementation
 
 ## Problem Statement
@@ -122,10 +122,12 @@ Next session request → AdaptiveEngine.generateSession()
 ### Novice Phase Parameters
 
 **Templates (4):**
-- 上A (push): chest/front-delt/triceps + biceps auxiliary
+- 上A (upper, chest-led): chest + back + shoulders + triceps + biceps
 - 下A: quads/hams/glutes/core
-- 上B (pull): back/rear-delt/biceps + forearms auxiliary
+- 上B (upper, back-led): back + chest + shoulders + biceps + triceps
 - 下B: quads/hams/glutes/core (different exercise variants)
+
+> 两个上肢日都训练胸 + 背，使一个 4 模板微周期内每个肌群都被练 2 次/周（兑现 user story 14）。早期「上A=纯推 / 上B=纯拉」会让胸/背各掉到 1 次/周，已在 #49 修正，详见 ADR-0004 文末 Update。
 
 **Session structure:**
 - warmup: 4 exercises (2 AS_CORE + 2 training-specific activation)

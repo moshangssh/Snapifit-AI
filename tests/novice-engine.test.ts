@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   AS_CORE_EXERCISES,
   STRENGTH_EXERCISES,
+  type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { generateSession } from "@/lib/workout/engine/novice-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
@@ -278,6 +279,100 @@ describe("novice workout engine", () => {
     expect(lowerMainMuscles).toEqual(
       expect.arrayContaining(["QUADS", "GLUTES", "CORE"]),
     )
+  })
+
+  it("trains every major muscle group at least twice per four-template microcycle", () => {
+    const strengthById = new Map(
+      STRENGTH_EXERCISES.map((exercise) => [exercise.id, exercise]),
+    )
+    // One microcycle = sessions 0-3 (上A → 下A → 上B → 下B), i.e. one week
+    // when the user trains 4 days/week. PRD user story 14 promises each muscle
+    // group is trained twice per week, so it must show up in ≥2 of these sessions.
+    const sessionsByMuscle = new Map<MuscleGroup, Set<number>>()
+    for (const count of [0, 1, 2, 3]) {
+      const session = generateSession(makeState(count))
+      for (const exercise of session.exercises) {
+        if (exercise.phase !== "main" || !exercise.catalogExerciseId) continue
+        const muscle = strengthById.get(exercise.catalogExerciseId)?.primaryMuscle
+        if (!muscle) continue
+        const sessions = sessionsByMuscle.get(muscle) ?? new Set<number>()
+        sessions.add(session.templateIndex)
+        sessionsByMuscle.set(muscle, sessions)
+      }
+    }
+
+    const majorMuscles: MuscleGroup[] = [
+      "CHEST",
+      "BACK",
+      "SHOULDERS",
+      "QUADS",
+      "HAMSTRINGS",
+      "GLUTES",
+      "BICEPS",
+      "TRICEPS",
+      "CORE",
+    ]
+    for (const muscle of majorMuscles) {
+      const weeklyFrequency = sessionsByMuscle.get(muscle)?.size ?? 0
+      expect(weeklyFrequency, `${muscle} weekly frequency`).toBeGreaterThanOrEqual(2)
+    }
+  })
+
+  it("gives chest and back at least six main working sets across the microcycle", () => {
+    const strengthById = new Map(
+      STRENGTH_EXERCISES.map((exercise) => [exercise.id, exercise]),
+    )
+    // #49: chest used to sit at a single upper day (1 exercise × 3 sets = 3 sets/week),
+    // far below the evidence-based hypertrophy range. Spreading it across both upper
+    // days lifts chest to ~6 sets/week while keeping back at ~6 (now 2×/week, not 1×).
+    const weeklyWorkingSets: Record<"CHEST" | "BACK", number> = { CHEST: 0, BACK: 0 }
+    for (const count of [0, 1, 2, 3]) {
+      const session = generateSession(makeState(count))
+      for (const exercise of session.exercises) {
+        if (exercise.phase !== "main" || !exercise.catalogExerciseId) continue
+        const muscle = strengthById.get(exercise.catalogExerciseId)?.primaryMuscle
+        if (muscle === "CHEST" || muscle === "BACK") {
+          weeklyWorkingSets[muscle] += exercise.sets.length
+        }
+      }
+    }
+
+    expect(weeklyWorkingSets.CHEST).toBeGreaterThanOrEqual(6)
+    expect(weeklyWorkingSets.BACK).toBeGreaterThanOrEqual(6)
+  })
+
+  it("varies the chest and back movements between the two upper days", () => {
+    const strengthById = new Map(
+      STRENGTH_EXERCISES.map((exercise) => [exercise.id, exercise]),
+    )
+    // #49: both upper days now train chest and back. The rotation offset is meant
+    // to pick *different* movements on each day (e.g. a pulldown on 上A, a row on
+    // 上B), so each muscle gets pattern variety instead of the same lift twice a week.
+    const upperA = generateSession(makeState(0))
+    const upperB = generateSession(makeState(2))
+    expect(upperA.templateName).toBe("上A")
+    expect(upperB.templateName).toBe("上B")
+
+    const mainMovementId = (
+      session: ReturnType<typeof generateSession>,
+      muscle: MuscleGroup,
+    ) =>
+      session.exercises.find(
+        (exercise) =>
+          exercise.phase === "main" &&
+          exercise.catalogExerciseId &&
+          strengthById.get(exercise.catalogExerciseId)?.primaryMuscle === muscle,
+      )?.catalogExerciseId
+
+    for (const muscle of ["CHEST", "BACK"] as const) {
+      const idA = mainMovementId(upperA, muscle)
+      const idB = mainMovementId(upperB, muscle)
+      expect(idA, `${muscle} on 上A`).toBeDefined()
+      expect(idB, `${muscle} on 上B`).toBeDefined()
+      expect(idA, `${muscle} should differ between the two upper days`).not.toBe(
+        idB,
+      )
+    }
   })
 
   it("puts two AS core movements in warmup and cooldown with upper or lower focus", () => {
