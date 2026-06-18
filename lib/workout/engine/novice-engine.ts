@@ -55,12 +55,15 @@ interface TemplateDefinition {
   }>
 }
 
+// 上下分化：两个上肢日都要练到胸 + 背，这样一个 4 模板微周期（=一周练 4 天）里
+// 每个肌群都被练 2 次（兑现 ADR-0004 与 PRD user story 14 的「每肌群 2 次/周」承诺）。
+// 不要把上A/上B退回纯「推/拉」分化——那会让胸只在上A、背只在上B，各掉回 1 次/周（见 #49）。
 const TEMPLATES: TemplateDefinition[] = [
   {
     name: "上A",
     asFocus: "upper",
     warmupSupportMuscles: ["CHEST", "SHOULDERS"],
-    mainMuscles: ["CHEST", "SHOULDERS", "TRICEPS", "BICEPS"],
+    mainMuscles: ["CHEST", "BACK", "SHOULDERS", "TRICEPS", "BICEPS"],
     cooldownSupport: [
       { name: "胸大肌门框拉伸", muscleGroups: ["chest"] },
       { name: "前臂屈肌拉伸", muscleGroups: ["forearms"] },
@@ -80,7 +83,7 @@ const TEMPLATES: TemplateDefinition[] = [
     name: "上B",
     asFocus: "upper",
     warmupSupportMuscles: ["BACK", "SHOULDERS"],
-    mainMuscles: ["BACK", "BACK", "SHOULDERS", "BICEPS", "TRICEPS"],
+    mainMuscles: ["BACK", "CHEST", "SHOULDERS", "BICEPS", "TRICEPS"],
     cooldownSupport: [
       { name: "背阔肌跪姿拉伸", muscleGroups: ["upper-back"] },
       { name: "二头肌墙边拉伸", muscleGroups: ["biceps"] },
