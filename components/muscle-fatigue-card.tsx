@@ -46,18 +46,38 @@ export function MuscleFatigueCard({ selectedDate, refreshTrigger }: Props) {
   const [selected, setSelected] = useState<MuscleKey | null>(null)
 
   const { frontData, backData, slugToFront, slugToBack } = useMemo(() => {
+    // Several MuscleKeys can share one highlighter slug (front + side deltoids
+    // both render as "deltoids"). Collapse per slug so Body never receives a
+    // duplicate slug, and the rendered region reflects the most-fatigued key.
+    const intensityOf = (k: MuscleKey): 0 | 30 | 60 | 100 =>
+      byMuscle[k]?.intensity ?? 0
+    const groupsOf = (keys: readonly MuscleKey[]) => {
+      const bySlug = new Map<string, MuscleKey[]>()
+      for (const k of keys) {
+        const slug = MUSCLE_TO_LIB_SLUG[k]
+        bySlug.set(slug, [...(bySlug.get(slug) ?? []), k])
+      }
+      return bySlug
+    }
     const buildData = (keys: readonly MuscleKey[]) =>
-      keys.map((k) => {
-        const intensity = byMuscle[k]?.intensity ?? 0
+      [...groupsOf(keys)].map(([slug, group]) => {
+        const intensity = group.reduce<0 | 30 | 60 | 100>(
+          (max, k) => (intensityOf(k) > max ? intensityOf(k) : max),
+          0,
+        )
         return {
-          slug: MUSCLE_TO_LIB_SLUG[k] as Slug,
+          slug: slug as Slug,
           intensity,
           color: INTENSITY_COLOR[intensity],
         }
       })
     const reverse = (keys: readonly MuscleKey[]) => {
       const m: Record<string, MuscleKey> = {}
-      for (const k of keys) m[MUSCLE_TO_LIB_SLUG[k]] = k
+      for (const [slug, group] of groupsOf(keys)) {
+        m[slug] = group.reduce((best, k) =>
+          intensityOf(k) > intensityOf(best) ? k : best,
+        )
+      }
       return m
     }
     return {

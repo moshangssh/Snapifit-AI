@@ -112,6 +112,26 @@ describe("advanced workout engine", () => {
       .toBe(true)
   })
 
+  function mainPrimaryMuscles(count: number) {
+    return generateSession(makeState(count))
+      .exercises.filter((exercise) => exercise.phase === "main")
+      .map(
+        (exercise) =>
+          STRENGTH_EXERCISES.find((item) => item.id === exercise.catalogExerciseId)
+            ?.primaryMuscle,
+      )
+  }
+
+  it("fills the 肌肥大下 HAMSTRINGS slot with a hamstrings exercise, not a fallback", () => {
+    expect(generateSession(makeState(243)).templateName).toBe("肌肥大下")
+    expect(mainPrimaryMuscles(243)).toContain("HAMSTRINGS")
+  })
+
+  it("fills the 耐力下 CALVES slot with a calves exercise, not a fallback", () => {
+    expect(generateSession(makeState(245)).templateName).toBe("耐力下")
+    expect(mainPrimaryMuscles(245)).toContain("CALVES")
+  })
+
   it("deloads for six sessions when four muscle groups have fatigue intensity at least sixty", () => {
     const fatigueSnapshot = {
       chest: { intensity: 60, daysAgo: 1, lastExerciseName: "胸" },

@@ -38,11 +38,14 @@ const MUSCLE_HINTS: Array<{
   keywords: string[]
   muscleGroups: MuscleKey[]
 }> = [
+  // 更具体的肩部束在前:反向飞鸟须先于胸部通用关键词"飞鸟"命中。
+  { keywords: ["侧平举"], muscleGroups: ["side-deltoids"] },
+  { keywords: ["面拉", "反向飞鸟"], muscleGroups: ["back-deltoids"] },
   { keywords: ["卧推", "俯卧撑", "飞鸟", "夹胸"], muscleGroups: ["chest", "triceps"] },
   { keywords: ["划船", "下拉", "引体", "背"], muscleGroups: ["upper-back", "biceps"] },
   { keywords: ["深蹲", "腿举", "弓步"], muscleGroups: ["quadriceps", "glutes"] },
   { keywords: ["硬拉", "臀桥", "腿弯举"], muscleGroups: ["hamstrings", "glutes"] },
-  { keywords: ["肩推", "侧平举"], muscleGroups: ["front-deltoids"] },
+  { keywords: ["肩推", "前平举"], muscleGroups: ["front-deltoids"] },
   { keywords: ["弯举"], muscleGroups: ["biceps"] },
   { keywords: ["下压", "臂屈伸"], muscleGroups: ["triceps"] },
   { keywords: ["卷腹", "平板支撑"], muscleGroups: ["abs"] },

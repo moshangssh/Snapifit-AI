@@ -112,7 +112,7 @@ export async function POST(req: Request) {
         - calories_burned_estimated: 估算的卡路里消耗
         - muscle_groups: 锻炼的主要肌肉群,必须从以下固定英文枚举中选择(不要用中文):
             chest, abs, obliques, upper-back, lower-back,
-            front-deltoids, back-deltoids, biceps, triceps, forearms,
+            front-deltoids, side-deltoids, back-deltoids, biceps, triceps, forearms,
             quadriceps, hamstrings, glutes, calves
           仅列主要肌群(1-3 个),不列次要协同肌。纯有氧(跑步、骑行)返回空数组。
         - is_estimated: 是否为估算值

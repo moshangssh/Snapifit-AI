@@ -1,6 +1,7 @@
 import {
   ALL_EXERCISES,
   STRENGTH_EXERCISES,
+  resolveMuscleKeys,
   type Exercise,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
@@ -68,8 +69,8 @@ const TEMPLATES: TemplateDefinition[] = [
   {
     name: "下A",
     asFocus: "lower",
-    warmupSupportMuscles: ["QUADS", "GLUTES"],
-    mainMuscles: ["QUADS", "QUADS", "GLUTES", "GLUTES", "CORE"],
+    warmupSupportMuscles: ["GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "股四头肌站姿拉伸", muscleGroups: ["quadriceps"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -88,8 +89,8 @@ const TEMPLATES: TemplateDefinition[] = [
   {
     name: "下B",
     asFocus: "lower",
-    warmupSupportMuscles: ["QUADS", "GLUTES"],
-    mainMuscles: ["QUADS", "QUADS", "GLUTES", "GLUTES", "CORE"],
+    warmupSupportMuscles: ["GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "臀肌仰卧拉伸", muscleGroups: ["glutes"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -97,23 +98,19 @@ const TEMPLATES: TemplateDefinition[] = [
   },
 ]
 
+/** 本阶段所有模板引用到的肌群（warmup 支持 + main），用于校验目录覆盖 */
+export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
+  ...new Set(
+    TEMPLATES.flatMap((template) => [
+      ...template.warmupSupportMuscles,
+      ...template.mainMuscles,
+    ]),
+  ),
+]
+
 const EXERCISES_BY_ID = new Map(
   ALL_EXERCISES.map((exercise) => [exercise.id, exercise]),
 )
-
-const MUSCLE_MAP: Record<MuscleGroup, MuscleKey[]> = {
-  CHEST: ["chest"],
-  BACK: ["upper-back"],
-  SHOULDERS: ["front-deltoids"],
-  QUADS: ["quadriceps"],
-  GLUTES: ["glutes"],
-  HAMSTRINGS: ["hamstrings"],
-  BICEPS: ["biceps"],
-  TRICEPS: ["triceps"],
-  CORE: ["abs"],
-  FOREARMS: ["forearms"],
-  CALVES: ["calves"],
-}
 
 function getExercise(id: string): Exercise {
   const exercise = EXERCISES_BY_ID.get(id)
@@ -132,6 +129,8 @@ function plannedWeightKg(exercise: Exercise, phase: WorkoutExercisePhase) {
       return 25
     case "QUADS":
     case "GLUTES":
+    case "HAMSTRINGS":
+    case "CALVES":
       return 35
     case "SHOULDERS":
     case "BICEPS":
@@ -213,7 +212,7 @@ function catalogDraft(
     })),
     plannedAnalysis: analysis(
       exerciseType,
-      MUSCLE_MAP[exercise.primaryMuscle],
+      resolveMuscleKeys(exercise),
       setCount,
       effectiveUserWeightKg,
     ),
@@ -348,10 +347,13 @@ function selectByMuscleSlots(
       continue
     }
 
+    // Fallback relaxes the intra-phase rotation/dedup (offset + already-selected),
+    // but NEVER the cross-phase excludes: a warmup slot must not clone a main lift.
+    // If the pool genuinely can't fill the slot, fall through to the warn below.
     const [fallback] = selectExercises({
       muscle,
       tags: ["NOVICE_CORE"],
-      excludeIds: blacklist,
+      excludeIds: [...blacklist, ...extraExcludeIds],
       count: 1,
       offset: offset + index,
       unlockedRiskCategories,
