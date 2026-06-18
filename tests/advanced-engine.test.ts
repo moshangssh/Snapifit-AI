@@ -186,7 +186,8 @@ describe("advanced workout engine AS safety lock", () => {
 
   const isAxialBarbell = (exercise: (typeof STRENGTH_EXERCISES)[number]) =>
     (exercise.movementPattern === "squat_pattern" ||
-      exercise.movementPattern === "hinge_pattern") &&
+      exercise.movementPattern === "hinge_pattern" ||
+      exercise.movementPattern === "calf_raise") &&
     exercise.equipment === "BARBELL"
 
   const isOverheadPress = (exercise: (typeof STRENGTH_EXERCISES)[number]) =>
@@ -195,7 +196,7 @@ describe("advanced workout engine AS safety lock", () => {
       exercise.equipment === "BARBELL" ||
       exercise.equipment === "DUMBBELL")
 
-  it("never prescribes barbell squat/hinge, overhead press, or the snatch by default", () => {
+  it("never prescribes barbell squat/hinge/calf raise, overhead press, or the snatch by default", () => {
     for (let count = 240; count < 240 + 60; count++) {
       const exercises = mainCatalogExercises(poolState(count))
 
@@ -226,8 +227,7 @@ describe("advanced workout engine AS safety lock", () => {
       expect(exercises.every((exercise) => exercise.equipment !== "BARBELL" ||
         exercise.movementPattern === "horizontal_push" ||
         exercise.movementPattern === "horizontal_pull" ||
-        exercise.movementPattern === "incline_push" ||
-        exercise.movementPattern === "calf_raise")).toBe(true)
+        exercise.movementPattern === "incline_push")).toBe(true)
     }
   })
 

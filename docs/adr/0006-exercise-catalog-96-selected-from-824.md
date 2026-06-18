@@ -69,9 +69,9 @@
 判定基于结构化标签（`movementPattern` / `angle` / `equipment`），而非按动作 ID 硬编码，
 因此新增动作会被自动分类：
 
-- **轴向下肢负重** `axial_loaded_lower`：`movementPattern ∈ {squat_pattern, hinge_pattern}` 且 `equipment = BARBELL`
+- **轴向下肢负重** `axial_loaded_lower`：`movementPattern ∈ {squat_pattern, hinge_pattern, calf_raise}` 且 `equipment = BARBELL`（站姿杠铃提踵亦为脊柱轴向压缩）
 - **负重过顶按压** `overhead_press`：`movementPattern = vertical_push` 且（`angle = overhead` 或 `equipment ∈ {BARBELL, DUMBBELL}`）
-- **奥举 / 爆发** `olympic_lift`：`movementPattern = compound` 且 `equipment = BARBELL`（抓举等）
+- **奥举 / 爆发** `olympic_lift`：`movementPattern = compound` 且 `equipment = BARBELL`（抓举、扛铃台阶上步——二者结构化标签完全相同，统一归此类、默认锁定）
 
 实现于 `lib/workout/engine/as-safety.ts`，在动作选择层统一拦截（新手 / 中级 / 高级三引擎共用）。
 默认全锁；解锁集合持久化在 `TrainingState.unlockedRiskCategories`，由训练设置里的 HITL 开关写入

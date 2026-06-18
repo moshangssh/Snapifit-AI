@@ -14,9 +14,11 @@ function byName(name: string): Exercise {
 }
 
 describe("AS safety classification", () => {
-  it("classifies barbell squat/hinge as axial lower-body risk", () => {
+  it("classifies barbell squat/hinge/standing calf raise as axial lower-body risk", () => {
     expect(classifyASRisk(byName("杠铃深蹲"))).toBe("axial_loaded_lower")
     expect(classifyASRisk(byName("缺口硬拉"))).toBe("axial_loaded_lower")
+    // 站姿杠铃提踵：杠铃扛于上背，与深蹲同为脊柱轴向压缩
+    expect(classifyASRisk(byName("杠铃提踵"))).toBe("axial_loaded_lower")
   })
 
   it("classifies barbell/dumbbell overhead press as overhead-press risk", () => {
@@ -26,6 +28,8 @@ describe("AS safety classification", () => {
 
   it("classifies barbell Olympic/explosive compound lifts as olympic risk", () => {
     expect(classifyASRisk(byName("抓举"))).toBe("olympic_lift")
+    // 扛铃台阶上步与抓举的结构化标签完全相同，统一归此类、默认锁定
+    expect(classifyASRisk(byName("杠铃台阶上步"))).toBe("olympic_lift")
   })
 
   it("treats machine/neutral movements as inherently safe", () => {
