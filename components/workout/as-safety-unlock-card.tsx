@@ -17,9 +17,11 @@ import {
  */
 export function ASSafetyUnlockCard({
   unlockedRiskCategories,
+  disabled = false,
   onToggle,
 }: {
   unlockedRiskCategories: string[]
+  disabled?: boolean
   onToggle: (category: ASRiskCategory, unlocked: boolean) => void
 }) {
   const unlockedSet = new Set(unlockedRiskCategories)
@@ -55,6 +57,7 @@ export function ASSafetyUnlockCard({
                 <Switch
                   id={id}
                   checked={unlockedSet.has(category)}
+                  disabled={disabled}
                   onCheckedChange={(checked) => onToggle(category, checked)}
                 />
               </div>

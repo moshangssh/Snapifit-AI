@@ -405,15 +405,13 @@ export default function WorkoutPage() {
 
   const toggleRiskCategory = useCallback(
     (category: ASRiskCategory, unlocked: boolean) => {
-      setTrainingState((current) => {
-        const existing = current.unlockedRiskCategories ?? []
-        const next = unlocked
-          ? Array.from(new Set([...existing, category]))
-          : existing.filter((item) => item !== category)
-        const nextState = { ...current, unlockedRiskCategories: next }
-        writeTrainingState(nextState)
-        return nextState
-      })
+      const existing = trainingState.unlockedRiskCategories ?? []
+      const next = unlocked
+        ? Array.from(new Set([...existing, category]))
+        : existing.filter((item) => item !== category)
+      const nextState = { ...trainingState, unlockedRiskCategories: next }
+      writeTrainingState(nextState)
+      setTrainingState(nextState)
       toast({
         title: unlocked ? "已解锁动作类别" : "已重新锁定动作类别",
         description: unlocked
@@ -421,7 +419,7 @@ export default function WorkoutPage() {
           : "该类动作将不再被处方。",
       })
     },
-    [toast],
+    [trainingState, toast],
   )
 
   if (!isReady) {
@@ -477,6 +475,7 @@ export default function WorkoutPage() {
           </Card>
           <ASSafetyUnlockCard
             unlockedRiskCategories={trainingState.unlockedRiskCategories ?? []}
+            disabled={isGenerating}
             onToggle={toggleRiskCategory}
           />
         </div>
