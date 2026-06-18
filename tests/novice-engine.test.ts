@@ -341,6 +341,40 @@ describe("novice workout engine", () => {
     expect(weeklyWorkingSets.BACK).toBeGreaterThanOrEqual(6)
   })
 
+  it("varies the chest and back movements between the two upper days", () => {
+    const strengthById = new Map(
+      STRENGTH_EXERCISES.map((exercise) => [exercise.id, exercise]),
+    )
+    // #49: both upper days now train chest and back. The rotation offset is meant
+    // to pick *different* movements on each day (e.g. a pulldown on 上A, a row on
+    // 上B), so each muscle gets pattern variety instead of the same lift twice a week.
+    const upperA = generateSession(makeState(0))
+    const upperB = generateSession(makeState(2))
+    expect(upperA.templateName).toBe("上A")
+    expect(upperB.templateName).toBe("上B")
+
+    const mainMovementId = (
+      session: ReturnType<typeof generateSession>,
+      muscle: MuscleGroup,
+    ) =>
+      session.exercises.find(
+        (exercise) =>
+          exercise.phase === "main" &&
+          exercise.catalogExerciseId &&
+          strengthById.get(exercise.catalogExerciseId)?.primaryMuscle === muscle,
+      )?.catalogExerciseId
+
+    for (const muscle of ["CHEST", "BACK"] as const) {
+      const idA = mainMovementId(upperA, muscle)
+      const idB = mainMovementId(upperB, muscle)
+      expect(idA, `${muscle} on 上A`).toBeDefined()
+      expect(idB, `${muscle} on 上B`).toBeDefined()
+      expect(idA, `${muscle} should differ between the two upper days`).not.toBe(
+        idB,
+      )
+    }
+  })
+
   it("puts two AS core movements in warmup and cooldown with upper or lower focus", () => {
     const asCoreById = new Map(
       AS_CORE_EXERCISES.map((exercise) => [exercise.id, exercise]),
