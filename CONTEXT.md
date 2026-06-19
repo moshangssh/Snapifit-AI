@@ -57,7 +57,7 @@ The algorithm that decides when to increase weight, maintain, reduce reps, or sw
 _Avoid_: 加重规则 (too narrow; progression includes deload and reps adjustment, not just adding weight)
 
 **减载 (Deload)**:
-A planned reduction in training intensity (-30% weight) and volume (-33% sets: 3 → 2) to allow recovery. For novice phase, triggered every 12 sessions, lasting 3 sessions. Exercises and structure remain the same.
+A planned reduction in training intensity (-30% weight) and volume (-33% sets: 3 → 2) to allow recovery. For novice phase, triggered every 16 sessions, lasting 3 sessions. Exercises and structure remain the same.
 _Avoid_: 休息周 (implies no training; deload is active recovery), 轻重量周
 
 **AS 核心动作 (AS Core Movement)**:
@@ -80,7 +80,7 @@ The engine supports three training phases with automatic transition:
 - **Templates**: 4 (上A推 → 下A → 上B拉 → 下B)
 - **Exercise pool**: 20 core exercises (NOVICE_CORE tag, machine/dumbbell priority)
 - **Progression**: Linear (+1.25kg upper, +2.5kg lower when target reps met)
-- **Deload**: Every 12 sessions, 3-session deload at -30% weight / -33% sets
+- **Deload**: Every 16 sessions, 3-session deload at -30% weight / -33% sets
 - **Structure**: warmup 4 + main 4-5 × 3 sets + cooldown 4
 - **Transition trigger**: 72 sessions OR 4+ stalled exercises
 
