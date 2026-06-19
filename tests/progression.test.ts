@@ -45,6 +45,7 @@ function completedExercise(input: {
 function evaluate(history: RecentWorkoutSessionSummary[]) {
   return evaluateProgression(history, EXERCISE_ID, {
     primaryMuscle: "CHEST",
+    mechanics: "COMPOUND",
     effectiveUserWeightKg: 70,
   })
 }
@@ -119,5 +120,58 @@ describe("novice progression rules", () => {
     expect(result.weight).toBe(40)
     // After multiple failures, reps are reduced before replacement
     expect(result.plannedReps).toBe(8)
+  })
+})
+
+describe("conservative starting weight (no history)", () => {
+  function startingWeight(options: {
+    primaryMuscle: MuscleGroup
+    mechanics: "COMPOUND" | "ISOLATION"
+    effectiveUserWeightKg: number
+  }) {
+    return evaluateProgression([], "any-exercise", options).weight
+  }
+
+  it("starts small-muscle upper-body isolation movements at a fixed light weight", () => {
+    // 侧平举/反向飞鸟/弯举: 0.15×BW = 10.5kg/side for a 70kg novice is an
+    // advanced, shoulder-risky load. Single-joint work on a small muscle does
+    // not scale with body weight, so start from a fixed conservative weight.
+    expect(
+      startingWeight({
+        primaryMuscle: "SHOULDERS",
+        mechanics: "ISOLATION",
+        effectiveUserWeightKg: 70,
+      }),
+    ).toBe(3)
+  })
+
+  it("starts small-muscle upper-body compounds heavier than isolation", () => {
+    // 器械肩推/坐姿下压机: multi-joint presses; 0.15×BW = 10.5kg was too light.
+    expect(
+      startingWeight({
+        primaryMuscle: "SHOULDERS",
+        mechanics: "COMPOUND",
+        effectiveUserWeightKg: 70,
+      }),
+    ).toBe(14)
+  })
+
+  it("keeps body-weight scaling for chest/back and lower-body movements", () => {
+    // Larger muscles already started at sane loads; mechanics must not regress
+    // them. Chest/back = 0.3×BW, lower body = 0.5×BW.
+    expect(
+      startingWeight({
+        primaryMuscle: "CHEST",
+        mechanics: "COMPOUND",
+        effectiveUserWeightKg: 70,
+      }),
+    ).toBe(21)
+    expect(
+      startingWeight({
+        primaryMuscle: "QUADS",
+        mechanics: "COMPOUND",
+        effectiveUserWeightKg: 70,
+      }),
+    ).toBe(35)
   })
 })

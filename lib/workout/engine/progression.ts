@@ -1,10 +1,11 @@
-import type { MuscleGroup } from "@/lib/workout/engine/catalog"
+import type { ExerciseMechanics, MuscleGroup } from "@/lib/workout/engine/catalog"
 import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
 type ProgressionAction = "add_weight" | "maintain" | "reduce_reps" | "replace"
 
 interface EvaluateProgressionOptions {
   primaryMuscle: MuscleGroup
+  mechanics: ExerciseMechanics
   effectiveUserWeightKg: number
 }
 
@@ -27,12 +28,28 @@ const LOWER_BODY_MUSCLES: MuscleGroup[] = [
   "CALVES",
 ]
 
+// Delts and arms: small muscles whose single-joint (isolation) work does not
+// scale with body weight. A fixed light weight avoids the lateral-raise overshoot.
+const SMALL_UPPER_MUSCLES: MuscleGroup[] = [
+  "SHOULDERS",
+  "BICEPS",
+  "TRICEPS",
+  "FOREARMS",
+]
+
+// Conservative absolute start for small-muscle upper-body isolation
+// (侧平举/弯举/反向飞鸟). The engine never auto-reduces weight on failure — it
+// reduces reps then replaces+blacklists — so an over-heavy start can blacklist a
+// safe movement. Starting light is the safe default.
+const ISOLATION_SMALL_UPPER_START_KG = 3
+
 function isLowerBody(primaryMuscle: MuscleGroup) {
   return LOWER_BODY_MUSCLES.includes(primaryMuscle)
 }
 
 function conservativeStartingWeightKg(
   primaryMuscle: MuscleGroup,
+  mechanics: ExerciseMechanics,
   effectiveUserWeightKg: number,
 ) {
   if (isLowerBody(primaryMuscle)) {
@@ -43,13 +60,12 @@ function conservativeStartingWeightKg(
     return effectiveUserWeightKg * 0.2
   }
 
-  if (
-    primaryMuscle === "SHOULDERS" ||
-    primaryMuscle === "BICEPS" ||
-    primaryMuscle === "TRICEPS" ||
-    primaryMuscle === "FOREARMS"
-  ) {
-    return effectiveUserWeightKg * 0.15
+  if (SMALL_UPPER_MUSCLES.includes(primaryMuscle)) {
+    // Isolation starts from a fixed light weight; compound presses
+    // (器械肩推/坐姿下压机) are multi-joint and tolerate a body-weight share.
+    return mechanics === "ISOLATION"
+      ? ISOLATION_SMALL_UPPER_START_KG
+      : effectiveUserWeightKg * 0.2
   }
 
   return effectiveUserWeightKg * 0.3
@@ -138,6 +154,7 @@ export function evaluateProgression(
 ): ProgressionResult {
   const fallbackWeight = conservativeStartingWeightKg(
     options.primaryMuscle,
+    options.mechanics,
     options.effectiveUserWeightKg,
   )
   const exercises = progressionExercises(history, exerciseId)
