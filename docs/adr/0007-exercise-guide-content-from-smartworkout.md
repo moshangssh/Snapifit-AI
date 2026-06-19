@@ -6,6 +6,10 @@ ADR-0006 精选了 106 个动作进入 `catalog.ts`，但只保留了**结构化
 
 数据源 `docs/smartworkout-exercise-comparison-2026-06-02/smartworkout_exercises_zh.json`（824 个动作）其实为每个动作提供了丰富的中文文字：`descriptionZh`（概述）、`instructionsZh`（分步骤做法）、`tipsZh`（技巧提示）、`commonMistakesZh`（常见错误），以及 `videoLightUrl`/`videoDarkUrl`/`thumbnail1/2`（演示视频与缩略图）。catalog 的 106 个 id 中有 **104 个**能在该 JSON 中精确匹配（另 2 个为自定义动作，无源数据）。
 
+> 2026-06-19 按 #51:那"2 个自定义动作"实为重复条目（重复的 `负重下斜卷腹` / `单臂哑铃腕屈曲`
+> 各一条，用了源数据里不存在的 id）。#51 去重后精选库为 103 个，**全部**可在源数据精确匹配，
+> 动作指南覆盖 103/103，不再有"在库但无源内容"的回退条目。
+
 需要确定：
 1. 运行时怎么拿到这些内容——全量 JSON 进包，还是生成精简子集？
 2. 内容写进 session 持久化，还是渲染时查表？

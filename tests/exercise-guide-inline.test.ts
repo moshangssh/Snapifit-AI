@@ -27,27 +27,29 @@ const MATCHED_IDS = CATALOG_IDS.filter((id) => SOURCE_BY_ID.has(id))
 const CUSTOM_IDS = CATALOG_IDS.filter((id) => !SOURCE_BY_ID.has(id))
 
 describe("exercise guide inline module", () => {
-  it("covers exactly the catalog ids that have source content (104 of 106)", () => {
-    expect(MATCHED_IDS).toHaveLength(104)
-    expect(CUSTOM_IDS).toHaveLength(2)
+  it("covers every catalog id, all of which now have source content", () => {
+    // #51 removed the 2 spurious non-source copies, so every catalog id is
+    // source-backed: MATCHED == catalog, CUSTOM == 0, and the inline module
+    // mirrors the catalog exactly.
+    expect(CUSTOM_IDS).toHaveLength(0)
+    expect(MATCHED_IDS).toHaveLength(CATALOG_IDS.length)
 
     const moduleIds = new Set(Object.keys(EXERCISE_GUIDE_INLINE))
-    expect(moduleIds.size).toBe(104)
+    expect(moduleIds.size).toBe(CATALOG_IDS.length)
     for (const id of MATCHED_IDS) {
       expect(moduleIds.has(id)).toBe(true)
     }
   })
 
-  it("excludes the 2 custom ids with no source content (fallback path)", () => {
-    expect(CUSTOM_IDS.length).toBeGreaterThan(0)
-    for (const id of CUSTOM_IDS) {
-      expect(EXERCISE_GUIDE_INLINE[id]).toBeUndefined()
-    }
+  it("has no fallback-only custom catalog ids after #51 dedup", () => {
+    // The 2 former custom ids were duplicate copies of source-backed movements;
+    // removing them leaves no catalog id without source content.
+    expect(CUSTOM_IDS).toEqual([])
   })
 
   it("does not bundle the 718 unused source exercises", () => {
     const moduleIds = Object.keys(EXERCISE_GUIDE_INLINE)
-    expect(moduleIds).toHaveLength(104)
+    expect(moduleIds).toHaveLength(MATCHED_IDS.length)
     expect(moduleIds.every((id) => SOURCE_BY_ID.has(id))).toBe(true)
   })
 
@@ -67,8 +69,10 @@ describe("exercise guide inline module", () => {
       (entry) => entry.commonMistakes.length === 0,
     )
 
-    expect(withMistakes).toHaveLength(100)
     expect(withoutMistakes).toHaveLength(4)
+    expect(withMistakes).toHaveLength(
+      Object.keys(EXERCISE_GUIDE_INLINE).length - 4,
+    )
   })
 
   it("mirrors the source fields faithfully (no fabricated content)", () => {

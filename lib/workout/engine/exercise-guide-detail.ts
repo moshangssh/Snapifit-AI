@@ -989,20 +989,6 @@ export const EXERCISE_GUIDE_DETAIL: Record<string, ExerciseGuideDetailEntry> =
       "videoLightUrl": "https://api.smartworkout.app/asset/video/c5f1e3d5-0edf-43cd-bebd-39ba40bb283a.mp4",
       "thumbnail": "https://api.smartworkout.app/asset/image/ff5eeac7-c4dd-483e-a686-5223e0ef8b8e"
     },
-    "1dd0ba84-d102-4e5a-ad25-58ebfa8edf9f": {
-      "instructions": [
-        "双脚与髋同宽站立，脚趾稍微向外转。将杠铃放在脚的中间位置。",
-        "用宽握握住杠铃，手臂伸直并在膝盖外侧。",
-        "降低臀部，保持胸部挺起和背部挺直，目视前方。",
-        "通过脚跟发力启动提升，顺畅地伸展膝盖和髋部。",
-        "当杠铃经过膝盖时，过渡为将杠铃靠近身体并耸肩。",
-        "爆发性地伸展髋部和膝盖，同时将自己拉到杠铃下方。",
-        "在深蹲位置接住杠铃，手臂完全伸展并锁定。",
-        "从深蹲位置站起以完成提升，保持杠铃在头顶稳定。"
-      ],
-      "videoLightUrl": "https://api.smartworkout.app/asset/video/446892dd-ce72-4552-aae2-388eaa7a1c7b.mp4",
-      "thumbnail": "https://api.smartworkout.app/asset/image/2258fd3b-87dc-414f-be5e-db7e03ad1e75"
-    },
     "20995c61-3541-47c8-be8d-e1db17c6bffc": {
       "instructions": [
         "从头到脚保持身体成一条直线，开始标准的俯卧撑姿势。",

@@ -3,8 +3,9 @@ import { getExerciseGuide } from "@/lib/workout/exercise-guide"
 
 // 机器胸部推举 (Machine Chest Press) —— catalog 中能在源数据精确匹配的动作
 const KNOWN_CATALOG_ID = "81112d74-4711-4ddc-9145-a610bf8407c8"
-// 自定义动作（在 catalog 但无源内容，应走回退）
-const CUSTOM_CATALOG_ID = "e14e762d-0ff7-4ec0-8c64-2da9c9fce21d"
+// 无源指南内容的动作（AI 生成 / 自填，不在精选库源数据中），应走回退（返回 null）。
+// (#51 去重后精选库已无"在库但无源内容"的条目。)
+const CUSTOM_CATALOG_ID = "ai-generated-no-source-exercise"
 
 describe("exercise guide lookup", () => {
   it("returns overview, tips and common mistakes for a known catalog exercise", () => {
@@ -16,7 +17,7 @@ describe("exercise guide lookup", () => {
     expect(Array.isArray(guide!.commonMistakes)).toBe(true)
   })
 
-  it("returns null for a custom catalog exercise with no source content", () => {
+  it("returns null for an exercise id with no source content (AI-generated / custom)", () => {
     expect(
       getExerciseGuide({ catalogExerciseId: CUSTOM_CATALOG_ID }),
     ).toBeNull()

@@ -1,6 +1,6 @@
 import type { WorkoutPlanContextSnapshot } from "@/lib/workout/types"
 
-const DELOAD_INTERVAL_SESSIONS = 12
+const DELOAD_INTERVAL_SESSIONS = 16
 const DELOAD_DURATION_SESSIONS = 3
 const DELOAD_WEIGHT_MULTIPLIER = 0.7
 const ADVANCED_DELOAD_DURATION_SESSIONS = 6

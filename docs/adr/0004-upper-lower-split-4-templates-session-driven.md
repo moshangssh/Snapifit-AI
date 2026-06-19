@@ -75,7 +75,7 @@ cooldown: 4 动作 × 2 分钟 = 8 分钟
 - `WorkoutSession.sessionRole` 保留（"current" | "next"），但内部不再使用，改用 `templateIndex` 驱动
 - 新增 `TrainingState.completedSessionCount`，每次完成训练 +1
 - 模板选择：`templateIndex = completedSessionCount % 4`
-- 减载判断：`if (completedSessionCount % 12 === 0) { 触发减载 }`
+- 减载判断：`if (completedSessionCount % 16 < 3) { 触发减载 }`（#51 将间隔从 12 延长到 16：每 12 课次连续减 3 次对线性涨力的新手偏频繁；时长仍为 3 课次）
 
 ### AS 活动度覆盖
 

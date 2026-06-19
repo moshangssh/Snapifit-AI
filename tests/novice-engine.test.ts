@@ -131,8 +131,10 @@ describe("novice workout engine", () => {
     }
   })
 
-  it("deloads for three sessions after every twelve completed sessions", () => {
-    const firstDeloadTemplate = generateSession(makeState(12), {
+  it("deloads for three sessions after every sixteen completed sessions", () => {
+    // Harvest the first deload session's main-exercise identities (session 16)
+    // so the history below lines up with the exercises that session prescribes.
+    const firstDeloadTemplate = generateSession(makeState(16), {
       effectiveUserWeightKg: 72,
     })
     const normalMain = firstDeloadTemplate.exercises.filter(
@@ -161,13 +163,13 @@ describe("novice workout engine", () => {
       })),
     }
 
-    const deloadWindows = [12, 13, 14, 24, 25, 26].map((count) =>
+    const deloadWindows = [16, 17, 18, 32, 33, 34].map((count) =>
       generateSession(makeState(count), {
         effectiveUserWeightKg: 72,
         recentWorkoutSessionSummaries: [completedNormal],
       }),
     )
-    const normalAfterDeload = generateSession(makeState(15), {
+    const normalAfterDeload = generateSession(makeState(19), {
       effectiveUserWeightKg: 72,
       recentWorkoutSessionSummaries: [completedNormal],
     })

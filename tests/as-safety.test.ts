@@ -26,9 +26,10 @@ describe("AS safety classification", () => {
     expect(classifyASRisk(byName("坐姿哑铃推举"))).toBe("overhead_press")
   })
 
-  it("classifies barbell Olympic/explosive compound lifts as olympic risk", () => {
-    expect(classifyASRisk(byName("抓举"))).toBe("olympic_lift")
-    // 扛铃台阶上步与抓举的结构化标签完全相同，统一归此类、默认锁定
+  it("classifies barbell explosive compound lifts (杠铃台阶上步) as olympic risk", () => {
+    // movementPattern=compound + equipment=BARBELL → olympic_lift, locked by default.
+    // (#51 removed 抓举/Snatch from the catalog; the structural rule still covers any
+    // such lift — 杠铃台阶上步 carries the exact tags 抓举 had.)
     expect(classifyASRisk(byName("杠铃台阶上步"))).toBe("olympic_lift")
   })
 

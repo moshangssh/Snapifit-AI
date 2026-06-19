@@ -1,5 +1,5 @@
 /**
- * 训练动作库 - 从 SmartWorkout 824 个动作中精选 106 个
+ * 训练动作库 - 从 SmartWorkout 824 个动作中精选（#51 去重后 103 个）
  *
  * 数据源: SmartWorkout exercise database
  * 筛选标准: AS 安全、阶段适配、肌肉覆盖全面
@@ -102,7 +102,7 @@ export interface Exercise {
 }
 
 /**
- * 力量训练动作库（96 个）
+ * 力量训练动作库（93 个）
  */
 export const STRENGTH_EXERCISES: Exercise[] = [
 
@@ -230,7 +230,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
   },
   {
     id: '3ae8ee86-534c-0824-07b6-e9f105b97c1d',
-    name: '俯卧腿弯举',
+    name: '坐姿腿弯举',
     nameEn: 'Seated Leg Curl',
     primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'leg_curl',
@@ -676,18 +676,6 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     tags: ['INTERMEDIATE_VARIANT', 'STRENGTH'],
   },
   {
-    id: 'e14e762d-0ff7-4ec0-8c64-2da9c9fce21d',
-    name: '负重下斜卷腹',
-    nameEn: 'Weighted Decline Crunch',
-    primaryMuscle: 'CORE',
-    movementPattern: 'core_flexion',
-    angle: 'decline',
-    equipment: 'OTHER',
-    mechanics: 'ISOLATION',
-    laterality: 'BILATERAL',
-    tags: ['INTERMEDIATE_VARIANT', 'STRENGTH'],
-  },
-  {
     id: '11abe949-7bce-4971-95c0-f754772ee813',
     name: '负重下斜卷腹',
     nameEn: 'Weighted Decline Crunch',
@@ -782,18 +770,6 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     movementPattern: 'front_raise',
     angle: 'flat',
     equipment: 'MACHINE',
-    mechanics: 'ISOLATION',
-    laterality: 'UNILATERAL',
-    tags: ['ADVANCED', 'STRENGTH'],
-  },
-  {
-    id: 'c438df57-599e-4cf7-b10e-601352d8f069',
-    name: '单臂哑铃腕屈曲',
-    nameEn: 'One-Arm Wrist Curl Dumbbell',
-    primaryMuscle: 'FOREARMS',
-    movementPattern: 'isolation_curl',
-    angle: 'neutral',
-    equipment: 'DUMBBELL',
     mechanics: 'ISOLATION',
     laterality: 'UNILATERAL',
     tags: ['ADVANCED', 'STRENGTH'],
@@ -1012,18 +988,6 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     movementPattern: 'compound',
     angle: 'flat',
     equipment: 'OTHER',
-    mechanics: 'COMPOUND',
-    laterality: 'BILATERAL',
-    tags: ['ADVANCED', 'STRENGTH'],
-  },
-  {
-    id: '1dd0ba84-d102-4e5a-ad25-58ebfa8edf9f',
-    name: '抓举',
-    nameEn: 'Snatch',
-    primaryMuscle: 'GLUTES',
-    movementPattern: 'compound',
-    angle: 'neutral',
-    equipment: 'BARBELL',
     mechanics: 'COMPOUND',
     laterality: 'BILATERAL',
     tags: ['ADVANCED', 'STRENGTH'],
@@ -1448,7 +1412,7 @@ export function resolveMuscleKeys(exercise: Exercise): MuscleKey[] {
 }
 
 /**
- * 完整动作库（106 个）
+ * 完整动作库（103 个）
  */
 export const ALL_EXERCISES = [...STRENGTH_EXERCISES, ...AS_CORE_EXERCISES]
 
