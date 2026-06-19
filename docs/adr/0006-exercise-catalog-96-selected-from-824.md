@@ -27,6 +27,13 @@
 > 从高级扩展池上调至新手核心池(新手池 20→21、臀部新手动作 2→3)。原因:`下A/下B` 主项
 > 需 2 个臀动作 + 热身激活需 1 个,旧池仅 2 个臀会迫使热身复制主项动作。同时加固
 > `selectByMuscleSlots` 的 fallback——保留跨阶段排除,填不满时告警而非静默复制。
+>
+> 2026-06-19 按 #51 数据洁癖:移除 3 个条目——重复的 `负重下斜卷腹` 与 `单臂哑铃腕屈曲`
+> 各一条(各自保留有源数据/动作指南的那条),以及纯奥举 `抓举 / Snatch`(与下文"主要排除
+> 理由"表述矛盾的遗留条目;其安全性本就由 #46 的 `olympic_lift` 安全锁按结构化标签覆盖,
+> 删除数据行不影响安全行为)。精选库 106→103、力量动作 96→93;CORE 9→8、FOREARMS 4→3、
+> GLUTES 7→6。去重后精选库 id 全部可在源数据精确匹配——原"另 2 个自定义动作"实为这两条
+> 重复条目,删除后动作指南覆盖率为 103/103。
 
 ### 分层标签体系
 
@@ -76,12 +83,13 @@
 
 - **轴向下肢负重** `axial_loaded_lower`：`movementPattern ∈ {squat_pattern, hinge_pattern, calf_raise}` 且 `equipment = BARBELL`（站姿杠铃提踵亦为脊柱轴向压缩）
 - **负重过顶按压** `overhead_press`：`movementPattern = vertical_push` 且（`angle = overhead` 或 `equipment ∈ {BARBELL, DUMBBELL}`）
-- **奥举 / 爆发** `olympic_lift`：`movementPattern = compound` 且 `equipment = BARBELL`（抓举、扛铃台阶上步——二者结构化标签完全相同，统一归此类、默认锁定）
+- **奥举 / 爆发** `olympic_lift`：`movementPattern = compound` 且 `equipment = BARBELL`（如杠铃台阶上步；抓举原与之结构化标签完全相同，已由 #51 从库中移除，但凡命中此结构者一律归此类、默认锁定）
 
 实现于 `lib/workout/engine/as-safety.ts`，在动作选择层统一拦截（新手 / 中级 / 高级三引擎共用）。
 默认全锁；解锁集合持久化在 `TrainingState.unlockedRiskCategories`，由训练设置里的 HITL 开关写入
-（文案明确"请在医生同意后再解锁"）。抓举（Snatch）等与本节"已排除高风险动作"表述相矛盾的遗留条目
-**保留在动作库中，但默认被安全锁覆盖**，因此与安全声明一致。
+（文案明确"请在医生同意后再解锁"）。抓举（Snatch）这类与本节"主要排除理由"表述相矛盾的遗留条目，
+已由 #51 从动作库中移除；`olympic_lift` 安全锁按结构化标签拦截——任何 `compound` + `BARBELL`
+动作（如杠铃台阶上步）仍默认锁定，故安全声明不依赖某个具体条目是否还在库中。
 
 ### 肌肉刺激维度覆盖验证
 
@@ -94,24 +102,27 @@
 - **手臂完整**: 二头 7 个 + 三头 5 个 + 前臂 4 个 = 16 个
 - **核心稳定**: 屈曲 3 个 + 旋转 1 个 + 稳定 5 个 = 9 个
 
-### 按肌群分布（力量动作 96 个）
+### 按肌群分布（力量动作 93 个）
 
 > 2026-06-18 按 #47 校正:腘绳肌弯举改标 HAMSTRINGS、提踵改标 CALVES、缺口硬拉改标
 > HAMSTRINGS、抓举改标 GLUTES；髋内收仍计入 QUADS（口径见下）。下表为校正后实际 `primaryMuscle` 分布。
+>
+> 2026-06-19 按 #51:移除重复的 `负重下斜卷腹`(CORE)、`单臂哑铃腕屈曲`(FOREARMS) 各一条
+> 与纯奥举 `抓举`(GLUTES),下表为去重后实际分布。
 
 | 肌群 | 数量 | 占比 |
 |------|------|------|
-| SHOULDERS | 17 | 17.7% |
-| BACK | 16 | 16.7% |
-| CHEST | 12 | 12.5% |
-| QUADS | 11 | 11.5% |
-| CORE | 9 | 9.4% |
-| GLUTES | 7 | 7.3% |
-| BICEPS | 7 | 7.3% |
-| TRICEPS | 6 | 6.3% |
-| HAMSTRINGS | 4 | 4.2% |
-| FOREARMS | 4 | 4.2% |
-| CALVES | 3 | 3.1% |
+| SHOULDERS | 17 | 18.3% |
+| BACK | 16 | 17.2% |
+| CHEST | 12 | 12.9% |
+| QUADS | 11 | 11.8% |
+| CORE | 8 | 8.6% |
+| GLUTES | 6 | 6.5% |
+| BICEPS | 7 | 7.5% |
+| TRICEPS | 6 | 6.5% |
+| HAMSTRINGS | 4 | 4.3% |
+| FOREARMS | 3 | 3.2% |
+| CALVES | 3 | 3.2% |
 
 > **髋内收口径**:坐姿/钢索髋内收的 `primaryMuscle` 归入 QUADS（动作库无独立 ADDUCTORS
 > 肌群,且无任何模板设内收槽位）。上面"腿部全面"维度里的"内收 2 个"即这 2 个动作,按

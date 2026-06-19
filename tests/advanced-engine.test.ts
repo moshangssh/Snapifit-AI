@@ -330,15 +330,18 @@ describe("advanced workout engine AS safety lock", () => {
       exercise.equipment === "BARBELL" ||
       exercise.equipment === "DUMBBELL")
 
-  it("never prescribes barbell squat/hinge/calf raise, overhead press, or the snatch by default", () => {
+  const isOlympicCompound = (exercise: (typeof STRENGTH_EXERCISES)[number]) =>
+    exercise.movementPattern === "compound" && exercise.equipment === "BARBELL"
+
+  it("never prescribes barbell squat/hinge/calf raise, overhead press, or olympic compound lifts by default", () => {
     for (let count = 240; count < 240 + 60; count++) {
       const exercises = mainCatalogExercises(poolState(count))
 
       expect(exercises.some(isAxialBarbell)).toBe(false)
       expect(exercises.some(isOverheadPress)).toBe(false)
-      expect(exercises.some((exercise) => exercise.nameEn === "Snatch")).toBe(
-        false,
-      )
+      // olympic_lift category (e.g. 杠铃台阶上步) stays locked — the named 抓举/Snatch
+      // was removed in #51, but the structural rule still covers any such lift.
+      expect(exercises.some(isOlympicCompound)).toBe(false)
     }
   })
 
@@ -405,14 +408,17 @@ describe("advanced workout engine AS safety lock", () => {
   })
 
   it("does not re-prescribe a locked movement that appears in history", () => {
-    const snatch = STRENGTH_EXERCISES.find((item) => item.nameEn === "Snatch")!
+    // 杠铃台阶上步 (Barbell Step-up) is an olympic_lift, locked by default.
+    const lockedLift = STRENGTH_EXERCISES.find(
+      (item) => item.nameEn === "Barbell Step-up",
+    )!
     const history = [
       {
         completedAt: "2026-01-01T00:00:00.000Z",
         exercises: [
           {
-            catalogExerciseId: snatch.id,
-            exerciseName: snatch.name,
+            catalogExerciseId: lockedLift.id,
+            exerciseName: lockedLift.name,
             phase: "main" as const,
             completedSets: 3,
             workingSetWeightKg: 60,
@@ -431,7 +437,7 @@ describe("advanced workout engine AS safety lock", () => {
       })
         .exercises.map((exercise) => exercise.catalogExerciseId)
 
-      expect(ids).not.toContain(snatch.id)
+      expect(ids).not.toContain(lockedLift.id)
     }
   })
 })

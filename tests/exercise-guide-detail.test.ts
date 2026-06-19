@@ -33,27 +33,27 @@ const CUSTOM_IDS = CATALOG_IDS.filter((id) => !SOURCE_BY_ID.has(id))
 const MEDIA_LESS_ID = "b866a8c1-4083-403a-9a68-ba6846f85a87"
 
 describe("exercise guide detail module", () => {
-  it("covers exactly the catalog ids that have source content (104 of 106)", () => {
-    expect(MATCHED_IDS).toHaveLength(104)
-    expect(CUSTOM_IDS).toHaveLength(2)
+  it("covers every catalog id, all of which now have source content", () => {
+    // #51 removed the 2 spurious non-source copies, so every catalog id is
+    // source-backed: MATCHED == catalog, CUSTOM == 0, and the detail module
+    // mirrors the catalog exactly.
+    expect(CUSTOM_IDS).toHaveLength(0)
+    expect(MATCHED_IDS).toHaveLength(CATALOG_IDS.length)
 
     const moduleIds = new Set(Object.keys(EXERCISE_GUIDE_DETAIL))
-    expect(moduleIds.size).toBe(104)
+    expect(moduleIds.size).toBe(CATALOG_IDS.length)
     for (const id of MATCHED_IDS) {
       expect(moduleIds.has(id)).toBe(true)
     }
   })
 
-  it("excludes the 2 custom ids with no source content (fallback path)", () => {
-    expect(CUSTOM_IDS.length).toBeGreaterThan(0)
-    for (const id of CUSTOM_IDS) {
-      expect(EXERCISE_GUIDE_DETAIL[id]).toBeUndefined()
-    }
+  it("has no fallback-only custom catalog ids after #51 dedup", () => {
+    expect(CUSTOM_IDS).toEqual([])
   })
 
   it("does not bundle the 718 unused source exercises", () => {
     const moduleIds = Object.keys(EXERCISE_GUIDE_DETAIL)
-    expect(moduleIds).toHaveLength(104)
+    expect(moduleIds).toHaveLength(MATCHED_IDS.length)
     expect(moduleIds.every((id) => SOURCE_BY_ID.has(id))).toBe(true)
   })
 
@@ -72,8 +72,10 @@ describe("exercise guide detail module", () => {
       (entry) => entry.videoLightUrl.length === 0,
     )
 
-    expect(withVideo).toHaveLength(103)
     expect(withoutVideo).toHaveLength(1)
+    expect(withVideo).toHaveLength(
+      Object.keys(EXERCISE_GUIDE_DETAIL).length - 1,
+    )
 
     // 该动作有分步骤、无演示媒体：video 与 thumbnail 都为空，但步骤保留
     expect(EXERCISE_GUIDE_DETAIL[MEDIA_LESS_ID].videoLightUrl).toBe("")

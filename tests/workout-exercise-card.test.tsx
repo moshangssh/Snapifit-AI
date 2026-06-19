@@ -5,8 +5,9 @@ import type { WorkoutSessionExercise } from "@/lib/workout/types"
 
 // 机器胸部推举 —— catalog 中能在源数据精确匹配、且 tips/常见错误均超过 3 条（用于截断断言）
 const KNOWN_CATALOG_ID = "81112d74-4711-4ddc-9145-a610bf8407c8"
-// 自定义动作（在 catalog 但无源内容，走回退）
-const CUSTOM_CATALOG_ID = "e14e762d-0ff7-4ec0-8c64-2da9c9fce21d"
+// 无源指南内容的动作（AI 生成 / 自填，不在精选库源数据中）—— getExerciseGuide 返回 null，走回退。
+// (#51 去重后精选库已无"在库但无源内容"的条目，故用一个库外 id 表达回退场景。)
+const CUSTOM_CATALOG_ID = "ai-generated-no-source-exercise"
 
 // 源指南内容片段（来自生成模块，用于精确断言命中 / 截断）
 const GUIDE_OVERVIEW_FRAGMENT = "提供了一个可控的运动路径"

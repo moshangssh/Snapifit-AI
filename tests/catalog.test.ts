@@ -15,8 +15,9 @@ import { TEMPLATE_MUSCLE_GROUPS as ADVANCED_TEMPLATE_MUSCLES } from "@/lib/worko
 
 describe("workout exercise catalog", () => {
   it("loads the complete curated catalog with stable ids and required tags", () => {
-    // Total catalog size is fixed at 106 exercises for V1
-    expect(ALL_EXERCISES).toHaveLength(106)
+    // Total catalog size is 103 after #51 removed 2 duplicate movements (a second
+    // 负重下斜卷腹 and 单臂哑铃腕屈曲 copy) and the pure Olympic lift 抓举/Snatch.
+    expect(ALL_EXERCISES).toHaveLength(103)
 
     // All IDs must be unique
     const ids = new Set(ALL_EXERCISES.map((exercise) => exercise.id))
@@ -38,6 +39,50 @@ describe("workout exercise catalog", () => {
           exercise.tags.length > 0,
       ),
     ).toBe(true)
+  })
+
+  it("contains no duplicate movements (unique name and nameEn)", () => {
+    // Data hygiene: two exercises sharing the same name (or nameEn) are the same
+    // movement entered twice under different ids — the engine would treat them as
+    // distinct, skewing variety and pool counts. (issue #51)
+    const duplicateBy = (key: "name" | "nameEn") => {
+      const seen = new Map<string, number>()
+      for (const exercise of ALL_EXERCISES) {
+        seen.set(exercise[key], (seen.get(exercise[key]) ?? 0) + 1)
+      }
+      return [...seen.entries()].filter(([, count]) => count > 1).map(([value]) => value)
+    }
+
+    expect(duplicateBy("name")).toEqual([])
+    expect(duplicateBy("nameEn")).toEqual([])
+  })
+
+  it("keeps name and nameEn posture-consistent (no seated/lying contradictions)", () => {
+    // A movement's Chinese posture must not contradict its English posture —
+    // e.g. 俯卧/仰卧 (prone/supine) paired with "Seated", or 坐姿 (seated) paired
+    // with "Lying"/"Prone". (issue #51: 俯卧腿弯举 / Seated Leg Curl)
+    const conflicts = ALL_EXERCISES.filter((exercise) => {
+      const zhLying = /俯卧|仰卧/.test(exercise.name)
+      const zhSeated = /坐姿/.test(exercise.name)
+      const enSeated = /seated/i.test(exercise.nameEn)
+      const enLying = /\b(lying|prone|supine)\b/i.test(exercise.nameEn)
+      return (zhLying && enSeated) || (zhSeated && enLying)
+    })
+
+    expect(
+      conflicts.map((exercise) => `${exercise.name} / ${exercise.nameEn}`),
+    ).toEqual([])
+  })
+
+  it("excludes the pure Olympic lift 抓举/Snatch that ADR-0006 lists as removed", () => {
+    // ADR-0006's exclusion list names 抓举 (Snatch) as a removed high-risk lift,
+    // yet the row lingered in the catalog. #46's AS safety lock already covers the
+    // olympic_lift category structurally (杠铃台阶上步 shares its exact tags), so
+    // the entry is redundant and contradicts the doc — drop it. (issue #51)
+    const snatch = ALL_EXERCISES.find(
+      (exercise) => exercise.name === "抓举" || exercise.nameEn === "Snatch",
+    )
+    expect(snatch).toBeUndefined()
   })
 
   it("finds variants with the same movement pattern and primary muscle", () => {
