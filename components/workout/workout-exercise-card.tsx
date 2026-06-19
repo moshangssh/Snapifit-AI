@@ -4,10 +4,13 @@ import { useRef } from "react"
 import { Check, Circle, Minus, SkipForward, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DiscomfortFlagDialog } from "@/components/workout/discomfort-flag-dialog"
+import { ExerciseGuideDialog } from "@/components/workout/exercise-guide-dialog"
 import { ReplaceExerciseDialog } from "@/components/workout/replace-exercise-dialog"
 import { WorkoutSetNumberInput } from "@/components/workout/workout-set-number-input"
 import { MUSCLE_LABELS_ZH } from "@/lib/muscle-groups"
 import { cn } from "@/lib/utils"
+import { getWorkoutExerciseLabels } from "@/lib/workout/exercise-labels"
+import { getExerciseGuide } from "@/lib/workout/exercise-guide"
 import type {
   WorkoutExercisePhase,
   WorkoutSessionExercise,
@@ -25,6 +28,14 @@ const SET_REPS_INPUT_CLASS =
 
 const SET_WEIGHT_INPUT_CLASS =
   "h-[14px] w-10 border-0 bg-transparent p-0 text-[11px] leading-none shadow-none ring-offset-0 [appearance:textfield] focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-100 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+
+// 卡片上「动作指南」摘要：技巧/常见错误各取前几条；完整内容留待后续切片的指南 Dialog
+const GUIDE_SUMMARY_LIMIT = 3
+
+// 替换/自由文本动作的 tips 会被清空（session 置 []）。AS 安全提醒须常驻，
+// 缺省时回退到这条通用安全句，避免「注意事项」渲染成只有标题的空盒子——
+// 用户脱离处方时恰恰最需要这条提醒。
+const AS_SAFETY_FALLBACK_TIP = "出现不适就降低幅度或停止。"
 
 interface WorkoutExerciseCardProps {
   exercise: WorkoutSessionExercise
@@ -52,7 +63,14 @@ export function WorkoutExerciseCard({
 }: WorkoutExerciseCardProps) {
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
   const phase = exercise.phase ?? "main"
-  const tips = exercise.tips ?? []
+  const engineTips = exercise.tips ?? []
+  const safetyTips =
+    engineTips.length > 0 ? engineTips : [AS_SAFETY_FALLBACK_TIP]
+  const guide = getExerciseGuide(exercise)
+  const guideTips = guide?.tips.slice(0, GUIDE_SUMMARY_LIMIT) ?? []
+  const guideMistakes =
+    guide?.commonMistakes.slice(0, GUIDE_SUMMARY_LIMIT) ?? []
+  const labels = getWorkoutExerciseLabels(exercise)
   const isDone = isExerciseDone(exercise)
   const statusLabel = getExerciseStatusLabel(exercise, isCurrent, isDone)
   const currentSet = exercise.sets.find(
@@ -73,9 +91,19 @@ export function WorkoutExerciseCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="m-0 text-[15px] font-semibold leading-snug">
-            {displayName}
-          </h3>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <h3 className="m-0 min-w-0 text-[15px] font-semibold leading-snug">
+              {displayName}
+            </h3>
+            {labels.map((label) => (
+              <span
+                key={label}
+                className="shrink-0 rounded-full border border-[hsl(var(--c-ai)/0.35)] bg-[hsl(var(--c-ai)/0.08)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-c-ai"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
           <div className="mt-0.5 text-xs text-muted-foreground">
             {PHASE_LABELS[phase]} · {exercise.sets.length} 组
             {exercise.actualExerciseName ? " · 已替换" : ""}
@@ -100,17 +128,49 @@ export function WorkoutExerciseCard({
           {exercise.notes}
         </p>
       )}
-      {tips.length > 0 && (
-        <div className="mt-3 rounded-lg border border-[hsl(var(--c-ai)/0.22)] bg-[hsl(var(--c-ai)/0.06)] px-3 py-2">
-          <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-c-ai">
-            <Zap className="h-3 w-3" />
-            注意事项
-          </div>
-          <ul className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-foreground/80">
-            {tips.map((tip) => (
-              <li key={tip}>{tip}</li>
-            ))}
-          </ul>
+      {/* AS 安全提醒：无条件渲染、视觉独立置顶（来自引擎 tips，绝不被指南内容替换） */}
+      <div className="mt-3 rounded-lg border border-[hsl(var(--c-ai)/0.22)] bg-[hsl(var(--c-ai)/0.06)] px-3 py-2">
+        <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-c-ai">
+          <Zap className="h-3 w-3" />
+          注意事项
+        </div>
+        <ul className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-foreground/80">
+          {safetyTips.map((tip) => (
+            <li key={tip}>{tip}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* 动作指南内联摘要：仅当该动作能在 catalog 查到源内容时渲染（无源内容只剩上方 AS 提醒） */}
+      {guide && (
+        <div className="mt-2 rounded-lg border border-border bg-[var(--surface-subtle)] px-3 py-2">
+          <p className="m-0 text-xs leading-relaxed text-foreground/80">
+            {guide.description}
+          </p>
+          {guideTips.length > 0 && (
+            <div className="mt-2">
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                技巧
+              </div>
+              <ul className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-foreground/80">
+                {guideTips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {guideMistakes.length > 0 && (
+            <div className="mt-2">
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                常见错误
+              </div>
+              <ul className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-foreground/80">
+                {guideMistakes.map((mistake) => (
+                  <li key={mistake}>{mistake}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -165,6 +225,17 @@ export function WorkoutExerciseCard({
             <SkipForward className="mr-1.5 h-4 w-4" />
             {exercise.isExerciseSkipped ? "取消跳过" : "跳过"}
           </Button>
+          {/* 动作指南按钮：仅当查表有内联内容时显示（与替换/感觉不对/跳过同排同风格）。
+              guide 非空已蕴含 catalogExerciseId 存在（见 getExerciseGuide），此处 catalogExerciseId
+              判断仅用于把可选类型收窄为 string，满足 Dialog 的 prop，并非额外业务条件。 */}
+          {guide && exercise.catalogExerciseId && (
+            <ExerciseGuideDialog
+              catalogExerciseId={exercise.catalogExerciseId}
+              displayName={displayName}
+              guide={guide}
+              muscleLabels={muscleLabels}
+            />
+          )}
         </div>
       )}
     </section>

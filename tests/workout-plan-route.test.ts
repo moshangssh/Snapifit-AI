@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest"
+import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
+import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
 function createRequest(body: unknown) {
   return new Request("http://localhost/api/ai/workout-plan", {
@@ -33,6 +35,126 @@ function createBaseBody() {
   }
 }
 
+function findExerciseByName(name: string) {
+  const exercise = STRENGTH_EXERCISES.find((item) => item.name === name)
+  if (!exercise) throw new Error(`Missing fixture exercise: ${name}`)
+  return exercise
+}
+
+function createMinimalTrainingHistory(): RecentWorkoutSessionSummary[] {
+  // 创建覆盖六大训练组的最小训练历史
+  const chest = findExerciseByName("器械卧推")
+  const back = findExerciseByName("单臂坐姿划船")
+  const shoulders = findExerciseByName("哑铃坐姿侧平举")
+  const quads = findExerciseByName("窄距45度腿举")
+  const biceps = findExerciseByName("哑铃蜘蛛弯举")
+  const core = findExerciseByName("坐姿腹部绳索卷腹")
+
+  return [
+    {
+      completedAt: "2026-01-01T08:00:00.000Z",
+      exercises: [
+        {
+          catalogExerciseId: chest.id,
+          exerciseName: chest.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 60,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [chest.primaryMuscle],
+        },
+        {
+          catalogExerciseId: back.id,
+          exerciseName: back.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 50,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [back.primaryMuscle],
+        },
+      ],
+    },
+    {
+      completedAt: "2026-01-03T08:00:00.000Z",
+      exercises: [
+        {
+          catalogExerciseId: shoulders.id,
+          exerciseName: shoulders.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 10,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [shoulders.primaryMuscle],
+        },
+        {
+          catalogExerciseId: quads.id,
+          exerciseName: quads.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 100,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [quads.primaryMuscle],
+        },
+      ],
+    },
+    {
+      completedAt: "2026-01-05T08:00:00.000Z",
+      exercises: [
+        {
+          catalogExerciseId: biceps.id,
+          exerciseName: biceps.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 12,
+          workingSetReps: 10,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [biceps.primaryMuscle],
+        },
+        {
+          catalogExerciseId: core.id,
+          exerciseName: core.name,
+          phase: "main",
+          completedSets: 3,
+          workingSetWeightKg: 0,
+          workingSetReps: 15,
+          wasReplaced: false,
+          wasSkipped: false,
+          muscleGroups: [core.primaryMuscle],
+        },
+      ],
+    },
+  ]
+}
+
+function intermediateBenchmarkIds(): string[] {
+  const names = [
+    "器械卧推",
+    "单臂坐姿划船",
+    "哑铃坐姿侧平举",
+    "窄距45度腿举",
+    "哑铃蜘蛛弯举",
+    "坐姿腹部绳索卷腹",
+  ]
+  const requiredIds = names.map((name) => findExerciseByName(name).id)
+  const remainingIds = STRENGTH_EXERCISES.filter(
+    (exercise) =>
+      exercise.tags.includes("NOVICE_CORE") && !requiredIds.includes(exercise.id),
+  )
+    .slice(0, 4)
+    .map((exercise) => exercise.id)
+
+  return [...requiredIds, ...remainingIds]
+}
+
 describe("workout plan route", () => {
   it("returns a deterministic novice plan without AI config", async () => {
     const { POST } = await import("@/app/api/ai/workout-plan/route")
@@ -52,6 +174,132 @@ describe("workout plan route", () => {
           exercise.sets.every((set) => set.plannedReps === 10),
       ),
     ).toBe(true)
+  })
+
+  it("returns benchmark selection response after 72 completed novice sessions", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        recentWorkoutSessionSummaries: createMinimalTrainingHistory(),
+        trainingState: {
+          phase: "novice",
+          completedSessionCount: 72,
+          blacklistedExerciseIds: [],
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toEqual({
+      needBenchmarkSelection: true,
+      nextPhase: "intermediate",
+      reason: "novice_session_threshold",
+      benchmarkCandidates: expect.any(Array),
+      trainingState: {
+        phase: "novice",
+        completedSessionCount: 72,
+        blacklistedExerciseIds: [],
+        phaseTransitionReady: true,
+      },
+    })
+    expect(payload.benchmarkCandidates).toHaveLength(10)
+    expect(payload.benchmarkCandidates[0]).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+      trainingCount: expect.any(Number),
+      progressWeightKg: expect.any(Number),
+    })
+  })
+
+  it("still returns a novice plan after 71 completed sessions", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        trainingState: {
+          phase: "novice",
+          completedSessionCount: 71,
+          blacklistedExerciseIds: [],
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.needBenchmarkSelection).toBeUndefined()
+    expect(payload.trainingState.phaseTransitionReady).toBeUndefined()
+    expect(payload.phase).toBe("novice")
+    expect(payload.exercises.length).toBeGreaterThan(0)
+  })
+
+  it("returns benchmark selection response after a manual downgrade upgrade window", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        recentWorkoutSessionSummaries: createMinimalTrainingHistory(),
+        trainingState: {
+          phase: "novice",
+          completedSessionCount: 80,
+          blacklistedExerciseIds: [],
+          manualDowngrade: {
+            from: "intermediate",
+            at: 72,
+            upgradeAfter: 8,
+          },
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.needBenchmarkSelection).toBe(true)
+    expect(payload.reason).toBe("manual_downgrade_upgrade_window")
+    expect(payload.trainingState.phaseTransitionReady).toBe(true)
+    expect(payload.trainingState.manualDowngrade).toBeUndefined()
+  })
+
+  it("returns lifetime benchmark selection response after 240 completed intermediate sessions", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+    const benchmarkExerciseIds = intermediateBenchmarkIds()
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        recentWorkoutSessionSummaries: [],
+        trainingState: {
+          phase: "intermediate",
+          completedSessionCount: 240,
+          blacklistedExerciseIds: [],
+          benchmarkExerciseIds,
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toEqual({
+      needBenchmarkSelection: true,
+      nextPhase: "advanced",
+      reason: "intermediate_session_threshold",
+      benchmarkCandidates: expect.any(Array),
+      trainingState: {
+        phase: "intermediate",
+        completedSessionCount: 240,
+        blacklistedExerciseIds: [],
+        benchmarkExerciseIds,
+        phaseTransitionReady: true,
+      },
+    })
+    expect(payload.benchmarkCandidates).toHaveLength(10)
+    expect(
+      payload.benchmarkCandidates.map((candidate: { id: string }) => candidate.id),
+    ).toEqual(expect.arrayContaining(benchmarkExerciseIds))
   })
 
   it("uses recent catalog exercise history when calculating next weights", async () => {

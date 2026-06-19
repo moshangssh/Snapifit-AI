@@ -7,6 +7,7 @@ import type {
   WorkoutSessionDerived,
   WorkoutSessionExercise,
 } from "@/lib/workout/types"
+import { getWorkoutExerciseLabels } from "@/lib/workout/exercise-labels"
 
 export const FALLBACK_STRENGTH_ANALYSIS: WorkoutExerciseAnalysis = {
   exerciseType: "strength",
@@ -58,6 +59,7 @@ export function createWorkoutSessionFromPlan(
     phase: exercise.phase,
     notes: exercise.notes,
     tips: exercise.tips,
+    labels: getWorkoutExerciseLabels(exercise),
     catalogExerciseId: exercise.catalogExerciseId,
     discomfortFlag: exercise.discomfortFlag,
     isExerciseSkipped: false,

@@ -1,9 +1,11 @@
 import {
   ALL_EXERCISES,
   STRENGTH_EXERCISES,
+  resolveMuscleKeys,
   type Exercise,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
+import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
 import {
   selectASCore,
   selectExercises,
@@ -53,12 +55,15 @@ interface TemplateDefinition {
   }>
 }
 
+// 上下分化：两个上肢日都要练到胸 + 背，这样一个 4 模板微周期（=一周练 4 天）里
+// 每个肌群都被练 2 次（兑现 ADR-0004 与 PRD user story 14 的「每肌群 2 次/周」承诺）。
+// 不要把上A/上B退回纯「推/拉」分化——那会让胸只在上A、背只在上B，各掉回 1 次/周（见 #49）。
 const TEMPLATES: TemplateDefinition[] = [
   {
     name: "上A",
     asFocus: "upper",
     warmupSupportMuscles: ["CHEST", "SHOULDERS"],
-    mainMuscles: ["CHEST", "SHOULDERS", "TRICEPS", "BICEPS"],
+    mainMuscles: ["CHEST", "BACK", "SHOULDERS", "TRICEPS", "BICEPS"],
     cooldownSupport: [
       { name: "胸大肌门框拉伸", muscleGroups: ["chest"] },
       { name: "前臂屈肌拉伸", muscleGroups: ["forearms"] },
@@ -67,8 +72,8 @@ const TEMPLATES: TemplateDefinition[] = [
   {
     name: "下A",
     asFocus: "lower",
-    warmupSupportMuscles: ["QUADS", "GLUTES"],
-    mainMuscles: ["QUADS", "QUADS", "GLUTES", "GLUTES", "CORE"],
+    warmupSupportMuscles: ["GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "股四头肌站姿拉伸", muscleGroups: ["quadriceps"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -78,7 +83,7 @@ const TEMPLATES: TemplateDefinition[] = [
     name: "上B",
     asFocus: "upper",
     warmupSupportMuscles: ["BACK", "SHOULDERS"],
-    mainMuscles: ["BACK", "BACK", "SHOULDERS", "BICEPS", "TRICEPS"],
+    mainMuscles: ["BACK", "CHEST", "SHOULDERS", "BICEPS", "TRICEPS"],
     cooldownSupport: [
       { name: "背阔肌跪姿拉伸", muscleGroups: ["upper-back"] },
       { name: "二头肌墙边拉伸", muscleGroups: ["biceps"] },
@@ -87,8 +92,8 @@ const TEMPLATES: TemplateDefinition[] = [
   {
     name: "下B",
     asFocus: "lower",
-    warmupSupportMuscles: ["QUADS", "GLUTES"],
-    mainMuscles: ["QUADS", "QUADS", "GLUTES", "GLUTES", "CORE"],
+    warmupSupportMuscles: ["GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "臀肌仰卧拉伸", muscleGroups: ["glutes"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -96,23 +101,19 @@ const TEMPLATES: TemplateDefinition[] = [
   },
 ]
 
+/** 本阶段所有模板引用到的肌群（warmup 支持 + main），用于校验目录覆盖 */
+export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
+  ...new Set(
+    TEMPLATES.flatMap((template) => [
+      ...template.warmupSupportMuscles,
+      ...template.mainMuscles,
+    ]),
+  ),
+]
+
 const EXERCISES_BY_ID = new Map(
   ALL_EXERCISES.map((exercise) => [exercise.id, exercise]),
 )
-
-const MUSCLE_MAP: Record<MuscleGroup, MuscleKey[]> = {
-  CHEST: ["chest"],
-  BACK: ["upper-back"],
-  SHOULDERS: ["front-deltoids"],
-  QUADS: ["quadriceps"],
-  GLUTES: ["glutes"],
-  HAMSTRINGS: ["hamstrings"],
-  BICEPS: ["biceps"],
-  TRICEPS: ["triceps"],
-  CORE: ["abs"],
-  FOREARMS: ["forearms"],
-  CALVES: ["calves"],
-}
 
 function getExercise(id: string): Exercise {
   const exercise = EXERCISES_BY_ID.get(id)
@@ -131,11 +132,17 @@ function plannedWeightKg(exercise: Exercise, phase: WorkoutExercisePhase) {
       return 25
     case "QUADS":
     case "GLUTES":
+    case "HAMSTRINGS":
+    case "CALVES":
       return 35
     case "SHOULDERS":
     case "BICEPS":
     case "TRICEPS":
-      return 10
+    case "FOREARMS":
+      // Defensive fallback only (main strength always resolves via
+      // evaluateProgression). Mirror its split so a future caller can't
+      // reintroduce the lateral-raise overshoot: isolation starts light.
+      return exercise.mechanics === "ISOLATION" ? 3 : 14
     case "CORE":
       return 15
     default:
@@ -172,6 +179,7 @@ function catalogDraft(
   effectiveUserWeightKg: number,
   recentWorkoutSessionSummaries: RecentWorkoutSessionSummary[] = [],
   forceConservativeStart = false,
+  unlockedRiskCategories?: readonly string[],
 ): WorkoutPlanExerciseDraft {
   const exercise = getExercise(id)
   const isStrength = STRENGTH_EXERCISES.some((item) => item.id === id)
@@ -183,10 +191,16 @@ function catalogDraft(
           exercise.id,
           {
             primaryMuscle: exercise.primaryMuscle,
+            mechanics: exercise.mechanics,
             effectiveUserWeightKg,
           },
         )
       : null
+  const labels: string[] = []
+  if (exercise.tags.includes("AS_CORE")) labels.push("AS")
+  if (unlockedRiskCategoryOf(exercise, unlockedRiskCategories)) {
+    labels.push(AS_UNLOCKED_LABEL)
+  }
 
   return {
     plannedExerciseName: exercise.name,
@@ -196,6 +210,7 @@ function catalogDraft(
         ? "作为本模板的固定主训练动作。"
         : "服务于本模板的活动度和准备度。",
     tips: ["保持动作可控。", "出现不适就降低幅度或停止。"],
+    labels: labels.length > 0 ? labels : undefined,
     catalogExerciseId: exercise.id,
     sets: Array.from({ length: setCount }, () => ({
       plannedWeightKg: isStrength
@@ -205,7 +220,7 @@ function catalogDraft(
     })),
     plannedAnalysis: analysis(
       exerciseType,
-      MUSCLE_MAP[exercise.primaryMuscle],
+      resolveMuscleKeys(exercise),
       setCount,
       effectiveUserWeightKg,
     ),
@@ -316,6 +331,7 @@ function selectByMuscleSlots(
   blacklist: string[],
   offset: number,
   extraExcludeIds: string[] = [],
+  unlockedRiskCategories: readonly string[] = [],
 ): Exercise[] {
   const selected: Exercise[] = []
 
@@ -331,6 +347,7 @@ function selectByMuscleSlots(
       excludeIds,
       count: 1,
       offset: offset + index,
+      unlockedRiskCategories,
     })
 
     if (exercise) {
@@ -338,12 +355,16 @@ function selectByMuscleSlots(
       continue
     }
 
+    // Fallback relaxes the intra-phase rotation/dedup (offset + already-selected),
+    // but NEVER the cross-phase excludes: a warmup slot must not clone a main lift.
+    // If the pool genuinely can't fill the slot, fall through to the warn below.
     const [fallback] = selectExercises({
       muscle,
       tags: ["NOVICE_CORE"],
-      excludeIds: blacklist,
+      excludeIds: [...blacklist, ...extraExcludeIds],
       count: 1,
       offset: offset + index,
+      unlockedRiskCategories,
     })
 
     if (fallback) {
@@ -378,6 +399,12 @@ function resolveMainExerciseReplacements(input: {
   const selectedIds = input.exercises.map((exercise) => exercise.id)
   const resolvedExercises: Exercise[] = []
   let blacklist = input.state.blacklistedExerciseIds
+  // Replacements must also respect the AS safety lock, so a discomfort swap can
+  // never pull a locked movement into the plan.
+  const replacementPool = filterASSafe(
+    STRENGTH_EXERCISES.filter((item) => item.tags.includes("NOVICE_CORE")),
+    input.state.unlockedRiskCategories,
+  )
 
   for (const exercise of input.exercises) {
     const progression = evaluateProgression(
@@ -385,6 +412,7 @@ function resolveMainExerciseReplacements(input: {
       exercise.id,
       {
         primaryMuscle: exercise.primaryMuscle,
+        mechanics: exercise.mechanics,
         effectiveUserWeightKg: input.effectiveUserWeightKg,
       },
     )
@@ -402,8 +430,9 @@ function resolveMainExerciseReplacements(input: {
     ])
     const replacement = findReplacement(
       exercise,
-      STRENGTH_EXERCISES.filter((item) => item.tags.includes("NOVICE_CORE")),
+      replacementPool,
       blockedForReplacement,
+      input.state.unlockedRiskCategories,
     )
 
     if (!replacement) {
@@ -419,8 +448,9 @@ function resolveMainExerciseReplacements(input: {
       )
       const fallbackReplacement = findReplacement(
         exercise,
-        STRENGTH_EXERCISES.filter((item) => item.tags.includes("NOVICE_CORE")),
+        replacementPool,
         filteredBlacklist,
+        input.state.unlockedRiskCategories,
       )
 
       if (fallbackReplacement) {
@@ -466,10 +496,13 @@ export function generateSession(
   const template = TEMPLATES[templateIndex]
   const rotationOffset = Math.floor(state.completedSessionCount / TEMPLATES.length)
   const discomfortIds = discomfortExerciseIds(recentWorkoutSessionSummaries)
+  const unlockedRiskCategories = state.unlockedRiskCategories
   const mainExercises = selectByMuscleSlots(
     template.mainMuscles,
     state.blacklistedExerciseIds,
     rotationOffset,
+    [],
+    unlockedRiskCategories,
   )
   const resolvedMain = isDeload
     ? {
@@ -502,6 +535,7 @@ export function generateSession(
     blacklist,
     rotationOffset + 1,
     resolvedMain.exercises.map((exercise) => exercise.id),
+    unlockedRiskCategories,
   )
   // Use rotationOffset + 1 for cooldown to ensure different AS movements
   // are selected compared to warmup (which uses rotationOffset + 0)
@@ -528,6 +562,7 @@ export function generateSession(
       effectiveUserWeightKg,
       isDeload ? [] : recentWorkoutSessionSummaries,
       resolvedMain.conservativeStartIds.has(exercise.id),
+      unlockedRiskCategories,
     )
 
     return isDeload

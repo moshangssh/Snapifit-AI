@@ -1,4 +1,5 @@
 import type { TrainingPhase, TrainingState } from "@/lib/workout/types"
+import { normalizeUnlockedRiskCategories } from "@/lib/workout/engine/as-safety"
 
 export type { TrainingPhase, TrainingState }
 
@@ -14,11 +15,21 @@ function isTrainingPhase(value: unknown): value is TrainingPhase {
   return value === "novice" || value === "intermediate" || value === "advanced"
 }
 
+function isIntermediateBlock(
+  value: unknown,
+): value is NonNullable<TrainingState["currentBlock"]> {
+  return (
+    value === "accumulation" ||
+    value === "intensification" ||
+    value === "deload"
+  )
+}
+
 export function normalizeTrainingState(value: unknown): TrainingState {
   if (!value || typeof value !== "object") return DEFAULT_TRAINING_STATE
 
   const state = value as Partial<TrainingState>
-  return {
+  const normalized: TrainingState = {
     phase: isTrainingPhase(state.phase)
       ? state.phase
       : DEFAULT_TRAINING_STATE.phase,
@@ -34,6 +45,76 @@ export function normalizeTrainingState(value: unknown): TrainingState {
         )
       : DEFAULT_TRAINING_STATE.blacklistedExerciseIds,
   }
+
+  if (
+    typeof state.stalledExercises === "number" &&
+    Number.isFinite(state.stalledExercises) &&
+    state.stalledExercises >= 0
+  ) {
+    normalized.stalledExercises = Math.floor(state.stalledExercises)
+  }
+
+  if (typeof state.phaseTransitionReady === "boolean") {
+    normalized.phaseTransitionReady = state.phaseTransitionReady
+  }
+
+  const unlockedRiskCategories = normalizeUnlockedRiskCategories(
+    state.unlockedRiskCategories,
+  )
+  if (unlockedRiskCategories.length > 0) {
+    normalized.unlockedRiskCategories = unlockedRiskCategories
+  }
+
+  if (Array.isArray(state.benchmarkExerciseIds)) {
+    normalized.benchmarkExerciseIds = state.benchmarkExerciseIds.filter(
+      (item): item is string => typeof item === "string",
+    )
+  }
+
+  if (Array.isArray(state.lifetimeBenchmarkIds)) {
+    normalized.lifetimeBenchmarkIds = state.lifetimeBenchmarkIds.filter(
+      (item): item is string => typeof item === "string",
+    )
+  }
+
+  if (isIntermediateBlock(state.currentBlock)) {
+    normalized.currentBlock = state.currentBlock
+  }
+
+  if (
+    typeof state.blockStartSession === "number" &&
+    Number.isFinite(state.blockStartSession) &&
+    state.blockStartSession > 0
+  ) {
+    normalized.blockStartSession = Math.floor(state.blockStartSession)
+  }
+
+  if (
+    typeof state.lastDeloadSession === "number" &&
+    Number.isFinite(state.lastDeloadSession) &&
+    state.lastDeloadSession >= 0
+  ) {
+    normalized.lastDeloadSession = Math.floor(state.lastDeloadSession)
+  }
+
+  if (
+    state.manualDowngrade &&
+    isTrainingPhase(state.manualDowngrade.from) &&
+    typeof state.manualDowngrade.at === "number" &&
+    Number.isFinite(state.manualDowngrade.at) &&
+    state.manualDowngrade.at >= 0 &&
+    typeof state.manualDowngrade.upgradeAfter === "number" &&
+    Number.isFinite(state.manualDowngrade.upgradeAfter) &&
+    state.manualDowngrade.upgradeAfter > 0
+  ) {
+    normalized.manualDowngrade = {
+      from: state.manualDowngrade.from,
+      at: Math.floor(state.manualDowngrade.at),
+      upgradeAfter: Math.floor(state.manualDowngrade.upgradeAfter),
+    }
+  }
+
+  return normalized
 }
 
 export function readTrainingState(storage?: Storage): TrainingState {

@@ -53,11 +53,11 @@ The user's current stage of progression: Novice Linear (0-6 months), Intermediat
 _Avoid_: 训练水平 (static label; phases are dynamic and transition-based)
 
 **渐进规则 (Progression Rule)**:
-The algorithm that decides when to increase weight, maintain, reduce reps, or switch exercises. Novice phase uses linear progression (add weight each session if target reps met). Intermediate uses block periodization. Advanced uses daily undulating periodization.
+The algorithm that decides when to increase weight, maintain, reduce reps, or switch exercises. Novice phase uses linear progression (add weight each session if target reps met). Intermediate uses block periodization. Advanced uses daily undulating periodization with RPE-anchored e1RM autoregulation — load floats with recent demonstrated performance rather than a fixed per-session increment.
 _Avoid_: 加重规则 (too narrow; progression includes deload and reps adjustment, not just adding weight)
 
 **减载 (Deload)**:
-A planned reduction in training intensity (-30% weight) and volume (-33% sets: 3 → 2) to allow recovery. For novice phase, triggered every 12 sessions, lasting 3 sessions. Exercises and structure remain the same.
+A planned reduction in training intensity (-30% weight) and volume (-33% sets: 3 → 2) to allow recovery. For novice phase, triggered every 16 sessions, lasting 3 sessions. Exercises and structure remain the same.
 _Avoid_: 休息周 (implies no training; deload is active recovery), 轻重量周
 
 **AS 核心动作 (AS Core Movement)**:
@@ -68,6 +68,10 @@ _Avoid_: 康复动作 (rehab implies pathology treatment; AS core is maintenance
 A user-applied signal indicating an exercise caused pain or unease (distinct from muscular fatigue). Triggers immediate exercise replacement and adds the exercise to a blacklist. Prevents the engine from waiting 3 failed attempts before switching, which is critical for AS safety.
 _Avoid_: 疼痛标记 (too clinical), 跳过 (skip implies laziness; this is a safety signal)
 
+**动作指南 (Exercise Guide)**:
+The per-exercise reference content surfaced for a catalog movement: overview, step-by-step instructions, technique tips, common mistakes, and a demo video. It is keyed off the exercise's catalog identity (not the session record) and is purely educational — it never overrides the engine's prescription or the AS safety reminder. The training card shows a compact summary (overview + a few tips/mistakes); the full content, including video and all steps, lives behind a "动作指南" button. Movements with no source content (custom or AI-generated) simply omit the guide.
+_Avoid_: 注意事项 (this names only the AS safety reminder — a fixed, engine-authored safety line shown on every exercise; the guide is the richer, movement-specific content layered beneath it), 教程 (tutorial implies a course; this is reference content)
+
 ### Phase Progression
 
 The engine supports three training phases with automatic transition:
@@ -76,7 +80,7 @@ The engine supports three training phases with automatic transition:
 - **Templates**: 4 (上A推 → 下A → 上B拉 → 下B)
 - **Exercise pool**: 20 core exercises (NOVICE_CORE tag, machine/dumbbell priority)
 - **Progression**: Linear (+1.25kg upper, +2.5kg lower when target reps met)
-- **Deload**: Every 12 sessions, 3-session deload at -30% weight / -33% sets
+- **Deload**: Every 16 sessions, 3-session deload at -30% weight / -33% sets
 - **Structure**: warmup 4 + main 4-5 × 3 sets + cooldown 4
 - **Transition trigger**: 72 sessions OR 4+ stalled exercises
 
@@ -91,7 +95,7 @@ The engine supports three training phases with automatic transition:
 **高级波动周期化 (Advanced DUP, 18+ months)**:
 - **Templates**: 6 by training type rotation (strength upper/lower → hypertrophy upper/lower → endurance upper/lower, strict 6-session cycle)
 - **Exercise pool**: 5 lifetime benchmarks selected from intermediate 10 benchmarks + full catalog (~50+ exercises)
-- **Progression**: Daily undulating (strength: 3-5 reps @ RPE 9, hypertrophy: 8-12 @ RPE 8, endurance: 15-20 @ RPE 7); each training type tracks progression independently; linear increment when target reps met
+- **Progression**: Daily undulating (strength: 3-5 reps @ RPE 9, hypertrophy: 8-12 @ RPE 8, endurance: 15-20 @ RPE 7); each training type tracks progression independently. Load is RPE-anchored e1RM autoregulation: each session's prescribed weight = recent best e1RM (Epley: weight × (1 + reps/30)) × the training type's target intensity (RPE 9→0.90, RPE 8→0.75, RPE 7→0.62), so RPE drives the weight and load floats with demonstrated performance (a strong session lifts it, a weak one lowers it) — proportional, not a fixed per-session +kg increment. This also resolves the legacy inverted gradient where advanced fixed increments exceeded intermediate's.
 - **Deload**: Fatigue-threshold triggered (≥4 muscle groups with intensity ≥ 60, or maximum 18 sessions), lasting 6 sessions
 - **Benchmark role**: 5 lifetime benchmarks anchor 2+ years of progress, appearing on strength days
 - **Manual downgrade**: User can downgrade to intermediate; lifetime benchmarks preserved; weights restart at 70%; auto-upgrade after 2 microcycles (12 sessions)

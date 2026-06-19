@@ -1,5 +1,5 @@
 /**
- * 训练动作库 - 从 SmartWorkout 824 个动作中精选 106 个
+ * 训练动作库 - 从 SmartWorkout 824 个动作中精选（#51 去重后 103 个）
  *
  * 数据源: SmartWorkout exercise database
  * 筛选标准: AS 安全、阶段适配、肌肉覆盖全面
@@ -12,6 +12,8 @@
  *
  * @see docs/adr/0006-exercise-catalog-96-selected-from-824.md
  */
+
+import type { MuscleKey } from "@/lib/muscle-groups"
 
 export type MuscleGroup =
   | 'CHEST'
@@ -100,7 +102,7 @@ export interface Exercise {
 }
 
 /**
- * 力量训练动作库（96 个）
+ * 力量训练动作库（93 个）
  */
 export const STRENGTH_EXERCISES: Exercise[] = [
 
@@ -207,7 +209,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     name: '器械反向飞鸟',
     nameEn: 'Machine Reverse Flyes',
     primaryMuscle: 'SHOULDERS',
-    movementPattern: 'horizontal_push',
+    movementPattern: 'rear_delt',
     angle: 'neutral',
     equipment: 'MACHINE',
     mechanics: 'ISOLATION',
@@ -228,9 +230,9 @@ export const STRENGTH_EXERCISES: Exercise[] = [
   },
   {
     id: '3ae8ee86-534c-0824-07b6-e9f105b97c1d',
-    name: '俯卧腿弯举',
+    name: '坐姿腿弯举',
     nameEn: 'Seated Leg Curl',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'leg_curl',
     angle: 'neutral',
     equipment: 'MACHINE',
@@ -533,7 +535,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '9202e88a-111c-40f8-8464-d567a7fff830',
     name: '坐姿单腿腿弯举',
     nameEn: 'Seated Single Leg Curl',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'leg_curl',
     angle: 'neutral',
     equipment: 'MACHINE',
@@ -569,7 +571,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '12c994b1-6251-4d3e-96e6-8186ee6a0afd',
     name: '负重坐姿提踵',
     nameEn: 'Weighted Seated Calf Raise',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'CALVES',
     movementPattern: 'calf_raise',
     angle: 'neutral',
     equipment: 'MACHINE',
@@ -686,18 +688,6 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     tags: ['INTERMEDIATE_VARIANT', 'STRENGTH'],
   },
   {
-    id: '11abe949-7bce-4971-95c0-f754772ee813',
-    name: '负重下斜卷腹',
-    nameEn: 'Weighted Decline Crunch',
-    primaryMuscle: 'CORE',
-    movementPattern: 'core_flexion',
-    angle: 'decline',
-    equipment: 'OTHER',
-    mechanics: 'ISOLATION',
-    laterality: 'BILATERAL',
-    tags: ['INTERMEDIATE_VARIANT', 'STRENGTH'],
-  },
-  {
     id: '149f6670-3321-4e86-a231-796f1c26a1a4',
     name: '腹肌轮滚动',
     nameEn: 'Ab Wheel Rollout',
@@ -785,18 +775,6 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     tags: ['ADVANCED', 'STRENGTH'],
   },
   {
-    id: '12b4858c-6c84-43b4-964d-cfd590ff7958',
-    name: '单臂哑铃腕屈曲',
-    nameEn: 'One-Arm Wrist Curl Dumbbell',
-    primaryMuscle: 'FOREARMS',
-    movementPattern: 'isolation_curl',
-    angle: 'neutral',
-    equipment: 'DUMBBELL',
-    mechanics: 'ISOLATION',
-    laterality: 'UNILATERAL',
-    tags: ['ADVANCED', 'STRENGTH'],
-  },
-  {
     id: '1bf3fec3-3ec8-48b8-bb5c-7439876c7aab',
     name: '单臂哑铃肩推',
     nameEn: 'One-Arm Shoulder Press Dumbbell',
@@ -836,7 +814,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '2187784c-77b0-4106-9b6f-cd5938da82b8',
     name: '单腿哑铃提踵',
     nameEn: 'Single-Leg Calf Raise with Dumbbell',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'CALVES',
     movementPattern: 'calf_raise',
     angle: 'neutral',
     equipment: 'DUMBBELL',
@@ -878,7 +856,9 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     equipment: 'MACHINE',
     mechanics: 'ISOLATION',
     laterality: 'UNILATERAL',
-    tags: ['ADVANCED', 'STRENGTH'],
+    // 提升为新手核心：钢索/器械引导、无轴向负重(AS 安全)、低技术门槛的臀中肌外展。
+    // 下A/下B 主项需 2 个臀动作 + 热身激活需 1 个,原novice池仅 2 个臀会迫使热身复制主项动作。(issue #47)
+    tags: ['NOVICE_CORE', 'STRENGTH'],
   },
   {
     id: '26268881-afd6-445d-9a8b-a149d8dafdaa',
@@ -1013,18 +993,6 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     tags: ['ADVANCED', 'STRENGTH'],
   },
   {
-    id: '1dd0ba84-d102-4e5a-ad25-58ebfa8edf9f',
-    name: '抓举',
-    nameEn: 'Snatch',
-    primaryMuscle: 'QUADS',
-    movementPattern: 'compound',
-    angle: 'neutral',
-    equipment: 'BARBELL',
-    mechanics: 'COMPOUND',
-    laterality: 'BILATERAL',
-    tags: ['ADVANCED', 'STRENGTH'],
-  },
-  {
     id: '20995c61-3541-47c8-be8d-e1db17c6bffc',
     name: '拳面俯卧撑',
     nameEn: 'Knuckle Push-Up',
@@ -1064,7 +1032,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '085cfcf8-548d-44df-8e92-eb9936752382',
     name: '杠铃提踵',
     nameEn: 'Barbell Calf Raise',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'CALVES',
     movementPattern: 'calf_raise',
     angle: 'neutral',
     equipment: 'BARBELL',
@@ -1100,7 +1068,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: '114ad863-9971-40c3-8108-2a983fe656ae',
     name: '缺口硬拉',
     nameEn: 'Deficit Deadlift',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'hinge_pattern',
     angle: 'neutral',
     equipment: 'BARBELL',
@@ -1211,7 +1179,7 @@ export const STRENGTH_EXERCISES: Exercise[] = [
     id: 'c72d1396-05a3-4254-a62e-dbbba9813472',
     name: '单腿仰卧腿弯举',
     nameEn: 'Single-Leg Lying Curl',
-    primaryMuscle: 'QUADS',
+    primaryMuscle: 'HAMSTRINGS',
     movementPattern: 'leg_curl',
     angle: 'neutral',
     equipment: 'MACHINE',
@@ -1397,7 +1365,54 @@ export const AS_CORE_EXERCISES: Exercise[] = [
 ]
 
 /**
- * 完整动作库（106 个）
+ * 按 ID 快速查找力量训练动作
+ */
+export const EXERCISES_BY_ID = new Map(
+  STRENGTH_EXERCISES.map(ex => [ex.id, ex]),
+)
+
+/**
+ * 肌群到 MuscleKey 的映射
+ */
+export const MUSCLE_MAP: Record<MuscleGroup, MuscleKey[]> = {
+  CHEST: ["chest"],
+  BACK: ["upper-back"],
+  SHOULDERS: ["front-deltoids"],
+  QUADS: ["quadriceps"],
+  GLUTES: ["glutes"],
+  HAMSTRINGS: ["hamstrings"],
+  BICEPS: ["biceps"],
+  TRICEPS: ["triceps"],
+  CORE: ["abs"],
+  FOREARMS: ["forearms"],
+  CALVES: ["calves"],
+}
+
+/**
+ * 解析动作命中的 MuscleKey。
+ *
+ * MUSCLE_MAP 以 primaryMuscle 为粒度,无法区分肩部三束——侧平举（中束）、
+ * 反向飞鸟/面拉（后束）会和肩推（前束）混为一谈。这里用 movementPattern 细化
+ * SHOULDERS:lateral_raise→中束、rear_delt→后束、其余→前束;其它肌群仍走 MUSCLE_MAP。
+ * 三个引擎共用此函数,保证处方与 fatigueSnapshot 的肌群口径一致。(issue #47)
+ */
+export function resolveMuscleKeys(exercise: Exercise): MuscleKey[] {
+  if (exercise.primaryMuscle === "SHOULDERS") {
+    switch (exercise.movementPattern) {
+      case "lateral_raise":
+        return ["side-deltoids"]
+      case "rear_delt":
+        return ["back-deltoids"]
+      default:
+        return ["front-deltoids"]
+    }
+  }
+
+  return MUSCLE_MAP[exercise.primaryMuscle]
+}
+
+/**
+ * 完整动作库（103 个）
  */
 export const ALL_EXERCISES = [...STRENGTH_EXERCISES, ...AS_CORE_EXERCISES]
 

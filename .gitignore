@@ -35,3 +35,6 @@ export_code_to_xml.py
 .worktrees/
 .codex
 .claude/
+
+# test coverage
+coverage/

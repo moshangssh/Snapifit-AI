@@ -25,15 +25,27 @@ import {
   workoutSessionToExerciseEntries,
 } from "@/lib/workout/session"
 import {
+  confirmBenchmarkSelection,
+  confirmLifetimeBenchmarkSelection,
+} from "@/lib/workout/engine/adaptive-engine"
+import type { BenchmarkCandidateDetail } from "@/lib/workout/engine/benchmark-selection"
+import {
   DEFAULT_TRAINING_STATE,
   readTrainingState,
   recordCompletedTrainingSession,
   setExerciseBlacklisted,
   writeTrainingState,
 } from "@/lib/workout/engine/training-state"
-import { buildWorkoutPlanContextSnapshot, getEffectiveUserWeightKg } from "@/lib/workout/context"
+import {
+  buildWorkoutPlanContextSnapshot,
+  getEffectiveUserWeightKg,
+  WORKOUT_PLAN_HISTORY_SESSION_LIMIT,
+} from "@/lib/workout/context"
 import type { WorkoutExerciseAnalysis, WorkoutSession } from "@/lib/workout/types"
 import { WorkoutPlanWorkbench } from "@/components/workout/workout-plan-workbench"
+import { BenchmarkSelectionCard } from "@/components/workout/benchmark-selection-card"
+import { ASSafetyUnlockCard } from "@/components/workout/as-safety-unlock-card"
+import type { ASRiskCategory } from "@/lib/workout/engine/as-safety"
 
 const defaultUserProfile: UserProfile = {
   weight: 70,
@@ -87,6 +99,10 @@ export default function WorkoutPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isFinishing, setIsFinishing] = useState(false)
   const [trainingState, setTrainingState] = useState(DEFAULT_TRAINING_STATE)
+  const [benchmarkCandidates, setBenchmarkCandidates] = useState<
+    BenchmarkCandidateDetail[]
+  >([])
+  const [selectedBenchmarkIds, setSelectedBenchmarkIds] = useState<string[]>([])
 
   useEffect(() => {
     setTrainingState(readTrainingState())
@@ -108,7 +124,9 @@ export default function WorkoutPage() {
     try {
       const now = new Date().toISOString()
       const recentLogs = await loadRecentLogs()
-      const recentCompletedSessions = await getCompletedSessions(5)
+      const recentCompletedSessions = await getCompletedSessions(
+        WORKOUT_PLAN_HISTORY_SESSION_LIMIT,
+      )
       const effectiveUserWeightKg = getEffectiveUserWeightKg(recentLogs, userProfile)
       const planContext = buildWorkoutPlanContextSnapshot({
         now,
@@ -138,6 +156,36 @@ export default function WorkoutPage() {
       }
 
       const plan = await response.json()
+      if (plan.needBenchmarkSelection) {
+        writeTrainingState(plan.trainingState)
+        setTrainingState(plan.trainingState)
+        const candidates = (plan.benchmarkCandidates ??
+          []) as BenchmarkCandidateDetail[]
+        const nextPhase = plan.nextPhase as "intermediate" | "advanced"
+        setBenchmarkCandidates(candidates)
+        setSelectedBenchmarkIds(
+          nextPhase === "advanced"
+            ? candidates.slice(0, 5).map((candidate) => candidate.id)
+            : candidates.map((candidate) => candidate.id),
+        )
+
+        const reasonMessages: Record<string, string> = {
+          novice_session_threshold: "你已完成 72 次新手训练",
+          novice_stalled_exercises: "检测到 4 个动作进展停滞",
+          intermediate_session_threshold: "你已完成 240 次中级训练",
+          manual_downgrade_upgrade_window: "手动降级的恢复期已结束",
+        }
+
+        toast({
+          title:
+            nextPhase === "advanced" ? "准备进入高级阶段" : "准备进入中级阶段",
+          description: `${reasonMessages[plan.reason] || "满足阶段转换条件"}，请选择${
+            nextPhase === "advanced" ? "终生" : "中级"
+          }基准动作。`,
+        })
+        return
+      }
+
       const currentState = readTrainingState()
       const mergedState = {
         ...plan.trainingState,
@@ -179,6 +227,23 @@ export default function WorkoutPage() {
     toast,
     userProfile,
   ])
+
+  const confirmBenchmarks = useCallback(() => {
+    const isAdvancedSelection = trainingState.phase === "intermediate"
+    const nextState = isAdvancedSelection
+      ? confirmLifetimeBenchmarkSelection(trainingState, selectedBenchmarkIds)
+      : confirmBenchmarkSelection(trainingState, selectedBenchmarkIds)
+    writeTrainingState(nextState)
+    setTrainingState(nextState)
+    setBenchmarkCandidates([])
+    setSelectedBenchmarkIds([])
+    toast({
+      title: isAdvancedSelection ? "已进入高级阶段" : "已进入中级阶段",
+      description: `${selectedBenchmarkIds.length} 个${
+        isAdvancedSelection ? "终生" : ""
+      }基准动作已保存。`,
+    })
+  }, [trainingState, selectedBenchmarkIds, toast])
 
   const updateSession = useCallback(
     async (updater: (session: WorkoutSession) => WorkoutSession) => {
@@ -338,6 +403,25 @@ export default function WorkoutPage() {
     })
   }, [abandonActiveSession, activeSession, toast])
 
+  const toggleRiskCategory = useCallback(
+    (category: ASRiskCategory, unlocked: boolean) => {
+      const existing = trainingState.unlockedRiskCategories ?? []
+      const next = unlocked
+        ? Array.from(new Set([...existing, category]))
+        : existing.filter((item) => item !== category)
+      const nextState = { ...trainingState, unlockedRiskCategories: next }
+      writeTrainingState(nextState)
+      setTrainingState(nextState)
+      toast({
+        title: unlocked ? "已解锁动作类别" : "已重新锁定动作类别",
+        description: unlocked
+          ? "请确认你的医生已同意，再在训练中使用该类动作。"
+          : "该类动作将不再被处方。",
+      })
+    },
+    [trainingState, toast],
+  )
+
   if (!isReady) {
     return (
       <WorkoutPageChrome subtitle="正在读取本地训练状态">
@@ -352,25 +436,49 @@ export default function WorkoutPage() {
 
   if (!activeSession) {
     const title = hasCompletedWorkout ? "下次训练计划" : "本次训练计划"
+
+    if (benchmarkCandidates.length > 0) {
+      return (
+        <WorkoutPageChrome subtitle="确定性训练引擎会根据你的课次状态生成本次模板">
+          <BenchmarkSelectionCard
+            candidates={benchmarkCandidates}
+            selectedIds={selectedBenchmarkIds}
+            nextPhase={
+              trainingState.phase === "intermediate" ? "advanced" : "intermediate"
+            }
+            onSelectedIdsChange={setSelectedBenchmarkIds}
+            onConfirm={confirmBenchmarks}
+          />
+        </WorkoutPageChrome>
+      )
+    }
+
     return (
       <WorkoutPageChrome subtitle="确定性训练引擎会根据你的课次状态生成本次模板">
-        <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
-          <CardContent className="flex flex-col items-center gap-5 p-10 text-center sm720:p-14">
-            <Tile variant="exercise" size={44}>
-              <Dumbbell />
-            </Tile>
-            <div className="space-y-2">
-              <h2 className="text-[22px] font-bold tracking-tight">{title}</h2>
-              <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                {"训练引擎会读取本地课次状态和训练上下文,生成一份可直接打卡的单次训练计划。"}
-              </p>
-            </div>
-            <Button variant="ink" disabled={isGenerating} onClick={generatePlan}>
-              {isGenerating && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              {isGenerating ? "正在生成..." : "生成训练计划"}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-5">
+          <Card className="rounded-2xl border-border shadow-none hover:shadow-none">
+            <CardContent className="flex flex-col items-center gap-5 p-10 text-center sm720:p-14">
+              <Tile variant="exercise" size={44}>
+                <Dumbbell />
+              </Tile>
+              <div className="space-y-2">
+                <h2 className="text-[22px] font-bold tracking-tight">{title}</h2>
+                <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                  {"训练引擎会读取本地课次状态和训练上下文,生成一份可直接打卡的单次训练计划。"}
+                </p>
+              </div>
+              <Button variant="ink" disabled={isGenerating} onClick={generatePlan}>
+                {isGenerating && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                {isGenerating ? "正在生成..." : "生成训练计划"}
+              </Button>
+            </CardContent>
+          </Card>
+          <ASSafetyUnlockCard
+            unlockedRiskCategories={trainingState.unlockedRiskCategories ?? []}
+            disabled={isGenerating}
+            onToggle={toggleRiskCategory}
+          />
+        </div>
       </WorkoutPageChrome>
     )
   }

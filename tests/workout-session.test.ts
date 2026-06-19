@@ -38,6 +38,7 @@ function makeInput(): CreateWorkoutSessionInput {
         phase: "main",
         notes: "保持肩胛稳定",
         tips: ["保持肩胛稳定", "推起时呼气避免憋气"],
+        labels: ["AS"],
         sets: [
           { plannedWeightKg: 60, plannedReps: 8 },
           { plannedWeightKg: 60, plannedReps: 8 },
@@ -82,6 +83,7 @@ describe("workout session core", () => {
       "保持肩胛稳定",
       "推起时呼气避免憋气",
     ])
+    expect(session.exercises[0].labels).toEqual(["AS"])
     expect(session.exercises[0].sets[0].actualWeightKg).toBe(60)
     expect(session.derived.totalSetCount).toBe(4)
   })

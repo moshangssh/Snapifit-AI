@@ -63,10 +63,108 @@ describe("training state storage", () => {
     expect(removed.blacklistedExerciseIds).toEqual([])
   })
 
+  it("persists phase transition and manual downgrade metadata", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      completedSessionCount: 80,
+      phaseTransitionReady: true,
+      stalledExercises: 4,
+      manualDowngrade: {
+        from: "intermediate" as const,
+        at: 72,
+        upgradeAfter: 8,
+      },
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
+  it("persists selected benchmark exercise ids", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      benchmarkExerciseIds: Array.from({ length: 10 }, (_, index) =>
+        `exercise-${index + 1}`,
+      ),
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
+  it("persists intermediate block metadata", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      phase: "intermediate" as const,
+      completedSessionCount: 114,
+      currentBlock: "accumulation" as const,
+      blockStartSession: 115,
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
+  it("persists advanced lifetime benchmark and deload metadata", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      phase: "advanced" as const,
+      completedSessionCount: 240,
+      lifetimeBenchmarkIds: Array.from({ length: 5 }, (_, index) =>
+        `exercise-${index + 1}`,
+      ),
+      lastDeloadSession: 240,
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual(nextState)
+  })
+
   it("falls back to novice state when stored data is missing or invalid", () => {
     const storage = createStorage()
     storage.setItem(TRAINING_STATE_STORAGE_KEY, "{")
 
     expect(readTrainingState(storage)).toEqual(DEFAULT_TRAINING_STATE)
+  })
+
+  it("persists valid AS unlock categories and drops unknown ones", () => {
+    const storage = createStorage()
+    const nextState = {
+      ...DEFAULT_TRAINING_STATE,
+      unlockedRiskCategories: [
+        "axial_loaded_lower",
+        "axial_loaded_lower",
+        "made_up_category",
+      ],
+    }
+
+    writeTrainingState(nextState, storage)
+
+    expect(readTrainingState(storage)).toEqual({
+      ...DEFAULT_TRAINING_STATE,
+      unlockedRiskCategories: ["axial_loaded_lower"],
+    })
+  })
+
+  it("omits the AS unlock field entirely when nothing is unlocked", () => {
+    const storage = createStorage()
+
+    writeTrainingState(DEFAULT_TRAINING_STATE, storage)
+
+    expect(
+      JSON.parse(storage.getItem(TRAINING_STATE_STORAGE_KEY) ?? "{}"),
+    ).toEqual({
+      phase: "novice",
+      completedSessionCount: 0,
+      blacklistedExerciseIds: [],
+    })
   })
 })

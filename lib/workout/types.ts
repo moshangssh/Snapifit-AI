@@ -49,6 +49,7 @@ export interface WorkoutSessionExercise {
   actualExerciseName?: string
   notes?: string
   tips: string[]
+  labels?: string[]
   sets: WorkoutSessionSet[]
   isExerciseSkipped: boolean
   analysisStatus: WorkoutExerciseAnalysisStatus
@@ -63,6 +64,23 @@ export interface TrainingState {
   phase: TrainingPhase
   completedSessionCount: number
   blacklistedExerciseIds: string[]
+  /**
+   * 用户（在医生同意后）显式解锁的 AS 风险动作类别。默认空 = 全部锁定。
+   * 取值见 lib/workout/engine/as-safety.ts 的 ASRiskCategory。
+   */
+  unlockedRiskCategories?: string[]
+  benchmarkExerciseIds?: string[]
+  lifetimeBenchmarkIds?: string[]
+  stalledExercises?: number
+  phaseTransitionReady?: boolean
+  currentBlock?: "accumulation" | "intensification" | "deload"
+  blockStartSession?: number
+  lastDeloadSession?: number
+  manualDowngrade?: {
+    from: TrainingPhase
+    at: number
+    upgradeAfter: number
+  }
 }
 
 export interface RecentWorkoutSessionSummary {
@@ -144,6 +162,7 @@ export interface WorkoutPlanExerciseDraft {
   phase: WorkoutExercisePhase
   notes?: string
   tips: string[]
+  labels?: string[]
   sets: Array<{
     plannedWeightKg?: number
     plannedReps?: number
