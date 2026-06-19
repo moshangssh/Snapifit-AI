@@ -138,7 +138,11 @@ function plannedWeightKg(exercise: Exercise, phase: WorkoutExercisePhase) {
     case "SHOULDERS":
     case "BICEPS":
     case "TRICEPS":
-      return 10
+    case "FOREARMS":
+      // Defensive fallback only (main strength always resolves via
+      // evaluateProgression). Mirror its split so a future caller can't
+      // reintroduce the lateral-raise overshoot: isolation starts light.
+      return exercise.mechanics === "ISOLATION" ? 3 : 14
     case "CORE":
       return 15
     default:
@@ -187,6 +191,7 @@ function catalogDraft(
           exercise.id,
           {
             primaryMuscle: exercise.primaryMuscle,
+            mechanics: exercise.mechanics,
             effectiveUserWeightKg,
           },
         )
@@ -407,6 +412,7 @@ function resolveMainExerciseReplacements(input: {
       exercise.id,
       {
         primaryMuscle: exercise.primaryMuscle,
+        mechanics: exercise.mechanics,
         effectiveUserWeightKg: input.effectiveUserWeightKg,
       },
     )
