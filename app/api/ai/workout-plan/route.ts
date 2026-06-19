@@ -5,6 +5,7 @@ import {
 } from "@/lib/workout/engine/adaptive-engine"
 import { getBenchmarkCandidateDetails } from "@/lib/workout/engine/benchmark-selection"
 import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
+import { filterASSafe } from "@/lib/workout/engine/as-safety"
 import {
   normalizeTrainingState,
 } from "@/lib/workout/engine/training-state"
@@ -36,13 +37,18 @@ export async function POST(req: Request) {
       // 中级→高级：从用户已选定的中级基准动作中挑选终生基准动作；
       // 新手→中级：从完整力量库的新手核心动作中挑选。
       const isAdvancedTransition = phaseTransition.nextPhase === "advanced"
-      const candidatePool = isAdvancedTransition
-        ? STRENGTH_EXERCISES.filter((exercise) =>
-            (normalizedTrainingState.benchmarkExerciseIds ?? []).includes(
-              exercise.id,
-            ),
-          )
-        : STRENGTH_EXERCISES
+      // 纵深防御：基准候选会成为用户的（中级/终生）基准动作，须套用 AS 安全锁，
+      // 避免某个被锁定的风险动作（如将来被误标 NOVICE_CORE）固化为永久基准。
+      const candidatePool = filterASSafe(
+        isAdvancedTransition
+          ? STRENGTH_EXERCISES.filter((exercise) =>
+              (normalizedTrainingState.benchmarkExerciseIds ?? []).includes(
+                exercise.id,
+              ),
+            )
+          : STRENGTH_EXERCISES,
+        normalizedTrainingState.unlockedRiskCategories,
+      )
       const benchmarkCandidates = getBenchmarkCandidateDetails(
         recentWorkoutSessionSummaries ?? [],
         candidatePool,

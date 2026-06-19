@@ -432,6 +432,7 @@ function resolveMainExerciseReplacements(input: {
       exercise,
       replacementPool,
       blockedForReplacement,
+      input.state.unlockedRiskCategories,
     )
 
     if (!replacement) {
@@ -449,6 +450,7 @@ function resolveMainExerciseReplacements(input: {
         exercise,
         replacementPool,
         filteredBlacklist,
+        input.state.unlockedRiskCategories,
       )
 
       if (fallbackReplacement) {
