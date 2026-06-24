@@ -36,6 +36,13 @@ export interface DailyEnergySnapshot {
     confidence: "low"
     warning: string
   }
+  individualCalibration: {
+    status: "not-enabled"
+    windowDays: { min: 14; max: 28 }
+    maintenanceAdjustmentCalories: 0
+    basis: "future-multi-day-trend"
+    warning: string
+  }
 }
 
 const BALANCE_THRESHOLD_KCAL = 20
@@ -121,6 +128,35 @@ function buildMetabolicHint(log: DailyLog): DailyEnergySnapshot["metabolicHint"]
   }
 }
 
+function getLegacyTEFEnhancement(log: DailyLog): number {
+  if (!log.tefAnalysis) return 0
+
+  return Math.max(
+    0,
+    Math.round(log.tefAnalysis.enhancedTEF - log.tefAnalysis.baseTEF),
+  )
+}
+
+function buildLegacyBaselineExpenditure(
+  log: DailyLog,
+  recordedExerciseCalories: number,
+): number | undefined {
+  const legacyTEFEnhancement = getLegacyTEFEnhancement(log)
+
+  if (log.calculatedTDEE && log.calculatedTDEE > 0) {
+    return Math.max(0, log.calculatedTDEE - legacyTEFEnhancement)
+  }
+
+  if (log.dailyTotalExpenditure && log.dailyTotalExpenditure > 0) {
+    return Math.max(
+      0,
+      log.dailyTotalExpenditure - recordedExerciseCalories - legacyTEFEnhancement,
+    )
+  }
+
+  return undefined
+}
+
 export function buildDailyEnergySnapshot(input: {
   log: DailyLog
   userProfile: UserProfile
@@ -129,13 +165,13 @@ export function buildDailyEnergySnapshot(input: {
   const inferredRates = calculateMetabolicRates(input.userProfile, {
     weight: input.log.weight,
   })
+  const recordedExerciseCalories =
+    input.log.summary.totalCaloriesBurned ?? 0
   const baselineExpenditure =
     input.log.baselineExpenditure ??
     inferredRates?.baselineExpenditure ??
-    input.log.calculatedTDEE ??
+    buildLegacyBaselineExpenditure(input.log, recordedExerciseCalories) ??
     0
-  const recordedExerciseCalories =
-    input.log.summary.totalCaloriesBurned ?? 0
   const consumedCalories = input.log.summary.totalCaloriesConsumed ?? 0
   const maintenanceCalories = baselineExpenditure + recordedExerciseCalories
   const budgetCalories = buildBudgetCalories({
@@ -183,5 +219,12 @@ export function buildDailyEnergySnapshot(input: {
     confidence: missing.length > 0 ? "low" : "high",
     missing,
     metabolicHint: buildMetabolicHint(input.log),
+    individualCalibration: {
+      status: "not-enabled",
+      windowDays: { min: 14, max: 28 },
+      maintenanceAdjustmentCalories: 0,
+      basis: "future-multi-day-trend",
+      warning: "未来多日个体校准未启用,当前不调整今日维持热量或今日热量预算",
+    },
   }
 }
