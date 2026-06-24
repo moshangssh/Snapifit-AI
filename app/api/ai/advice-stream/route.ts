@@ -5,6 +5,7 @@ import {
   extractAIConfig,
   validateModelConfig,
 } from "@/lib/ai/client"
+import { buildDailyEnergySnapshotPrompt } from "@/lib/ai/daily-energy-prompt"
 import { handleAIError, AIError } from "@/lib/ai/errors"
 import { formatDailyStatusForAI } from "@/lib/utils"
 
@@ -81,16 +82,11 @@ export async function POST(req: Request) {
       })()}
 
       今日健康数据 (${dailyLog.date}):
-      - 总卡路里摄入: ${dailyLog.summary.totalCaloriesConsumed.toFixed(0)} kcal
-      - 总卡路里消耗: ${dailyLog.summary.totalCaloriesBurned.toFixed(0)} kcal
-      - 净卡路里: ${(
-        dailyLog.summary.totalCaloriesConsumed - dailyLog.summary.totalCaloriesBurned
-      ).toFixed(0)} kcal
-      - 宏量营养素分布: 碳水 ${dailyLog.summary.macros.carbs.toFixed(
-        1,
-      )}g, 蛋白质 ${dailyLog.summary.macros.protein.toFixed(
-        1,
-      )}g, 脂肪 ${dailyLog.summary.macros.fat.toFixed(1)}g
+      ${buildDailyEnergySnapshotPrompt({
+        log: dailyLog,
+        userProfile,
+        now: new Date(),
+      })}
 
       食物记录:
       ${dailyLog.foodEntries
