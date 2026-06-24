@@ -58,7 +58,8 @@ export function buildDailyEnergySnapshotPrompt(input: {
 - 宏量目标: 蛋白质 ${snapshot.macroTargets.protein}g, 碳水 ${snapshot.macroTargets.carbohydrates}g, 脂肪 ${snapshot.macroTargets.fat}g
 - 剩余宏量: 蛋白质 ${snapshot.remainingMacros.protein}g, 碳水 ${snapshot.remainingMacros.carbohydrates}g, 脂肪 ${snapshot.remainingMacros.fat}g
 - 置信度: ${snapshot.confidence}
+- 个体校准: 未启用, ${snapshot.individualCalibration.windowDays.min}-${snapshot.individualCalibration.windowDays.max} 天趋势预留, 当前调整 ${snapshot.individualCalibration.maintenanceAdjustmentCalories} kcal
 ${formatMetabolicHint(snapshot.metabolicHint)}
 ${formatWarnings(snapshot)}
-说明: 今日维持热量是中性的摄入对消耗估算;今日热量预算是目标驱动的当天可吃预算;热量平衡只比较已记录摄入和今日维持热量。AI 代谢提示只用于解释和置信度,不作为额外可吃额度。单日热量平衡只是当天决策估算,减脂/增重效果应看多日趋势。`
+说明: 今日维持热量是中性的摄入对消耗估算;今日热量预算是目标驱动的当天可吃预算;热量平衡只比较已记录摄入和今日维持热量。AI 代谢提示只用于解释和置信度,不作为额外可吃额度。${snapshot.individualCalibration.warning}。单日热量平衡只是当天决策估算,减脂/增重效果应看多日趋势。`
 }

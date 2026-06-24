@@ -52,6 +52,8 @@ describe("daily energy AI prompt", () => {
     expect(prompt).toContain("宏量目标: 蛋白质 130g, 碳水 242g, 脂肪 46g")
     expect(prompt).toContain("AI 代谢提示: 咖啡因, 辛辣食物")
     expect(prompt).toContain("不改变今日维持热量或今日热量预算")
+    expect(prompt).toContain("个体校准: 未启用")
+    expect(prompt).toContain("未来多日个体校准未启用")
     expect(prompt).toContain("单日热量平衡只是当天决策估算")
   })
 

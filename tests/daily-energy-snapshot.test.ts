@@ -124,6 +124,30 @@ describe("daily energy snapshot", () => {
     expect(snapshot.missing).toEqual([])
   })
 
+  it("opens historical logs that only stored legacy total expenditure without double-counting exercise", () => {
+    const snapshot = buildDailyEnergySnapshot({
+      log: makeLog({
+        baselineExpenditure: undefined,
+        calculatedTDEE: undefined,
+        dailyTotalExpenditure: 2300,
+        summary: {
+          totalCaloriesConsumed: 1800,
+          totalCaloriesBurned: 300,
+          macros: { carbs: 180, protein: 120, fat: 60 },
+          micronutrients: {},
+        },
+      }),
+      userProfile: { ...baseProfile, weight: 0 },
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    expect(snapshot.baselineExpenditure).toBe(2000)
+    expect(snapshot.recordedExerciseCalories).toBe(300)
+    expect(snapshot.maintenanceCalories).toBe(2300)
+    expect(snapshot.state).toBe("deficit")
+    expect(snapshot.missing).toEqual([])
+  })
+
   it("keeps AI metabolic hints visible without changing maintenance or budget", () => {
     const logWithoutHint = makeLog({
       baselineExpenditure: undefined,
@@ -187,6 +211,36 @@ describe("daily energy snapshot", () => {
     expect(snapshot.baselineExpenditure).toBe(2596)
     expect(snapshot.maintenanceCalories).toBe(2896)
     expect(snapshot.budgetCalories).toBe(2896)
+  })
+
+  it("removes old TEF enhancement from legacy TDEE fallback when profile recalculation is unavailable", () => {
+    const snapshot = buildDailyEnergySnapshot({
+      log: makeLog({
+        baselineExpenditure: undefined,
+        calculatedTDEE: 2100,
+        tefAnalysis: {
+          baseTEF: 20,
+          baseTEFPercentage: 10,
+          enhancementMultiplier: 1.3,
+          enhancedTEF: 120,
+          enhancementFactors: ["咖啡因"],
+          analysisTimestamp: "2026-06-24T04:00:00.000Z",
+        },
+        summary: {
+          totalCaloriesConsumed: 1800,
+          totalCaloriesBurned: 0,
+          macros: { carbs: 180, protein: 120, fat: 60 },
+          micronutrients: {},
+        },
+      }),
+      userProfile: { ...baseProfile, weight: 0 },
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    expect(snapshot.baselineExpenditure).toBe(2000)
+    expect(snapshot.maintenanceCalories).toBe(2000)
+    expect(snapshot.budgetCalories).toBe(2000)
+    expect(snapshot.metabolicHint?.estimatedEffectCalories).toBe(100)
   })
 
   it("uses manual target calories as the eating budget without goal double adjustment", () => {
@@ -321,5 +375,23 @@ describe("daily energy snapshot", () => {
     expect(snapshot.maintenanceCalories).toBe(1300)
     expect(snapshot.budgetCalories).toBe(1300)
     expect(snapshot.remainingBudgetCalories).toBe(1200)
+  })
+
+  it("reserves future multi-day calibration without adjusting today's budget", () => {
+    const snapshot = buildDailyEnergySnapshot({
+      log: makeLog(),
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    expect(snapshot.individualCalibration).toEqual({
+      status: "not-enabled",
+      windowDays: { min: 14, max: 28 },
+      maintenanceAdjustmentCalories: 0,
+      basis: "future-multi-day-trend",
+      warning: "未来多日个体校准未启用,当前不调整今日维持热量或今日热量预算",
+    })
+    expect(snapshot.maintenanceCalories).toBe(2300)
+    expect(snapshot.budgetCalories).toBe(2300)
   })
 })
