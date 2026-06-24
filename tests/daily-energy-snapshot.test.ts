@@ -124,11 +124,53 @@ describe("daily energy snapshot", () => {
     expect(snapshot.missing).toEqual([])
   })
 
-  it("does not add AI metabolic hints to maintenance calories", () => {
+  it("keeps AI metabolic hints visible without changing maintenance or budget", () => {
+    const logWithoutHint = makeLog({
+      baselineExpenditure: undefined,
+      calculatedTDEE: undefined,
+    })
+    const logWithHint = makeLog({
+      baselineExpenditure: undefined,
+      calculatedTDEE: undefined,
+      tefAnalysis: {
+        baseTEF: 20,
+        baseTEFPercentage: 10,
+        enhancementMultiplier: 1.3,
+        enhancedTEF: 120,
+        enhancementFactors: ["咖啡因", "辛辣食物", "绿茶儿茶素"],
+        analysisTimestamp: "2026-06-24T04:00:00.000Z",
+      },
+    })
+    const withoutHint = buildDailyEnergySnapshot({
+      log: logWithoutHint,
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+    const withHint = buildDailyEnergySnapshot({
+      log: logWithHint,
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    expect(withHint.baselineExpenditure).toBe(withoutHint.baselineExpenditure)
+    expect(withHint.maintenanceCalories).toBe(withoutHint.maintenanceCalories)
+    expect(withHint.budgetCalories).toBe(withoutHint.budgetCalories)
+    expect(withHint.remainingBudgetCalories).toBe(
+      withoutHint.remainingBudgetCalories,
+    )
+    expect(withHint.metabolicHint).toEqual({
+      factors: ["咖啡因", "辛辣食物", "绿茶儿茶素"],
+      estimatedEffectCalories: 100,
+      confidence: "low",
+      warning: "AI 代谢提示仅作解释,不改变今日维持热量或今日热量预算",
+    })
+  })
+
+  it("recalculates historical TEF-enhanced legacy TDEE as neutral baseline", () => {
     const snapshot = buildDailyEnergySnapshot({
       log: makeLog({
         baselineExpenditure: undefined,
-        calculatedTDEE: undefined,
+        calculatedTDEE: 2696,
         tefAnalysis: {
           baseTEF: 20,
           baseTEFPercentage: 10,
@@ -144,6 +186,7 @@ describe("daily energy snapshot", () => {
 
     expect(snapshot.baselineExpenditure).toBe(2596)
     expect(snapshot.maintenanceCalories).toBe(2896)
+    expect(snapshot.budgetCalories).toBe(2896)
   })
 
   it("uses manual target calories as the eating budget without goal double adjustment", () => {

@@ -30,6 +30,12 @@ export interface DailyEnergySnapshot {
   state: DailyEnergySnapshotState
   confidence: "high" | "low"
   missing: string[]
+  metabolicHint?: {
+    factors: string[]
+    estimatedEffectCalories: number
+    confidence: "low"
+    warning: string
+  }
 }
 
 const BALANCE_THRESHOLD_KCAL = 20
@@ -101,6 +107,20 @@ function clampRemaining(value: number): number {
   return Math.max(0, Math.round(value))
 }
 
+function buildMetabolicHint(log: DailyLog): DailyEnergySnapshot["metabolicHint"] {
+  if (!log.tefAnalysis) return undefined
+
+  return {
+    factors: log.tefAnalysis.enhancementFactors,
+    estimatedEffectCalories: Math.max(
+      0,
+      Math.round(log.tefAnalysis.enhancedTEF - log.tefAnalysis.baseTEF),
+    ),
+    confidence: "low",
+    warning: "AI 代谢提示仅作解释,不改变今日维持热量或今日热量预算",
+  }
+}
+
 export function buildDailyEnergySnapshot(input: {
   log: DailyLog
   userProfile: UserProfile
@@ -111,8 +131,8 @@ export function buildDailyEnergySnapshot(input: {
   })
   const baselineExpenditure =
     input.log.baselineExpenditure ??
-    input.log.calculatedTDEE ??
     inferredRates?.baselineExpenditure ??
+    input.log.calculatedTDEE ??
     0
   const recordedExerciseCalories =
     input.log.summary.totalCaloriesBurned ?? 0
@@ -162,5 +182,6 @@ export function buildDailyEnergySnapshot(input: {
     state,
     confidence: missing.length > 0 ? "low" : "high",
     missing,
+    metabolicHint: buildMetabolicHint(input.log),
   }
 }

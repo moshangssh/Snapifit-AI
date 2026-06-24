@@ -7,6 +7,6 @@ describe("TEF hero display", () => {
     const source = readFileSync(join(process.cwd(), "app/page.tsx"), "utf8")
 
     expect(source).not.toMatch(/enhancementFactors\s*\[\s*0\s*\]/)
-    expect(source).toContain('enhancementFactors?.join("、")')
+    expect(source).toContain('metabolicHint?.factors.join("、")')
   })
 })

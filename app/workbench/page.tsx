@@ -193,12 +193,8 @@ function WorkbenchContent() {
   }
 
   const prepareLogWithMetabolicRates = (log: DailyLog): DailyLog => {
-    const additionalTEF = log.tefAnalysis
-      ? log.tefAnalysis.enhancedTEF - log.tefAnalysis.baseTEF
-      : undefined
     const rates = calculateMetabolicRates(userProfile, {
       weight: log.weight,
-      additionalTEF,
     })
 
     if (!rates) return log
