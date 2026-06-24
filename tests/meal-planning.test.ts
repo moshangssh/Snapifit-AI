@@ -3,6 +3,7 @@ import {
   buildMealPlanBudgetSnapshot,
   inferRemainingMealSlots,
 } from "@/lib/meal-planning"
+import { buildDailyEnergySnapshot } from "@/lib/daily-energy-snapshot"
 import type { DailyLog, UserProfile } from "@/lib/types"
 
 const baseProfile: UserProfile = {
@@ -31,6 +32,65 @@ function makeLog(overrides: Partial<DailyLog> = {}): DailyLog {
 }
 
 describe("meal planning budget", () => {
+  it("uses the daily energy snapshot budget and macro model", () => {
+    const log = makeLog({ plannedTrainingType: "high_output" })
+    const now = new Date("2026-05-28T09:00:00+08:00")
+    const dailyEnergySnapshot = buildDailyEnergySnapshot({
+      log,
+      userProfile: baseProfile,
+      now,
+    })
+    const mealPlanSnapshot = buildMealPlanBudgetSnapshot({
+      log,
+      userProfile: baseProfile,
+      now,
+    })
+
+    expect(mealPlanSnapshot.targetCalories).toBe(
+      dailyEnergySnapshot.budgetCalories,
+    )
+    expect(mealPlanSnapshot.remainingCalories).toBe(
+      dailyEnergySnapshot.remainingBudgetCalories,
+    )
+    expect(mealPlanSnapshot.macroTargets).toEqual(
+      dailyEnergySnapshot.macroTargets,
+    )
+    expect(mealPlanSnapshot.remainingMacros).toEqual(
+      dailyEnergySnapshot.remainingMacros,
+    )
+  })
+
+  it("keeps meal planning aligned with the daily snapshot safety-floor cap", () => {
+    const log = makeLog({
+      baselineExpenditure: 1300,
+      summary: {
+        totalCaloriesConsumed: 100,
+        totalCaloriesBurned: 0,
+        macros: { carbs: 0, protein: 0, fat: 0 },
+        micronutrients: {},
+      },
+    })
+    const userProfile = { ...baseProfile, goal: "lose_weight" }
+    const now = new Date("2026-05-28T09:00:00+08:00")
+    const dailyEnergySnapshot = buildDailyEnergySnapshot({
+      log,
+      userProfile,
+      now,
+    })
+    const mealPlanSnapshot = buildMealPlanBudgetSnapshot({
+      log,
+      userProfile,
+      now,
+    })
+
+    expect(mealPlanSnapshot.targetCalories).toBe(
+      dailyEnergySnapshot.budgetCalories,
+    )
+    expect(mealPlanSnapshot.remainingCalories).toBe(
+      dailyEnergySnapshot.remainingBudgetCalories,
+    )
+  })
+
   it("ignores legacy planned training type and uses only recorded exercise calories", () => {
     const snapshot = buildMealPlanBudgetSnapshot({
       log: makeLog({ plannedTrainingType: "high_output" }),
@@ -44,7 +104,7 @@ describe("meal planning budget", () => {
     expect(snapshot).not.toHaveProperty("effectiveExerciseCalories")
   })
 
-  it("applies goal adjustment and male safety floor", () => {
+  it("keeps the male weight-loss safety floor from rising above maintenance", () => {
     const snapshot = buildMealPlanBudgetSnapshot({
       log: makeLog({
         baselineExpenditure: 1300,
@@ -59,11 +119,11 @@ describe("meal planning budget", () => {
       now: new Date("2026-05-28T09:00:00+08:00"),
     })
 
-    expect(snapshot.targetCalories).toBe(1500)
-    expect(snapshot.remainingCalories).toBe(1400)
+    expect(snapshot.targetCalories).toBe(1300)
+    expect(snapshot.remainingCalories).toBe(1200)
   })
 
-  it("applies the female rest-day safety floor at 1200 kcal", () => {
+  it("keeps the female weight-loss safety floor from rising above maintenance", () => {
     const snapshot = buildMealPlanBudgetSnapshot({
       log: makeLog({
         baselineExpenditure: 1000,
@@ -82,8 +142,8 @@ describe("meal planning budget", () => {
       now: new Date("2026-05-28T09:00:00+08:00"),
     })
 
-    expect(snapshot.targetCalories).toBe(1200)
-    expect(snapshot.remainingCalories).toBe(1100)
+    expect(snapshot.targetCalories).toBe(1000)
+    expect(snapshot.remainingCalories).toBe(900)
   })
 
   it("uses manual target calories when they are above the safety floor", () => {
