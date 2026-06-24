@@ -470,11 +470,10 @@ function DashboardContent() {
   })
 
   // TEF 状态展示
-  const tef = dailyLog.tefAnalysis
-  const tefDone = !!tef
+  const metabolicHint = dailyEnergySnapshot.metabolicHint
+  const tefDone = !!metabolicHint
   const tefRunning = (tefAnalysisCountdown ?? 0) > 0
-  const tefExtra = tef ? Math.round(tef.enhancedTEF - tef.baseTEF) : 0
-  const tefFactorText = tef?.enhancementFactors?.join("、") ?? ""
+  const tefFactorText = metabolicHint?.factors.join("、") ?? ""
 
   // ── Hero v3 派生 ───────────────────────────────────
   const heroState = dailyEnergySnapshot.state
@@ -681,21 +680,21 @@ function DashboardContent() {
                 />
 
                 {tefCardState === "done" ? (
-                  <div className={cn("twin tef", tefExtra === 0 && "empty")}>
+                  <div className={cn("twin tef", !tefFactorText && "empty")}>
                     <div className="twin-icon"><Zap /></div>
                     <div className="twin-body">
                       <div className="twin-label">AI 代谢提示</div>
-                      {tefExtra > 0 ? (
+                      {metabolicHint && (tefFactorText || metabolicHint.estimatedEffectCalories > 0) ? (
                         <>
-                          <div className="twin-main">检测到提示</div>
+                          <div className="twin-main">低置信度提示</div>
                           <div className="twin-sub">
-                            已分析
-                            {tefFactorText ? ` · ${tefFactorText}` : ""}
+                            {tefFactorText || `估算约 ${metabolicHint.estimatedEffectCalories} kcal`}
+                            {" · 不增加预算"}
                           </div>
                         </>
                       ) : (
                         <>
-                          <div className="twin-main">未检测到增强</div>
+                          <div className="twin-main">未检测到提示</div>
                           <div className="twin-sub">仅作解释提示,不增加预算</div>
                         </>
                       )}

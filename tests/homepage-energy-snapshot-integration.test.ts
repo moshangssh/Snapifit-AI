@@ -27,4 +27,11 @@ describe("homepage daily energy snapshot integration", () => {
   it("frames single-day energy balance as an estimate", () => {
     expect(source).toContain("单日估算")
   })
+
+  it("shows AI metabolic analysis as a low-confidence hint, not extra budget", () => {
+    expect(source).toContain("dailyEnergySnapshot.metabolicHint")
+    expect(source).toContain("低置信度提示")
+    expect(source).toContain("不增加预算")
+    expect(source).not.toContain("const tefExtra")
+  })
 })

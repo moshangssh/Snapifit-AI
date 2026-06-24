@@ -95,20 +95,17 @@ export function calculateHarrisBenedictBMR(
  *   新代码请使用 `calculateBaselineExpenditure`，并在外层叠加当日运动消耗。
  * @param bmr 基础代谢率 (kcal/天)
  * @param activityLevel 活动水平 (来自 UserProfile.activityLevel)
- * @param additionalTEF 额外的食物热效应 (kcal/天) - 可选
+ * @param additionalTEF 已废弃,AI 代谢提示不再增加今日维持热量
  * @returns TDEE (kcal/天)
  */
 export function calculateTDEE(bmr: number, activityLevel: string, additionalTEF?: number): number {
   const multiplier = activityMultipliers[activityLevel] || 1.55; // 默认为中等活动水平 (moderate)
-  const baseTDEE = bmr * multiplier;
-
-  // 如果提供了额外的TEF，则添加到TDEE中
-  // 注意：传统的活动乘数已经包含了平均TEF，这里的additionalTEF是额外增强的部分
-  return additionalTEF ? baseTDEE + additionalTEF : baseTDEE;
+  void additionalTEF;
+  return bmr * multiplier;
 }
 
 /**
- * 计算基础消耗 (Baseline Expenditure = BMR × PAL + additionalTEF)
+ * 计算基础消耗 (Baseline Expenditure = BMR × PAL)
  *
  * 语义：**不含**刻意运动消耗（EAT）。仅覆盖 BMR + NEAT + TEF。
  * 调用方应在此基础上累加当日运动消耗，得到 dailyTotalExpenditure：
@@ -118,7 +115,7 @@ export function calculateTDEE(bmr: number, activityLevel: string, additionalTEF?
  *
  * @param bmr 基础代谢率 (kcal/天)
  * @param activityLevel 日常状态档位（参见 activityMultipliers 注释）
- * @param additionalTEF 额外的食物热效应增强 (kcal/天)，可选
+ * @param additionalTEF 已废弃,AI 代谢提示不再增加基础消耗
  * @returns 基础消耗 (kcal/天)
  */
 export function calculateBaselineExpenditure(
@@ -127,14 +124,14 @@ export function calculateBaselineExpenditure(
   additionalTEF?: number,
 ): number {
   const multiplier = activityMultipliers[activityLevel] || 1.2; // 默认 sedentary，避免高估
-  const base = bmr * multiplier;
-  return additionalTEF ? base + additionalTEF : base;
+  void additionalTEF;
+  return bmr * multiplier;
 }
 
 /**
  * 根据用户配置和当日数据计算 BMR 和基础消耗
  * @param userProfile 用户配置信息（活动水平统一从此读取）
- * @param currentDayData 包含当日可选的体重、TEF
+ * @param currentDayData 包含当日可选的体重
  * @returns 包含 bmr、tdee（向后兼容字段，等于 baselineExpenditure）、baselineExpenditure 的对象
  */
 export function calculateMetabolicRates(
@@ -143,7 +140,8 @@ export function calculateMetabolicRates(
     weight?: number; // 当日体重 (kg)
     /** @deprecated 已废弃，仅保留参数以兼容旧调用方。活动水平统一从 userProfile 读取 */
     activityLevel?: string;
-    additionalTEF?: number; // 额外的TEF增强 (kcal)
+    /** @deprecated AI 代谢提示不再增加基础消耗 */
+    additionalTEF?: number;
   }
 ): { bmr: number; tdee: number; baselineExpenditure: number; tefEnhancement?: number } | undefined {
   const weightToUse = currentDayData.weight && currentDayData.weight > 0
@@ -212,12 +210,11 @@ export function calculateMetabolicRates(
       return undefined;
   }
 
-  const baseline = calculateBaselineExpenditure(bmr, activityLevelForBaseline, currentDayData.additionalTEF);
+  const baseline = calculateBaselineExpenditure(bmr, activityLevelForBaseline);
 
   return {
     bmr: parseFloat(bmr.toFixed(0)),
     tdee: parseFloat(baseline.toFixed(0)), // 向后兼容字段，数值等同 baselineExpenditure
     baselineExpenditure: parseFloat(baseline.toFixed(0)),
-    tefEnhancement: currentDayData.additionalTEF ? parseFloat(currentDayData.additionalTEF.toFixed(1)) : undefined,
   };
 }
