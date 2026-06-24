@@ -564,9 +564,9 @@ function DashboardContent() {
       ? "done"
       : "empty"
 
-  const macroTargets = mealPlanBudgetSnapshot.macroTargets
+  const macroTargets = dailyEnergySnapshot.macroTargets
   const hasMacroTarget = (target: number) =>
-    mealPlanBudgetSnapshot.targetCalories > 0 && target > 0
+    dailyEnergySnapshot.budgetCalories > 0 && target > 0
   const macroPctV2 = (g: number, target: number) =>
     hasMacroTarget(target)
       ? Math.min(Math.max((g / target) * 100, 0), 100)

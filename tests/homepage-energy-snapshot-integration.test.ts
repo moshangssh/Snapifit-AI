@@ -13,6 +13,12 @@ describe("homepage daily energy snapshot integration", () => {
     )
   })
 
+  it("reads homepage macro targets from the daily energy snapshot budget", () => {
+    expect(source).toContain(
+      "const macroTargets = dailyEnergySnapshot.macroTargets",
+    )
+  })
+
   it("labels recorded exercise separately from baseline daily activity", () => {
     expect(source).toContain("已记录运动消耗")
     expect(source).not.toContain('<div className="formula-label">活动消耗</div>')
