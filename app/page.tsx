@@ -55,6 +55,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useDateRecords } from "@/hooks/use-date-records"
 import { calculateMetabolicRates } from "@/lib/health-utils"
+import { buildDailyEnergySnapshot } from "@/lib/daily-energy-snapshot"
 import { buildMealPlanBudgetSnapshot } from "@/lib/meal-planning"
 import { syncProfileWeightFromDailyLog } from "@/lib/profile-weight"
 import { scheduleTEFAnalysisForLog } from "@/lib/tef-background-analysis"
@@ -195,12 +196,8 @@ function DashboardContent() {
   }
 
   const prepareLogWithMetabolicRates = (log: DailyLog): DailyLog => {
-    const additionalTEF = log.tefAnalysis
-      ? log.tefAnalysis.enhancedTEF - log.tefAnalysis.baseTEF
-      : undefined
     const rates = calculateMetabolicRates(userProfile, {
       weight: log.weight,
-      additionalTEF,
     })
 
     if (!rates) return log
@@ -316,13 +313,8 @@ function DashboardContent() {
     // 必须等真实数据和本地 profile 加载完才能算/写,否则会用默认 profile 覆盖派生值。
     if (!isLogLoaded || !isUserProfileHydrated) return
     if (userProfile && dailyLog.date) {
-      const additionalTEF = dailyLog.tefAnalysis
-        ? dailyLog.tefAnalysis.enhancedTEF - dailyLog.tefAnalysis.baseTEF
-        : undefined
-
       const rates = calculateMetabolicRates(userProfile, {
         weight: dailyLog.weight,
-        additionalTEF
       })
 
       const newBmr = rates?.bmr
@@ -346,7 +338,7 @@ function DashboardContent() {
         })
       }
     }
-  }, [isLogLoaded, isUserProfileHydrated, userProfile, dailyLog.date, dailyLog.weight, dailyLog.tefAnalysis, saveDailyLog, dailyLog.calculatedBMR, dailyLog.baselineExpenditure])
+  }, [isLogLoaded, isUserProfileHydrated, userProfile, dailyLog.date, dailyLog.weight, saveDailyLog, dailyLog.calculatedBMR, dailyLog.baselineExpenditure])
 
   // 删除条目
   const handleDeleteEntry = (id: string, type: "food" | "exercise") => {
@@ -458,15 +450,16 @@ function DashboardContent() {
     })
   }
 
-  // 派生:今日热量平衡（B 方案 — NEAT 动态法）
-  // 基础消耗（BMR + NEAT + TEF，不含运动）+ 当日运动消耗 = 今日总消耗
-  // 缺口/盈余 = 摄入 − 今日总消耗
-  const totalCaloriesConsumed = dailyLog.summary.totalCaloriesConsumed ?? 0
-  const totalCaloriesBurned = dailyLog.summary.totalCaloriesBurned ?? 0
-  // 兼容历史日志：旧日志只有 calculatedTDEE，没有 baselineExpenditure
-  const baselineExpenditure = dailyLog.baselineExpenditure ?? dailyLog.calculatedTDEE ?? 0
-  const dailyTotalExpenditure = baselineExpenditure + totalCaloriesBurned
-  const calorieDelta = totalCaloriesConsumed - dailyTotalExpenditure // 负数 = 缺口，正数 = 盈余
+  const dailyEnergySnapshot = buildDailyEnergySnapshot({
+    log: dailyLog,
+    userProfile,
+    now: new Date(),
+  })
+  const totalCaloriesConsumed = dailyEnergySnapshot.consumedCalories
+  const totalCaloriesBurned = dailyEnergySnapshot.recordedExerciseCalories
+  const baselineExpenditure = dailyEnergySnapshot.baselineExpenditure
+  const dailyTotalExpenditure = dailyEnergySnapshot.maintenanceCalories
+  const calorieDelta = dailyEnergySnapshot.calorieDelta
   const macros = dailyLog.summary.macros ?? { carbs: 0, protein: 0, fat: 0 }
   const isCurrentLogReady =
     isLogLoaded && !dbInitializing && dailyLog.date === dateParam
@@ -484,14 +477,7 @@ function DashboardContent() {
   const tefFactorText = tef?.enhancementFactors?.join("、") ?? ""
 
   // ── Hero v3 派生 ───────────────────────────────────
-  type HeroState = "deficit" | "surplus" | "balanced" | "no-record" | "no-tdee"
-  const BALANCE_THRESHOLD = 20
-  const heroState: HeroState = (() => {
-    if (baselineExpenditure <= 0) return "no-tdee"
-    if (totalCaloriesConsumed === 0 && totalCaloriesBurned === 0) return "no-record"
-    if (Math.abs(calorieDelta) <= BALANCE_THRESHOLD) return "balanced"
-    return calorieDelta < 0 ? "deficit" : "surplus"
-  })()
+  const heroState = dailyEnergySnapshot.state
 
   const heroVisual = (() => {
     const consumed = Math.round(totalCaloriesConsumed)
@@ -505,24 +491,24 @@ function DashboardContent() {
           centerMain: `${absDelta}`,
           centerColorClass: "text-c-weight",
           centerHint: (
-            <>已记录 <strong>{consumed.toLocaleString()}</strong> / 总消耗 <strong>{expenditure.toLocaleString()}</strong></>
+            <>摄入 <strong>{consumed.toLocaleString()}</strong> / 今日维持热量 <strong>{expenditure.toLocaleString()}</strong></>
           ),
-          formulaFirstLabel: "热量缺口",
+          formulaFirstLabel: "热量差额",
           formulaFirstClass: "deficit",
-          formulaFirstNum: `${absDelta}`,
+          formulaFirstNum: `-${absDelta}`,
         }
       case "surplus":
         return {
           ringColorClass: "text-c-exercise",
           centerTop: "已超",
-          centerMain: `−${absDelta}`,
+          centerMain: `${absDelta}`,
           centerColorClass: "text-c-exercise",
           centerHint: (
-            <>摄入 <strong>{consumed.toLocaleString()}</strong> · 超出总消耗 <strong>{absDelta.toLocaleString()}</strong></>
+            <>摄入 <strong>{consumed.toLocaleString()}</strong> · 超出今日维持热量 <strong>{absDelta.toLocaleString()}</strong></>
           ),
-          formulaFirstLabel: "热量盈余",
+          formulaFirstLabel: "热量差额",
           formulaFirstClass: "surplus",
-          formulaFirstNum: `−${absDelta}`,
+          formulaFirstNum: `+${absDelta}`,
         }
       case "balanced":
         return {
@@ -530,8 +516,8 @@ function DashboardContent() {
           centerTop: "平衡",
           centerMain: "0",
           centerColorClass: "text-foreground",
-          centerHint: <>净摄入与消耗持平</>,
-          formulaFirstLabel: "热量平衡",
+          centerHint: <>摄入与今日维持热量接近平衡</>,
+          formulaFirstLabel: "热量差额",
           formulaFirstClass: "base",
           formulaFirstNum: "0",
         }
@@ -546,11 +532,11 @@ function DashboardContent() {
               去记录开始一天 →
             </Link>
           ),
-          formulaFirstLabel: "缺口",
+          formulaFirstLabel: "热量差额",
           formulaFirstClass: "mute",
-          formulaFirstNum: expenditure.toLocaleString(),
+          formulaFirstNum: "—",
         }
-      case "no-tdee":
+      case "missing-config":
       default:
         return {
           ringColorClass: "text-muted-foreground",
@@ -562,7 +548,7 @@ function DashboardContent() {
               去快速配置 →
             </Link>
           ),
-          formulaFirstLabel: "缺口",
+          formulaFirstLabel: "热量差额",
           formulaFirstClass: "mute",
           formulaFirstNum: "—",
         }
@@ -698,10 +684,10 @@ function DashboardContent() {
                   <div className={cn("twin tef", tefExtra === 0 && "empty")}>
                     <div className="twin-icon"><Zap /></div>
                     <div className="twin-body">
-                      <div className="twin-label">TEF 增强</div>
+                      <div className="twin-label">AI 代谢提示</div>
                       {tefExtra > 0 ? (
                         <>
-                          <div className="twin-main">+{tefExtra}<small>kcal</small></div>
+                          <div className="twin-main">检测到提示</div>
                           <div className="twin-sub">
                             已分析
                             {tefFactorText ? ` · ${tefFactorText}` : ""}
@@ -710,7 +696,7 @@ function DashboardContent() {
                       ) : (
                         <>
                           <div className="twin-main">未检测到增强</div>
-                          <div className="twin-sub">加咖啡/辛辣/绿茶可提升</div>
+                          <div className="twin-sub">仅作解释提示,不增加预算</div>
                         </>
                       )}
                     </div>
@@ -719,7 +705,7 @@ function DashboardContent() {
                   <div className="twin tef">
                     <div className="twin-icon"><Loader2 className="animate-spin" /></div>
                     <div className="twin-body">
-                      <div className="twin-label">TEF 增强</div>
+                      <div className="twin-label">AI 代谢提示</div>
                       <div className="twin-main">分析中…</div>
                       <div className="twin-sub">约 {tefAnalysisCountdown}s</div>
                     </div>
@@ -728,7 +714,7 @@ function DashboardContent() {
                   <div className="twin tef empty">
                     <div className="twin-icon"><Zap /></div>
                     <div className="twin-body">
-                      <div className="twin-label">TEF 增强</div>
+                      <div className="twin-label">AI 代谢提示</div>
                       <div className="twin-main">未分析</div>
                       <div className="twin-sub">添加食物记录后自动分析</div>
                     </div>
@@ -768,26 +754,29 @@ function DashboardContent() {
                 </div>
                 <div className="formula-op">=</div>
                 <div className="formula-cell">
-                  <div className={cn("formula-num", baselineExpenditure > 0 ? "base" : "mute")}>
-                    {baselineExpenditure > 0 ? Math.round(baselineExpenditure).toLocaleString() : "—"}
-                  </div>
-                  <div className="formula-label">基础消耗</div>
-                </div>
-                <div className="formula-op">+</div>
-                <div className="formula-cell">
-                  <div className={cn("formula-num", totalCaloriesBurned > 0 ? "activity" : "mute")}>
-                    {Math.round(totalCaloriesBurned).toLocaleString()}
-                  </div>
-                  <div className="formula-label">活动消耗</div>
-                </div>
-                <div className="formula-op">−</div>
-                <div className="formula-cell">
                   <div className={cn("formula-num", totalCaloriesConsumed > 0 ? "intake" : "mute")}>
                     {Math.round(totalCaloriesConsumed).toLocaleString()}
                   </div>
                   <div className="formula-label">摄入量</div>
                 </div>
+                <div className="formula-op">−</div>
+                <div className="formula-cell">
+                  <div className={cn("formula-num", baselineExpenditure > 0 ? "base" : "mute")}>
+                    {baselineExpenditure > 0 ? Math.round(baselineExpenditure).toLocaleString() : "—"}
+                  </div>
+                  <div className="formula-label">基础消耗</div>
+                </div>
+                <div className="formula-op">−</div>
+                <div className="formula-cell">
+                  <div className={cn("formula-num", totalCaloriesBurned > 0 ? "activity" : "mute")}>
+                    {Math.round(totalCaloriesBurned).toLocaleString()}
+                  </div>
+                  <div className="formula-label">已记录运动消耗</div>
+                </div>
               </div>
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                单日估算用于当天饮食决策,体重变化请看多日趋势。
+              </p>
 
               {/* 段 4:三宏微条 */}
               <div className="grid grid-cols-3 gap-3.5">

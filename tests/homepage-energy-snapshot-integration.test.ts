@@ -1,0 +1,24 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { describe, expect, it } from "vitest"
+
+describe("homepage daily energy snapshot integration", () => {
+  const source = readFileSync(join(process.cwd(), "app/page.tsx"), "utf8")
+
+  it("reads homepage energy balance numbers from the daily energy snapshot", () => {
+    expect(source).toContain("buildDailyEnergySnapshot")
+    expect(source).toContain("dailyEnergySnapshot")
+    expect(source).not.toContain(
+      "const dailyTotalExpenditure = baselineExpenditure + totalCaloriesBurned",
+    )
+  })
+
+  it("labels recorded exercise separately from baseline daily activity", () => {
+    expect(source).toContain("已记录运动消耗")
+    expect(source).not.toContain('<div className="formula-label">活动消耗</div>')
+  })
+
+  it("frames single-day energy balance as an estimate", () => {
+    expect(source).toContain("单日估算")
+  })
+})
