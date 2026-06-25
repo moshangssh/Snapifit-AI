@@ -22,9 +22,21 @@ _Avoid_: 固定保底热量
 The same-day neutral calorie level at which intake would match baseline expenditure plus recorded exercise.
 _Avoid_: 今日热量预算
 
+**基础消耗**:
+The same-day estimated expenditure before recorded exercise is added. It comes from BMR times the user's 日常活动档位. It covers basal metabolism, non-exercise daily movement, and average food thermic effect; it excludes intentional workouts and low-confidence AI metabolic hints.
+_Avoid_: 今日总消耗, 运动消耗, 传统 TDEE, AI 额外消耗
+
+**日常活动档位**:
+The user's usual non-exercise activity level used to estimate 基础消耗. It describes ordinary movement such as walking, commuting, chores, standing work, or physical labor; intentional workouts are recorded separately and added outside this multiplier.
+_Avoid_: 训练频率, 运动消耗档位
+
+**AI 代谢提示**:
+An AI-assisted explanation of possible short-term metabolic factors such as caffeine, spicy food, green tea, meal timing, or high-protein meals. It helps explain confidence and behavior choices, but it does not directly increase 今日维持热量 or 今日热量预算 unless a future multi-day calibration model explicitly promotes it.
+_Avoid_: 可吃额度, 精确额外消耗, TEF 奖励
+
 **热量平衡**:
-The neutral intake-versus-expenditure view that describes whether recorded intake is above or below maintenance for the day. It is not the primary name for the user-facing eating budget.
-_Avoid_: 今天还能吃多少
+The neutral intake-versus-expenditure view that estimates whether recorded intake is above or below maintenance for the day. It is a same-day decision instrument, not a precise energy settlement or medical measurement. A single-day delta guides same-day eating choices; weight-loss or weight-gain effectiveness is judged from multi-day trends. It is not the primary name for the user-facing eating budget.
+_Avoid_: 今天还能吃多少, 精确热量结算, 医学级热平衡, 单日减脂结论
 
 **吃法**:
 A self-contained, ready-to-eat option for the user's next meal that fits within the remaining same-day budget. The "今天还能吃什么" card presents a few as mutually-exclusive picks, and the user chooses one — they are alternatives, not building blocks to combine.
