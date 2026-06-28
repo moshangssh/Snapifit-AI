@@ -161,10 +161,28 @@ describe("workout plan route", () => {
 
     const response = await POST(createRequest(createBaseBody()))
     const payload = await response.json()
+    const mainSetCount = payload.exercises
+      .filter((exercise: { phase: string }) => exercise.phase === "main")
+      .reduce(
+        (sum: number, exercise: { sets: Array<unknown> }) =>
+          sum + exercise.sets.length,
+        0,
+      )
 
     expect(response.status).toBe(200)
     expect(payload.templateIndex).toBe(0)
     expect(payload.phase).toBe("novice")
+    expect(payload.sessionAudit).toMatchObject({
+      status: "pass",
+      mainSetCount,
+    })
+    expect(payload.microcycleAudit).toMatchObject({
+      status: "pass",
+      mainSetCount: expect.any(Number),
+    })
+    expect(payload.microcycleAudit.mainSetCount).toBeGreaterThanOrEqual(
+      mainSetCount,
+    )
     expect(payload.exercises.length).toBeGreaterThanOrEqual(12)
     expect(payload.exercises.length).toBeLessThanOrEqual(13)
     expect(

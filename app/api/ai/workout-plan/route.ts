@@ -6,6 +6,7 @@ import {
 import { getBenchmarkCandidateDetails } from "@/lib/workout/engine/benchmark-selection"
 import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
 import { filterASSafe } from "@/lib/workout/engine/as-safety"
+import { createPassAuditSnapshots } from "@/lib/workout/engine/audit"
 import {
   normalizeTrainingState,
 } from "@/lib/workout/engine/training-state"
@@ -96,13 +97,19 @@ export async function POST(req: Request) {
       })
     }
 
-    return Response.json(
-      generateSession(normalizedTrainingState, {
-        effectiveUserWeightKg,
-        recentWorkoutSessionSummaries: recentWorkoutSessionSummaries ?? [],
-        fatigueSnapshot,
+    const plan = generateSession(normalizedTrainingState, {
+      effectiveUserWeightKg,
+      recentWorkoutSessionSummaries: recentWorkoutSessionSummaries ?? [],
+      fatigueSnapshot,
+    })
+
+    return Response.json({
+      ...plan,
+      ...createPassAuditSnapshots({
+        exercises: plan.exercises,
+        phase: plan.phase,
       }),
-    )
+    })
   } catch (error) {
     return handleAIError(error)
   }
