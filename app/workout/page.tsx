@@ -207,6 +207,8 @@ export default function WorkoutPage() {
         templateIndex: plan.templateIndex,
         phase: plan.phase,
         isDeload: plan.isDeload,
+        sessionAudit: plan.sessionAudit,
+        microcycleAudit: plan.microcycleAudit,
       })
       await saveActiveSession(session)
     } catch (error) {

@@ -111,6 +111,46 @@ describe("workout session core", () => {
     )
   })
 
+  it("saves audit snapshots on the workout session without exporting them as performance entries", () => {
+    const input = {
+      ...makeInput(),
+      sessionAudit: {
+        status: "pass",
+        mainSetCount: 4,
+        summary: "本次主训练 4 组",
+      },
+      microcycleAudit: {
+        status: "pass",
+        mainSetCount: 16,
+        summary: "本轮主训练 16 组",
+      },
+    } satisfies CreateWorkoutSessionInput
+    let session = createWorkoutSessionFromPlan(input)
+    session = completeWorkoutSet(
+      session,
+      session.exercises[0].exerciseId,
+      1,
+      "2026-04-23T10:00:00.000Z",
+    )
+
+    const entries = workoutSessionToExerciseEntries(
+      session,
+      "2026-04-23T10:05:00.000Z",
+    )
+    const summary = summarizeWorkoutSession({
+      ...session,
+      status: "completed",
+      completedAt: "2026-04-23T10:05:00.000Z",
+    })
+
+    expect(session.sessionAudit).toEqual(input.sessionAudit)
+    expect(session.microcycleAudit).toEqual(input.microcycleAudit)
+    expect(entries[0]).not.toHaveProperty("sessionAudit")
+    expect(entries[0]).not.toHaveProperty("microcycleAudit")
+    expect(summary).not.toHaveProperty("sessionAudit")
+    expect(summary).not.toHaveProperty("microcycleAudit")
+  })
+
   it("summarizes catalog exercise ids and completed set details for progression", () => {
     const plan = generateSession(
       {

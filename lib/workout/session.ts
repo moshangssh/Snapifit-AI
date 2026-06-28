@@ -91,6 +91,8 @@ export function createWorkoutSessionFromPlan(
     templateIndex: input.templateIndex,
     isDeload: input.isDeload,
     phase: input.phase,
+    sessionAudit: input.sessionAudit,
+    microcycleAudit: input.microcycleAudit,
     derived: {
       completedSetCount: 0,
       totalSetCount: 0,

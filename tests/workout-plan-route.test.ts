@@ -161,10 +161,28 @@ describe("workout plan route", () => {
 
     const response = await POST(createRequest(createBaseBody()))
     const payload = await response.json()
+    const mainSetCount = payload.exercises
+      .filter((exercise: { phase: string }) => exercise.phase === "main")
+      .reduce(
+        (sum: number, exercise: { sets: Array<unknown> }) =>
+          sum + exercise.sets.length,
+        0,
+      )
 
     expect(response.status).toBe(200)
     expect(payload.templateIndex).toBe(0)
     expect(payload.phase).toBe("novice")
+    expect(payload.sessionAudit).toMatchObject({
+      status: "pass",
+      mainSetCount,
+    })
+    expect(payload.microcycleAudit).toMatchObject({
+      status: "pass",
+      mainSetCount: expect.any(Number),
+    })
+    expect(payload.microcycleAudit.mainSetCount).toBeGreaterThanOrEqual(
+      mainSetCount,
+    )
     expect(payload.exercises.length).toBeGreaterThanOrEqual(12)
     expect(payload.exercises.length).toBeLessThanOrEqual(13)
     expect(
@@ -300,6 +318,69 @@ describe("workout plan route", () => {
     expect(
       payload.benchmarkCandidates.map((candidate: { id: string }) => candidate.id),
     ).toEqual(expect.arrayContaining(benchmarkExerciseIds))
+  })
+
+  it("audits intermediate plans against phase structure and the actual microcycle rotation", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        trainingState: {
+          phase: "intermediate",
+          completedSessionCount: 72,
+          blacklistedExerciseIds: [],
+          benchmarkExerciseIds: intermediateBenchmarkIds(),
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.phase).toBe("intermediate")
+    expect(payload.sessionAudit).toMatchObject({
+      status: "fail",
+      mainSetCount: 12,
+      reasonCodes: ["missing_three_phase_structure"],
+    })
+    expect(payload.microcycleAudit).toMatchObject({
+      status: "fail",
+      mainSetCount: 66,
+      sessionCount: 6,
+      reasonCodes: ["missing_three_phase_structure"],
+    })
+  })
+
+  it("audits advanced plans against phase structure and the actual microcycle rotation", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        trainingState: {
+          phase: "advanced",
+          completedSessionCount: 241,
+          blacklistedExerciseIds: [],
+          lifetimeBenchmarkIds: intermediateBenchmarkIds().slice(0, 5),
+          lastDeloadSession: 240,
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.phase).toBe("advanced")
+    expect(payload.sessionAudit).toMatchObject({
+      status: "fail",
+      mainSetCount: 9,
+      reasonCodes: ["missing_three_phase_structure"],
+    })
+    expect(payload.microcycleAudit).toMatchObject({
+      status: "fail",
+      mainSetCount: 72,
+      sessionCount: 6,
+      reasonCodes: ["missing_three_phase_structure"],
+    })
   })
 
   it("uses recent catalog exercise history when calculating next weights", async () => {
