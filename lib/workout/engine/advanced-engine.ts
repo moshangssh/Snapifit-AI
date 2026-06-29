@@ -6,11 +6,18 @@ import {
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
+import { buildSupportPhaseExercises } from "@/lib/workout/engine/support-phases"
 import {
   ADVANCED_SESSION_START,
   calculateDeloadParams,
   shouldAdvancedDeload,
 } from "@/lib/workout/engine/deload"
+import {
+  auditMicrocycleVolume,
+  auditSessionVolume,
+  type MicrocycleVolumeAudit,
+  type SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   RecentWorkoutSessionSummary,
@@ -35,7 +42,14 @@ export interface GeneratedAdvancedWorkoutPlan {
   isDeload: boolean
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: SessionVolumeAudit
+  microcycleAudit: MicrocycleVolumeAudit
 }
+
+type RawGeneratedAdvancedWorkoutPlan = Omit<
+  GeneratedAdvancedWorkoutPlan,
+  "sessionAudit" | "microcycleAudit"
+>
 
 interface TemplateDefinition {
   name: TemplateName
@@ -338,14 +352,14 @@ function selectExercisesForTemplate(
   return selected
 }
 
-export function generateSession(
+function generateSessionRaw(
   state: TrainingState,
   options: {
     effectiveUserWeightKg?: number
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
     fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
   } = {},
-): GeneratedAdvancedWorkoutPlan {
+): RawGeneratedAdvancedWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
@@ -368,6 +382,27 @@ export function generateSession(
     state,
     rotationOffset,
   )
+  const mainExercises = selectedExercises.map((exercise) =>
+    draftMainExercise(
+      exercise,
+      effectiveUserWeightKg,
+      config,
+      plannedTrainingTypeWeightKg(
+        exercise,
+        config,
+        recentWorkoutSessionSummaries,
+      ),
+      isDeload,
+      state.unlockedRiskCategories,
+    ),
+  )
+  const exercises = buildSupportPhaseExercises({
+    mainExercises,
+    effectiveUserWeightKg,
+    blacklist: state.blacklistedExerciseIds,
+    offset: rotationOffset,
+    unlockedRiskCategories: state.unlockedRiskCategories,
+  })
 
   return {
     templateIndex,
@@ -382,19 +417,50 @@ export function generateSession(
           ? state.completedSessionCount
           : state.lastDeloadSession,
     },
-    exercises: selectedExercises.map((exercise) =>
-      draftMainExercise(
-        exercise,
-        effectiveUserWeightKg,
-        config,
-        plannedTrainingTypeWeightKg(
-          exercise,
-          config,
-          recentWorkoutSessionSummaries,
-        ),
-        isDeload,
-        state.unlockedRiskCategories,
-      ),
+    exercises,
+  }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: {
+    effectiveUserWeightKg?: number
+    recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
+    fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
+  } = {},
+): GeneratedAdvancedWorkoutPlan {
+  const plan = generateSessionRaw(state, options)
+  const sessionsSinceAdvancedStart = Math.max(
+    0,
+    state.completedSessionCount - ADVANCED_SESSION_START,
+  )
+  const template = TEMPLATES[sessionsSinceAdvancedStart % TEMPLATES.length]
+  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
+    generateSessionRaw(
+      {
+        ...state,
+        completedSessionCount: state.completedSessionCount + index,
+      },
+      options,
     ),
+  )
+
+  return {
+    ...plan,
+    sessionAudit: auditSessionVolume({
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+      exercises: plan.exercises,
+    }),
+    microcycleAudit: auditMicrocycleVolume({
+      phase: plan.phase,
+      completedSessionCount: state.completedSessionCount,
+      currentBlock: plan.trainingState.currentBlock,
+      trainingType: template.trainingType,
+      isDeload: microcyclePlans.some((item) => item.isDeload),
+      constrainedReasons:
+        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
+      sessions: microcyclePlans,
+    }),
   }
 }

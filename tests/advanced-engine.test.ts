@@ -51,6 +51,28 @@ describe("advanced workout engine", () => {
     expect(sessions.map((session) => session.templateIndex)).toEqual([
       0, 1, 2, 3, 4, 5,
     ])
+    expect(sessions[0].exercises.map((exercise) => exercise.phase)).toEqual([
+      "warmup",
+      "warmup",
+      "warmup",
+      "warmup",
+      "main",
+      "main",
+      "main",
+      "main",
+      "cooldown",
+      "cooldown",
+      "cooldown",
+      "cooldown",
+    ])
+    expect(sessions[0].sessionAudit).toMatchObject({
+      status: "pass",
+      hasThreePhaseStructure: true,
+    })
+    expect(sessions[0].microcycleAudit).toMatchObject({
+      phase: "advanced",
+      generatedSessionCount: 6,
+    })
   })
 
   it("prescribes strength, hypertrophy, and endurance rep ranges with matching RPE", () => {
@@ -63,8 +85,11 @@ describe("advanced workout engine", () => {
         .filter((exercise) => exercise.phase === "main")
         .flatMap((exercise) => exercise.sets.map((set) => set.plannedReps)),
     ).toEqual(expect.arrayContaining([5]))
-    expect(strength.exercises.every((exercise) => exercise.notes?.includes("RPE 9")))
-      .toBe(true)
+    expect(
+      strength.exercises
+        .filter((exercise) => exercise.phase === "main")
+        .every((exercise) => exercise.notes?.includes("RPE 9")),
+    ).toBe(true)
 
     expect(
       hypertrophy.exercises
@@ -72,7 +97,9 @@ describe("advanced workout engine", () => {
         .flatMap((exercise) => exercise.sets.map((set) => set.plannedReps)),
     ).toEqual(expect.arrayContaining([12]))
     expect(
-      hypertrophy.exercises.every((exercise) => exercise.notes?.includes("RPE 8")),
+      hypertrophy.exercises
+        .filter((exercise) => exercise.phase === "main")
+        .every((exercise) => exercise.notes?.includes("RPE 8")),
     ).toBe(true)
 
     expect(
@@ -80,8 +107,11 @@ describe("advanced workout engine", () => {
         .filter((exercise) => exercise.phase === "main")
         .flatMap((exercise) => exercise.sets.map((set) => set.plannedReps)),
     ).toEqual(expect.arrayContaining([20]))
-    expect(endurance.exercises.every((exercise) => exercise.notes?.includes("RPE 7")))
-      .toBe(true)
+    expect(
+      endurance.exercises
+        .filter((exercise) => exercise.phase === "main")
+        .every((exercise) => exercise.notes?.includes("RPE 7")),
+    ).toBe(true)
   })
 
   it("places lifetime benchmarks on strength days", () => {
@@ -162,7 +192,9 @@ describe("advanced workout engine", () => {
       true,
     ])
     for (const session of deloadSessions) {
-      for (const exercise of session.exercises) {
+      for (const exercise of session.exercises.filter(
+        (item) => item.phase === "main",
+      )) {
         expect(exercise.sets).toHaveLength(2)
       }
     }

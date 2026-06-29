@@ -15,6 +15,12 @@ import {
   calculateDeloadParams,
   shouldDeload,
 } from "@/lib/workout/engine/deload"
+import {
+  auditMicrocycleVolume,
+  auditSessionVolume,
+  type MicrocycleVolumeAudit,
+  type SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 import { evaluateProgression } from "@/lib/workout/engine/progression"
 import { findReplacement } from "@/lib/workout/engine/replacement"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
@@ -35,7 +41,14 @@ export interface GeneratedWorkoutPlan {
   isDeload: boolean
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: SessionVolumeAudit
+  microcycleAudit: MicrocycleVolumeAudit
 }
+
+type RawGeneratedWorkoutPlan = Omit<
+  GeneratedWorkoutPlan,
+  "sessionAudit" | "microcycleAudit"
+>
 
 interface GenerateSessionOptions {
   effectiveUserWeightKg?: number
@@ -484,10 +497,10 @@ function resolveMainExerciseReplacements(input: {
   }
 }
 
-export function generateSession(
+function generateSessionRaw(
   state: TrainingState,
   options: GenerateSessionOptions = {},
-): GeneratedWorkoutPlan {
+): RawGeneratedWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
@@ -589,5 +602,38 @@ export function generateSession(
     isDeload,
     trainingState,
     exercises: [...warmup, ...main, ...cooldown],
+  }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: GenerateSessionOptions = {},
+): GeneratedWorkoutPlan {
+  const plan = generateSessionRaw(state, options)
+  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
+    generateSessionRaw(
+      {
+        ...state,
+        completedSessionCount: state.completedSessionCount + index,
+      },
+      options,
+    ),
+  )
+
+  return {
+    ...plan,
+    sessionAudit: auditSessionVolume({
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+      exercises: plan.exercises,
+    }),
+    microcycleAudit: auditMicrocycleVolume({
+      phase: plan.phase,
+      completedSessionCount: state.completedSessionCount,
+      isDeload: microcyclePlans.some((item) => item.isDeload),
+      constrainedReasons:
+        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
+      sessions: microcyclePlans,
+    }),
   }
 }

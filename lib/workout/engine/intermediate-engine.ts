@@ -7,6 +7,13 @@ import {
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
+import { buildSupportPhaseExercises } from "@/lib/workout/engine/support-phases"
+import {
+  auditMicrocycleVolume,
+  auditSessionVolume,
+  type MicrocycleVolumeAudit,
+  type SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   RecentWorkoutSessionSummary,
@@ -24,7 +31,14 @@ export interface GeneratedIntermediateWorkoutPlan {
   isDeload: boolean
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: SessionVolumeAudit
+  microcycleAudit: MicrocycleVolumeAudit
 }
+
+type RawGeneratedIntermediateWorkoutPlan = Omit<
+  GeneratedIntermediateWorkoutPlan,
+  "sessionAudit" | "microcycleAudit"
+>
 
 interface TemplateDefinition {
   name: TemplateName
@@ -366,13 +380,13 @@ function usesBenchmarkExercises(blockSessionIndex: number): boolean {
   )
 }
 
-export function generateSession(
+function generateSessionRaw(
   state: TrainingState,
   options: {
     effectiveUserWeightKg?: number
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
   } = {},
-): GeneratedIntermediateWorkoutPlan {
+): RawGeneratedIntermediateWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
@@ -406,6 +420,13 @@ export function generateSession(
             : plannedDeloadWeightKg(exercise, recentWorkoutSessionSummaries),
     }),
   )
+  const exercises = buildSupportPhaseExercises({
+    mainExercises,
+    effectiveUserWeightKg,
+    blacklist: state.blacklistedExerciseIds,
+    offset: rotationOffset,
+    unlockedRiskCategories: state.unlockedRiskCategories,
+  })
 
   return {
     templateIndex,
@@ -417,6 +438,43 @@ export function generateSession(
       currentBlock: block,
       blockStartSession,
     },
-    exercises: mainExercises,
+    exercises,
+  }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: {
+    effectiveUserWeightKg?: number
+    recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
+  } = {},
+): GeneratedIntermediateWorkoutPlan {
+  const plan = generateSessionRaw(state, options)
+  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
+    generateSessionRaw(
+      {
+        ...state,
+        completedSessionCount: state.completedSessionCount + index,
+      },
+      options,
+    ),
+  )
+
+  return {
+    ...plan,
+    sessionAudit: auditSessionVolume({
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+      exercises: plan.exercises,
+    }),
+    microcycleAudit: auditMicrocycleVolume({
+      phase: plan.phase,
+      completedSessionCount: state.completedSessionCount,
+      currentBlock: plan.trainingState.currentBlock,
+      isDeload: microcyclePlans.some((item) => item.isDeload),
+      constrainedReasons:
+        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
+      sessions: microcyclePlans,
+    }),
   }
 }

@@ -84,6 +84,28 @@ describe("intermediate workout engine", () => {
     expect(session.templateIndex).toBe(0)
     expect(session.templateName).toBe("上A")
     expect(session.isDeload).toBe(false)
+    expect(session.exercises.map((exercise) => exercise.phase)).toEqual([
+      "warmup",
+      "warmup",
+      "warmup",
+      "warmup",
+      "main",
+      "main",
+      "main",
+      "main",
+      "cooldown",
+      "cooldown",
+      "cooldown",
+      "cooldown",
+    ])
+    expect(session.sessionAudit).toMatchObject({
+      status: "pass",
+      hasThreePhaseStructure: true,
+    })
+    expect(session.microcycleAudit).toMatchObject({
+      phase: "intermediate",
+      generatedSessionCount: 6,
+    })
   })
 
   it("rotates six templates in sessions 73-78 and uses benchmark main lifts for accumulation testing", () => {
