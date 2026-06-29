@@ -1,5 +1,6 @@
 import {
   ALL_EXERCISES,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   resolveMuscleKeys,
   type Exercise,
@@ -15,6 +16,12 @@ import {
   calculateDeloadParams,
   shouldDeload,
 } from "@/lib/workout/engine/deload"
+import {
+  auditMicrocycleVolume,
+  auditSessionVolume,
+  type MicrocycleVolumeAudit,
+  type SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 import { evaluateProgression } from "@/lib/workout/engine/progression"
 import { findReplacement } from "@/lib/workout/engine/replacement"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
@@ -35,7 +42,14 @@ export interface GeneratedWorkoutPlan {
   isDeload: boolean
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: SessionVolumeAudit
+  microcycleAudit: MicrocycleVolumeAudit
 }
+
+type RawGeneratedWorkoutPlan = Omit<
+  GeneratedWorkoutPlan,
+  "sessionAudit" | "microcycleAudit"
+>
 
 interface GenerateSessionOptions {
   effectiveUserWeightKg?: number
@@ -73,7 +87,7 @@ const TEMPLATES: TemplateDefinition[] = [
     name: "下A",
     asFocus: "lower",
     warmupSupportMuscles: ["GLUTES", "CORE"],
-    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "股四头肌站姿拉伸", muscleGroups: ["quadriceps"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -93,7 +107,7 @@ const TEMPLATES: TemplateDefinition[] = [
     name: "下B",
     asFocus: "lower",
     warmupSupportMuscles: ["GLUTES", "CORE"],
-    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "臀肌仰卧拉伸", muscleGroups: ["glutes"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -108,6 +122,14 @@ export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
       ...template.warmupSupportMuscles,
       ...template.mainMuscles,
     ]),
+  ),
+]
+
+const TEMPLATE_MAIN_MUSCLE_KEYS = [
+  ...new Set(
+    TEMPLATES.flatMap((template) =>
+      template.mainMuscles.flatMap((muscle) => MUSCLE_MAP[muscle]),
+    ),
   ),
 ]
 
@@ -484,10 +506,10 @@ function resolveMainExerciseReplacements(input: {
   }
 }
 
-export function generateSession(
+function generateSessionRaw(
   state: TrainingState,
   options: GenerateSessionOptions = {},
-): GeneratedWorkoutPlan {
+): RawGeneratedWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
@@ -589,5 +611,39 @@ export function generateSession(
     isDeload,
     trainingState,
     exercises: [...warmup, ...main, ...cooldown],
+  }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: GenerateSessionOptions = {},
+): GeneratedWorkoutPlan {
+  const plan = generateSessionRaw(state, options)
+  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
+    generateSessionRaw(
+      {
+        ...state,
+        completedSessionCount: state.completedSessionCount + index,
+      },
+      options,
+    ),
+  )
+
+  return {
+    ...plan,
+    sessionAudit: auditSessionVolume({
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+      exercises: plan.exercises,
+    }),
+    microcycleAudit: auditMicrocycleVolume({
+      phase: plan.phase,
+      completedSessionCount: state.completedSessionCount,
+      isDeload: microcyclePlans.some((item) => item.isDeload),
+      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
+      constrainedReasons:
+        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
+      sessions: microcyclePlans,
+    }),
   }
 }

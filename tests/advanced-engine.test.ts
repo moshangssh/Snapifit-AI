@@ -106,6 +106,50 @@ describe("advanced workout engine", () => {
     expect(sessions.map((session) => session.templateIndex)).toEqual([
       0, 1, 2, 3, 4, 5,
     ])
+    expect(sessions[0].exercises.map((exercise) => exercise.phase)).toEqual([
+      "warmup",
+      "warmup",
+      "warmup",
+      "warmup",
+      "main",
+      "main",
+      "main",
+      "main",
+      "cooldown",
+      "cooldown",
+      "cooldown",
+      "cooldown",
+    ])
+    expect(sessions[0].sessionAudit).toMatchObject({
+      status: "pass",
+      hasThreePhaseStructure: true,
+    })
+    expect(sessions[0].microcycleAudit).toMatchObject({
+      phase: "advanced",
+      generatedSessionCount: 6,
+    })
+  })
+
+  it("audits the same full DUP microcycle consistently from different starting templates", () => {
+    const audits = [240, 242, 244].map(
+      (count) => generateSession(makeState(count)).microcycleAudit,
+    )
+
+    expect(audits.map((audit) => audit.muscleGroupAudits.chest.status)).toEqual([
+      "pass",
+      "pass",
+      "pass",
+    ])
+    expect(
+      new Set(
+        audits.map((audit) => audit.muscleGroupAudits.chest.targetMinSets),
+      ).size,
+    ).toBe(1)
+    expect(
+      new Set(
+        audits.map((audit) => audit.muscleGroupAudits.chest.targetMaxSets),
+      ).size,
+    ).toBe(1)
   })
 
   it("prescribes strength, hypertrophy, and endurance rep ranges with matching RPE", () => {

@@ -339,15 +339,13 @@ describe("workout plan route", () => {
     expect(response.status).toBe(200)
     expect(payload.phase).toBe("intermediate")
     expect(payload.sessionAudit).toMatchObject({
-      status: "fail",
+      status: "pass",
       mainSetCount: 12,
-      reasonCodes: ["missing_three_phase_structure"],
     })
     expect(payload.microcycleAudit).toMatchObject({
-      status: "fail",
+      status: "pass",
       mainSetCount: 66,
       sessionCount: 6,
-      reasonCodes: ["missing_three_phase_structure"],
     })
   })
 
@@ -371,15 +369,13 @@ describe("workout plan route", () => {
     expect(response.status).toBe(200)
     expect(payload.phase).toBe("advanced")
     expect(payload.sessionAudit).toMatchObject({
-      status: "fail",
+      status: "pass",
       mainSetCount: 9,
-      reasonCodes: ["missing_three_phase_structure"],
     })
     expect(payload.microcycleAudit).toMatchObject({
-      status: "fail",
+      status: "pass",
       mainSetCount: 72,
       sessionCount: 6,
-      reasonCodes: ["missing_three_phase_structure"],
     })
   })
 
@@ -441,5 +437,29 @@ describe("workout plan route", () => {
       mainExercise.sets[0].plannedWeightKg + 1.25,
       mainExercise.sets[0].plannedWeightKg + 1.25,
     ])
+  })
+
+  it("returns constrained audit reasons when blacklists prevent enough main volume", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+    const benchmarkExerciseIds = intermediateBenchmarkIds()
+    const fullStrengthBlacklist = STRENGTH_EXERCISES.map((exercise) => exercise.id)
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        trainingState: {
+          phase: "intermediate",
+          completedSessionCount: 120,
+          benchmarkExerciseIds,
+          blacklistedExerciseIds: fullStrengthBlacklist,
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.phase).toBe("intermediate")
+    expect(payload.microcycleAudit.status).toBe("constrained")
+    expect(payload.microcycleAudit.constrainedReasons).toContain("blacklist")
   })
 })

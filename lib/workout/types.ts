@@ -24,6 +24,7 @@ export interface WorkoutSessionAuditSnapshot {
   mainSetCount: number
   summary: string
   reasonCodes?: string[]
+  constrainedReasons?: string[]
 }
 
 export interface WorkoutMicrocycleAuditSnapshot {
@@ -32,6 +33,7 @@ export interface WorkoutMicrocycleAuditSnapshot {
   sessionCount?: number
   summary: string
   reasonCodes?: string[]
+  constrainedReasons?: string[]
 }
 
 export interface WorkoutExerciseAnalysis {

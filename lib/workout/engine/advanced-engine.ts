@@ -1,5 +1,6 @@
 import {
   EXERCISES_BY_ID,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   resolveMuscleKeys,
   type Exercise,
@@ -12,6 +13,12 @@ import {
   calculateDeloadParams,
   shouldAdvancedDeload,
 } from "@/lib/workout/engine/deload"
+import {
+  auditMicrocycleVolume,
+  auditSessionVolume,
+  type MicrocycleVolumeAudit,
+  type SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   RecentWorkoutSessionSummary,
@@ -36,7 +43,14 @@ export interface GeneratedAdvancedWorkoutPlan {
   isDeload: boolean
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: SessionVolumeAudit
+  microcycleAudit: MicrocycleVolumeAudit
 }
+
+type RawGeneratedAdvancedWorkoutPlan = Omit<
+  GeneratedAdvancedWorkoutPlan,
+  "sessionAudit" | "microcycleAudit"
+>
 
 interface TemplateDefinition {
   name: TemplateName
@@ -88,6 +102,14 @@ const TEMPLATES: TemplateDefinition[] = [
 /** 本阶段所有模板引用到的肌群（用于校验目录覆盖，消除 fallback 抓取） */
 export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
   ...new Set(TEMPLATES.flatMap((template) => template.mainMuscles)),
+]
+
+const TEMPLATE_MAIN_MUSCLE_KEYS = [
+  ...new Set(
+    TEMPLATES.flatMap((template) =>
+      template.mainMuscles.flatMap((muscle) => MUSCLE_MAP[muscle]),
+    ),
+  ),
 ]
 
 const TRAINING_TYPE_CONFIG: Record<TrainingType, TrainingTypeConfig> = {
@@ -339,14 +361,14 @@ function selectExercisesForTemplate(
   return selected
 }
 
-export function generateSession(
+function generateSessionRaw(
   state: TrainingState,
   options: {
     effectiveUserWeightKg?: number
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
     fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
   } = {},
-): GeneratedAdvancedWorkoutPlan {
+): RawGeneratedAdvancedWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
@@ -409,5 +431,47 @@ export function generateSession(
           : state.lastDeloadSession,
     },
     exercises: [...warmup, ...mainExercises, ...cooldown],
+  }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: {
+    effectiveUserWeightKg?: number
+    recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
+    fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
+  } = {},
+): GeneratedAdvancedWorkoutPlan {
+  const plan = generateSessionRaw(state, options)
+  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
+    generateSessionRaw(
+      {
+        ...state,
+        completedSessionCount: state.completedSessionCount + index,
+      },
+      options,
+    ),
+  )
+
+  return {
+    ...plan,
+    sessionAudit: auditSessionVolume({
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+      exercises: plan.exercises,
+    }),
+    microcycleAudit: auditMicrocycleVolume({
+      phase: plan.phase,
+      completedSessionCount: state.completedSessionCount,
+      currentBlock: plan.trainingState.currentBlock,
+      isDeload: microcyclePlans.some((item) => item.isDeload),
+      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
+      constrainedReasons:
+        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
+      sessions: microcyclePlans.map((item) => ({
+        exercises: item.exercises,
+        trainingType: TEMPLATES[item.templateIndex].trainingType,
+      })),
+    }),
   }
 }

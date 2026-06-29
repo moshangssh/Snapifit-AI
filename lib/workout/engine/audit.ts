@@ -2,6 +2,7 @@ import type {
   RecentWorkoutSessionSummary,
   TrainingPhase,
   TrainingState,
+  WorkoutAuditStatus,
   WorkoutExercisePhase,
   WorkoutPlanContextSnapshot,
   WorkoutMicrocycleAuditSnapshot,
@@ -26,6 +27,14 @@ interface AuditedWorkoutPlan {
   phase: TrainingPhase
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit?: {
+    status: WorkoutAuditStatus
+    constrainedReasons?: string[]
+  }
+  microcycleAudit?: {
+    status: WorkoutAuditStatus
+    constrainedReasons?: string[]
+  }
 }
 
 export function countMainStrengthSets(
@@ -100,7 +109,10 @@ export function createAuditSnapshots(input: {
 } {
   const mainSetCount = countMainStrengthSets(input.plan.exercises)
   const sessionMissingPhases = missingSessionPhases(input.plan.exercises)
-  const sessionStatus = sessionMissingPhases.length > 0 ? "fail" : "pass"
+  const sessionStatus =
+    sessionMissingPhases.length > 0
+      ? "fail"
+      : input.plan.sessionAudit?.status ?? "pass"
   const sessionReasonCodes =
     sessionMissingPhases.length > 0
       ? [MISSING_THREE_PHASE_STRUCTURE]
@@ -117,8 +129,16 @@ export function createAuditSnapshots(input: {
     (sum, plan) => sum + countMainStrengthSets(plan.exercises),
     0,
   )
-  const microcycleStatus = auditStatusForPlans(microcyclePlans)
-  const microcycleReasonCodes = reasonCodesForPlans(microcyclePlans)
+  const structureMicrocycleStatus = auditStatusForPlans(microcyclePlans)
+  const detailedMicrocycleStatus = input.plan.microcycleAudit?.status
+  const microcycleStatus =
+    detailedMicrocycleStatus === "constrained"
+      ? "constrained"
+      : structureMicrocycleStatus
+  const microcycleReasonCodes =
+    microcycleStatus === "constrained"
+      ? undefined
+      : reasonCodesForPlans(microcyclePlans)
 
   return {
     sessionAudit: {
@@ -126,6 +146,7 @@ export function createAuditSnapshots(input: {
       mainSetCount,
       summary: `本次主训练 ${mainSetCount} 组`,
       reasonCodes: sessionReasonCodes,
+      constrainedReasons: input.plan.sessionAudit?.constrainedReasons,
     },
     microcycleAudit: {
       status: microcycleStatus,
@@ -133,6 +154,7 @@ export function createAuditSnapshots(input: {
       sessionCount,
       summary: `本轮主训练 ${microcycleMainSetCount} 组`,
       reasonCodes: microcycleReasonCodes,
+      constrainedReasons: input.plan.microcycleAudit?.constrainedReasons,
     },
   }
 }
