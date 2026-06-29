@@ -7,6 +7,7 @@ import {
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
+import { buildSupportPhaseExercises } from "@/lib/workout/engine/support-phases"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   RecentWorkoutSessionSummary,
@@ -406,6 +407,17 @@ export function generateSession(
             : plannedDeloadWeightKg(exercise, recentWorkoutSessionSummaries),
     }),
   )
+  const supportExercises = buildSupportPhaseExercises({
+    mainExercises: selectedExercises,
+    blacklist: state.blacklistedExerciseIds,
+    rotationOffset,
+    effectiveUserWeightKg,
+    unlockedRiskCategories: state.unlockedRiskCategories,
+  })
+  const warmup = supportExercises.filter((exercise) => exercise.phase === "warmup")
+  const cooldown = supportExercises.filter(
+    (exercise) => exercise.phase === "cooldown",
+  )
 
   return {
     templateIndex,
@@ -417,6 +429,6 @@ export function generateSession(
       currentBlock: block,
       blockStartSession,
     },
-    exercises: mainExercises,
+    exercises: [...warmup, ...mainExercises, ...cooldown],
   }
 }

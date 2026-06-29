@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  AS_CORE_EXERCISES,
   STRENGTH_EXERCISES,
   findVariants,
 } from "@/lib/workout/engine/catalog"
@@ -76,7 +77,57 @@ function completedSummary(
   }
 }
 
+const AS_CORE_BY_ID = new Map(
+  AS_CORE_EXERCISES.map((exercise) => [exercise.id, exercise]),
+)
+
+function asCoreSupport(
+  session: ReturnType<typeof generateSession>,
+  phase: "warmup" | "cooldown",
+) {
+  return session.exercises
+    .filter((exercise) => exercise.phase === phase)
+    .map((exercise) =>
+      exercise.catalogExerciseId
+        ? AS_CORE_BY_ID.get(exercise.catalogExerciseId)
+        : undefined,
+    )
+    .filter((exercise): exercise is (typeof AS_CORE_EXERCISES)[number] =>
+      Boolean(exercise),
+    )
+}
+
 describe("intermediate workout engine", () => {
+  it("returns warmup, main, and cooldown without counting support phases as main strength sets", () => {
+    const session = generateSession(makeState(72))
+    const warmup = session.exercises.filter(
+      (exercise) => exercise.phase === "warmup",
+    )
+    const main = session.exercises.filter((exercise) => exercise.phase === "main")
+    const cooldown = session.exercises.filter(
+      (exercise) => exercise.phase === "cooldown",
+    )
+    const mainStrengthSets = session.exercises
+      .filter(
+        (exercise) =>
+          exercise.phase === "main" &&
+          exercise.plannedAnalysis.exerciseType === "strength",
+      )
+      .reduce((total, exercise) => total + exercise.sets.length, 0)
+
+    expect(warmup).toHaveLength(4)
+    expect(main.length).toBeGreaterThanOrEqual(3)
+    expect(cooldown).toHaveLength(4)
+    expect(session.exercises.map((exercise) => exercise.phase)).toEqual([
+      ...warmup.map(() => "warmup" as const),
+      ...main.map(() => "main" as const),
+      ...cooldown.map(() => "cooldown" as const),
+    ])
+    expect(mainStrengthSets).toBe(
+      main.reduce((total, exercise) => total + exercise.sets.length, 0),
+    )
+  })
+
   it("starts the intermediate engine on session 73 with the first six-template slot", () => {
     const session = generateSession(makeState(72))
 
@@ -114,6 +165,30 @@ describe("intermediate workout engine", () => {
         expect(exercise.sets.map((set) => set.plannedReps)).toEqual([10, 10, 10])
       }
     }
+  })
+
+  it("infers upper or lower AS support focus from the intermediate main muscles", () => {
+    const upperSession = generateSession(makeState(72))
+    const lowerSession = generateSession(makeState(73))
+    const upperWarmupAS = asCoreSupport(upperSession, "warmup")
+    const upperCooldownAS = asCoreSupport(upperSession, "cooldown")
+    const lowerWarmupAS = asCoreSupport(lowerSession, "warmup")
+    const lowerCooldownAS = asCoreSupport(lowerSession, "cooldown")
+
+    expect(upperWarmupAS).toHaveLength(2)
+    expect(upperCooldownAS).toHaveLength(2)
+    expect(
+      [...upperWarmupAS, ...upperCooldownAS].every((exercise) =>
+        ["SHOULDERS", "BACK"].includes(exercise.primaryMuscle),
+      ),
+    ).toBe(true)
+    expect(lowerWarmupAS).toHaveLength(2)
+    expect(lowerCooldownAS).toHaveLength(2)
+    expect(
+      [...lowerWarmupAS, ...lowerCooldownAS].every((exercise) =>
+        ["QUADS", "GLUTES"].includes(exercise.primaryMuscle),
+      ),
+    ).toBe(true)
   })
 
   it("uses matched variants instead of benchmarks during accumulation variant sessions 79-90", () => {
@@ -300,6 +375,16 @@ describe("intermediate workout engine", () => {
       "上C",
       "下C",
     ])
+    for (const deloadSession of deloadSessions) {
+      expect(
+        deloadSession.exercises.filter((exercise) => exercise.phase === "warmup"),
+      ).toHaveLength(4)
+      expect(
+        deloadSession.exercises.filter(
+          (exercise) => exercise.phase === "cooldown",
+        ),
+      ).toHaveLength(4)
+    }
   })
 
   it("starts the next accumulation block on session 115", () => {

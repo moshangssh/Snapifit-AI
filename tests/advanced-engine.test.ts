@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
+import {
+  AS_CORE_EXERCISES,
+  STRENGTH_EXERCISES,
+} from "@/lib/workout/engine/catalog"
 import { generateSession } from "@/lib/workout/engine/advanced-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
@@ -34,7 +37,59 @@ function makeState(
   }
 }
 
+function sessionPhases(session: ReturnType<typeof generateSession>) {
+  return session.exercises.map((exercise) => exercise.phase)
+}
+
+const AS_CORE_BY_ID = new Map(
+  AS_CORE_EXERCISES.map((exercise) => [exercise.id, exercise]),
+)
+
+function asCoreSupport(
+  session: ReturnType<typeof generateSession>,
+  phase: "warmup" | "cooldown",
+) {
+  return session.exercises
+    .filter((exercise) => exercise.phase === phase)
+    .map((exercise) =>
+      exercise.catalogExerciseId
+        ? AS_CORE_BY_ID.get(exercise.catalogExerciseId)
+        : undefined,
+    )
+    .filter((exercise): exercise is (typeof AS_CORE_EXERCISES)[number] =>
+      Boolean(exercise),
+    )
+}
+
 describe("advanced workout engine", () => {
+  it("returns warmup, main, and cooldown while keeping DUP prescriptions on main work", () => {
+    const strength = generateSession(makeState(240))
+    const warmup = strength.exercises.filter(
+      (exercise) => exercise.phase === "warmup",
+    )
+    const main = strength.exercises.filter((exercise) => exercise.phase === "main")
+    const cooldown = strength.exercises.filter(
+      (exercise) => exercise.phase === "cooldown",
+    )
+
+    expect(warmup).toHaveLength(4)
+    expect(main).toHaveLength(4)
+    expect(cooldown).toHaveLength(4)
+    expect(sessionPhases(strength)).toEqual([
+      ...warmup.map(() => "warmup" as const),
+      ...main.map(() => "main" as const),
+      ...cooldown.map(() => "cooldown" as const),
+    ])
+    expect(main.every((exercise) => exercise.notes?.includes("RPE 9"))).toBe(
+      true,
+    )
+    expect(
+      [...warmup, ...cooldown].every(
+        (exercise) => !exercise.notes?.includes("RPE"),
+      ),
+    ).toBe(true)
+  })
+
   it("rotates sessions 241-246 through strict DUP templates", () => {
     const sessions = [240, 241, 242, 243, 244, 245].map((count) =>
       generateSession(makeState(count)),
@@ -63,8 +118,11 @@ describe("advanced workout engine", () => {
         .filter((exercise) => exercise.phase === "main")
         .flatMap((exercise) => exercise.sets.map((set) => set.plannedReps)),
     ).toEqual(expect.arrayContaining([5]))
-    expect(strength.exercises.every((exercise) => exercise.notes?.includes("RPE 9")))
-      .toBe(true)
+    expect(
+      strength.exercises
+        .filter((exercise) => exercise.phase === "main")
+        .every((exercise) => exercise.notes?.includes("RPE 9")),
+    ).toBe(true)
 
     expect(
       hypertrophy.exercises
@@ -72,7 +130,9 @@ describe("advanced workout engine", () => {
         .flatMap((exercise) => exercise.sets.map((set) => set.plannedReps)),
     ).toEqual(expect.arrayContaining([12]))
     expect(
-      hypertrophy.exercises.every((exercise) => exercise.notes?.includes("RPE 8")),
+      hypertrophy.exercises
+        .filter((exercise) => exercise.phase === "main")
+        .every((exercise) => exercise.notes?.includes("RPE 8")),
     ).toBe(true)
 
     expect(
@@ -80,8 +140,11 @@ describe("advanced workout engine", () => {
         .filter((exercise) => exercise.phase === "main")
         .flatMap((exercise) => exercise.sets.map((set) => set.plannedReps)),
     ).toEqual(expect.arrayContaining([20]))
-    expect(endurance.exercises.every((exercise) => exercise.notes?.includes("RPE 7")))
-      .toBe(true)
+    expect(
+      endurance.exercises
+        .filter((exercise) => exercise.phase === "main")
+        .every((exercise) => exercise.notes?.includes("RPE 7")),
+    ).toBe(true)
   })
 
   it("places lifetime benchmarks on strength days", () => {
@@ -95,6 +158,30 @@ describe("advanced workout engine", () => {
 
       expect(mainExerciseIds.some((id) => lifetimeSet.has(id ?? ""))).toBe(true)
     }
+  })
+
+  it("infers upper or lower AS support focus from the advanced main muscles", () => {
+    const upperSession = generateSession(makeState(240))
+    const lowerSession = generateSession(makeState(241))
+    const upperWarmupAS = asCoreSupport(upperSession, "warmup")
+    const upperCooldownAS = asCoreSupport(upperSession, "cooldown")
+    const lowerWarmupAS = asCoreSupport(lowerSession, "warmup")
+    const lowerCooldownAS = asCoreSupport(lowerSession, "cooldown")
+
+    expect(upperWarmupAS).toHaveLength(2)
+    expect(upperCooldownAS).toHaveLength(2)
+    expect(
+      [...upperWarmupAS, ...upperCooldownAS].every((exercise) =>
+        ["SHOULDERS", "BACK"].includes(exercise.primaryMuscle),
+      ),
+    ).toBe(true)
+    expect(lowerWarmupAS).toHaveLength(2)
+    expect(lowerCooldownAS).toHaveLength(2)
+    expect(
+      [...lowerWarmupAS, ...lowerCooldownAS].every((exercise) =>
+        ["QUADS", "GLUTES"].includes(exercise.primaryMuscle),
+      ),
+    ).toBe(true)
   })
 
   it("uses the full strength catalog including advanced pool exercises", () => {
@@ -162,9 +249,17 @@ describe("advanced workout engine", () => {
       true,
     ])
     for (const session of deloadSessions) {
-      for (const exercise of session.exercises) {
+      for (const exercise of session.exercises.filter(
+        (item) => item.phase === "main",
+      )) {
         expect(exercise.sets).toHaveLength(2)
       }
+      expect(
+        session.exercises.filter((exercise) => exercise.phase === "warmup"),
+      ).toHaveLength(4)
+      expect(
+        session.exercises.filter((exercise) => exercise.phase === "cooldown"),
+      ).toHaveLength(4)
     }
   })
 
