@@ -9,6 +9,9 @@ function draft(
   phase: WorkoutPlanExerciseDraft["phase"],
   exerciseType: WorkoutPlanExerciseDraft["plannedAnalysis"]["exerciseType"],
   sets: number,
+  muscleGroups: WorkoutPlanExerciseDraft["plannedAnalysis"]["muscleGroups"] = [
+    "chest",
+  ],
 ): WorkoutPlanExerciseDraft {
   return {
     plannedExerciseName: `${phase}-${exerciseType}`,
@@ -17,7 +20,7 @@ function draft(
     sets: Array.from({ length: sets }, () => ({ plannedReps: 10 })),
     plannedAnalysis: {
       exerciseType,
-      muscleGroups: ["chest"],
+      muscleGroups,
       estimatedMets: exerciseType === "strength" ? 5 : 2,
       estimatedDurationMinutes: sets * 3,
       caloriesBurnedEstimated: 0,
@@ -97,6 +100,48 @@ describe("training volume audit", () => {
     expect(audit.status).toBe("constrained")
     expect(audit.muscleGroupAudits.chest).toMatchObject({
       status: "constrained",
+      constrainedReasons: ["blacklist"],
+    })
+  })
+
+  it("fails a microcycle muscle group above the target maximum", () => {
+    const audit = auditMicrocycleVolume({
+      phase: "novice",
+      completedSessionCount: 12,
+      isDeload: false,
+      sessions: [{ exercises: [draft("main", "strength", 11)] }],
+    })
+
+    expect(audit.status).toBe("fail")
+    expect(audit.muscleGroupAudits.chest).toMatchObject({
+      status: "fail",
+      sets: 11,
+      targetMinSets: 6,
+      targetMaxSets: 10,
+    })
+  })
+
+  it("audits expected muscle groups with zero volume when they are absent", () => {
+    const audit = auditMicrocycleVolume({
+      phase: "novice",
+      completedSessionCount: 12,
+      isDeload: false,
+      expectedMuscleGroups: ["chest", "glutes"],
+      constrainedReasons: ["blacklist"],
+      sessions: [
+        {
+          exercises: [draft("main", "strength", 6, ["chest"])],
+        },
+      ],
+    })
+
+    expect(audit.status).toBe("constrained")
+    expect(audit.muscleGroupAudits.chest.status).toBe("pass")
+    expect(audit.muscleGroupAudits.glutes).toMatchObject({
+      status: "constrained",
+      sets: 0,
+      targetMinSets: 6,
+      targetMaxSets: 10,
       constrainedReasons: ["blacklist"],
     })
   })
