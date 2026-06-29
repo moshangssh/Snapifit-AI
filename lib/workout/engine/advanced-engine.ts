@@ -6,6 +6,7 @@ import {
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
+import { buildSupportPhaseExercises } from "@/lib/workout/engine/support-phases"
 import {
   ADVANCED_SESSION_START,
   calculateDeloadParams,
@@ -368,6 +369,31 @@ export function generateSession(
     state,
     rotationOffset,
   )
+  const mainExercises = selectedExercises.map((exercise) =>
+    draftMainExercise(
+      exercise,
+      effectiveUserWeightKg,
+      config,
+      plannedTrainingTypeWeightKg(
+        exercise,
+        config,
+        recentWorkoutSessionSummaries,
+      ),
+      isDeload,
+      state.unlockedRiskCategories,
+    ),
+  )
+  const supportExercises = buildSupportPhaseExercises({
+    mainExercises: selectedExercises,
+    blacklist: state.blacklistedExerciseIds,
+    rotationOffset,
+    effectiveUserWeightKg,
+    unlockedRiskCategories: state.unlockedRiskCategories,
+  })
+  const warmup = supportExercises.filter((exercise) => exercise.phase === "warmup")
+  const cooldown = supportExercises.filter(
+    (exercise) => exercise.phase === "cooldown",
+  )
 
   return {
     templateIndex,
@@ -382,19 +408,6 @@ export function generateSession(
           ? state.completedSessionCount
           : state.lastDeloadSession,
     },
-    exercises: selectedExercises.map((exercise) =>
-      draftMainExercise(
-        exercise,
-        effectiveUserWeightKg,
-        config,
-        plannedTrainingTypeWeightKg(
-          exercise,
-          config,
-          recentWorkoutSessionSummaries,
-        ),
-        isDeload,
-        state.unlockedRiskCategories,
-      ),
-    ),
+    exercises: [...warmup, ...mainExercises, ...cooldown],
   }
 }
