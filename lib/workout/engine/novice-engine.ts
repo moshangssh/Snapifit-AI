@@ -19,6 +19,7 @@ import {
 import {
   auditMicrocycleVolume,
   auditSessionVolume,
+  computeMicrocycleAdjustmentCapacity,
   type MicrocycleVolumeAudit,
   type SessionVolumeAudit,
 } from "@/lib/workout/engine/volume-audit"
@@ -132,6 +133,16 @@ const TEMPLATE_MAIN_MUSCLE_KEYS = [
     ),
   ),
 ]
+
+/** Unique main muscle groups across the four templates, for adjustment capacity. */
+const TEMPLATE_MAIN_MUSCLE_GROUPS: readonly MuscleGroup[] = [
+  ...new Set(TEMPLATES.flatMap((template) => template.mainMuscles)),
+]
+
+// 有限容量调整的上限：单个 main 动作最多加到 5 组，单次训练 main 总组数不超过 18，
+// 避免审计为了凑容量把训练拉得过长（见 #74 验收：保留单次 main 组数上限）。
+const NOVICE_MAIN_SET_CAP_PER_EXERCISE = 5
+const NOVICE_MAIN_SET_CAP_PER_SESSION = 18
 
 const EXERCISES_BY_ID = new Map(
   ALL_EXERCISES.map((exercise) => [exercise.id, exercise]),
@@ -614,6 +625,45 @@ function generateSessionRaw(
   }
 }
 
+/**
+ * Muscle keys that still have at least one AS-safe, non-blacklisted NOVICE_CORE main
+ * exercise the microcycle has not already used. These are the only muscles for which
+ * bounded volume adjustment may introduce a new main exercise; a muscle whose pool is
+ * exhausted by the blacklist or AS lock is intentionally left to read as constrained.
+ */
+function muscleKeysWithSafeMainCandidate(
+  microcyclePlans: RawGeneratedWorkoutPlan[],
+  state: TrainingState,
+): MuscleKey[] {
+  const usedMainIds = new Set(
+    microcyclePlans.flatMap((plan) =>
+      plan.exercises
+        .filter(
+          (exercise) =>
+            exercise.phase === "main" &&
+            exercise.plannedAnalysis.exerciseType === "strength" &&
+            exercise.catalogExerciseId,
+        )
+        .map((exercise) => exercise.catalogExerciseId as string),
+    ),
+  )
+  const keys: MuscleKey[] = []
+
+  for (const muscle of TEMPLATE_MAIN_MUSCLE_GROUPS) {
+    const [candidate] = selectExercises({
+      muscle,
+      tags: ["NOVICE_CORE"],
+      excludeIds: [...state.blacklistedExerciseIds, ...usedMainIds],
+      count: 1,
+      unlockedRiskCategories: state.unlockedRiskCategories,
+    })
+
+    if (candidate) keys.push(...MUSCLE_MAP[muscle])
+  }
+
+  return keys
+}
+
 export function generateSession(
   state: TrainingState,
   options: GenerateSessionOptions = {},
@@ -644,6 +694,15 @@ export function generateSession(
       constrainedReasons:
         state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
       sessions: microcyclePlans,
+      adjustmentCapacity: computeMicrocycleAdjustmentCapacity({
+        sessions: microcyclePlans,
+        perExerciseMainSetCap: NOVICE_MAIN_SET_CAP_PER_EXERCISE,
+        perSessionMainSetCap: NOVICE_MAIN_SET_CAP_PER_SESSION,
+        muscleGroupsWithSafeCandidate: muscleKeysWithSafeMainCandidate(
+          microcyclePlans,
+          state,
+        ),
+      }),
     }),
   }
 }

@@ -27,6 +27,15 @@ export interface WorkoutSessionAuditSnapshot {
   constrainedReasons?: string[]
 }
 
+export interface WorkoutVolumeAdjustmentSummary {
+  /** Total main strength sets bounded adjustment added across the microcycle. */
+  addedSets: number
+  /** How many new safe main exercises bounded adjustment introduced. */
+  addedExercises: number
+  /** Audit muscle-group keys that were brought up to target by adjustment. */
+  muscleGroups: string[]
+}
+
 export interface WorkoutMicrocycleAuditSnapshot {
   status: WorkoutAuditStatus
   mainSetCount: number
@@ -34,6 +43,7 @@ export interface WorkoutMicrocycleAuditSnapshot {
   summary: string
   reasonCodes?: string[]
   constrainedReasons?: string[]
+  adjustment?: WorkoutVolumeAdjustmentSummary
 }
 
 export interface WorkoutExerciseAnalysis {
