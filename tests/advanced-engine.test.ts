@@ -114,6 +114,28 @@ describe("advanced workout engine", () => {
     ).toBe(true)
   })
 
+  it("audits the same full DUP microcycle consistently from different starting templates", () => {
+    const audits = [240, 242, 244].map(
+      (count) => generateSession(makeState(count)).microcycleAudit,
+    )
+
+    expect(audits.map((audit) => audit.muscleGroupAudits.chest.status)).toEqual([
+      "pass",
+      "pass",
+      "pass",
+    ])
+    expect(
+      new Set(
+        audits.map((audit) => audit.muscleGroupAudits.chest.targetMinSets),
+      ).size,
+    ).toBe(1)
+    expect(
+      new Set(
+        audits.map((audit) => audit.muscleGroupAudits.chest.targetMaxSets),
+      ).size,
+    ).toBe(1)
+  })
+
   it("places lifetime benchmarks on strength days", () => {
     const lifetimeSet = new Set(lifetimeBenchmarkIds())
     const strengthSessions = [240, 241].map((count) => generateSession(makeState(count)))

@@ -2,6 +2,7 @@ import type {
   TrainingPhase,
   WorkoutPlanExerciseDraft,
 } from "@/lib/workout/types"
+import type { MuscleKey } from "@/lib/muscle-groups"
 
 export type VolumeAuditStatus = "pass" | "adjusted" | "constrained" | "fail"
 
@@ -36,6 +37,8 @@ export interface MicrocycleVolumeAudit {
   constrainedReasons: VolumeAuditConstrainedReason[]
 }
 
+type VolumeAuditTrainingType = "strength" | "hypertrophy" | "endurance"
+
 function noviceTarget(completedSessionCount: number) {
   return completedSessionCount <= 24
     ? { min: 6, max: 10 }
@@ -66,11 +69,52 @@ function targetFor(input: {
 function statusForSets(input: {
   sets: number
   min: number
+  max: number
   constrainedReasons: VolumeAuditConstrainedReason[]
 }): VolumeAuditStatus {
   if (input.constrainedReasons.includes("deload")) return "constrained"
-  if (input.sets >= input.min) return "pass"
-  return input.constrainedReasons.length > 0 ? "constrained" : "fail"
+  if (input.sets < input.min) {
+    return input.constrainedReasons.length > 0 ? "constrained" : "fail"
+  }
+  if (input.sets > input.max) return "fail"
+  return "pass"
+}
+
+function targetForTrainingTypes(input: {
+  phase: TrainingPhase
+  completedSessionCount: number
+  currentBlock?: "accumulation" | "intensification" | "deload"
+  trainingTypes: VolumeAuditTrainingType[]
+}) {
+  if (input.trainingTypes.length === 0) {
+    return targetFor(input)
+  }
+
+  const targets = input.trainingTypes.map((trainingType) =>
+    targetFor({
+      phase: input.phase,
+      completedSessionCount: input.completedSessionCount,
+      currentBlock: input.currentBlock,
+      trainingType,
+    }),
+  )
+
+  return {
+    min: Math.min(...targets.map((target) => target.min)),
+    max: Math.max(...targets.map((target) => target.max)),
+  }
+}
+
+function auditMuscleGroupKey(muscleGroup: string) {
+  if (
+    muscleGroup === "front-deltoids" ||
+    muscleGroup === "side-deltoids" ||
+    muscleGroup === "back-deltoids"
+  ) {
+    return "front-deltoids"
+  }
+
+  return muscleGroup
 }
 
 export function auditSessionVolume(input: {
@@ -112,16 +156,37 @@ export function auditMicrocycleVolume(input: {
   phase: TrainingPhase
   completedSessionCount: number
   currentBlock?: "accumulation" | "intensification" | "deload"
-  trainingType?: "strength" | "hypertrophy" | "endurance"
+  trainingType?: VolumeAuditTrainingType
   isDeload: boolean
-  sessions: Array<{ exercises: WorkoutPlanExerciseDraft[] }>
+  expectedMuscleGroups?: MuscleKey[]
+  sessions: Array<{
+    exercises: WorkoutPlanExerciseDraft[]
+    trainingType?: VolumeAuditTrainingType
+  }>
   constrainedReasons?: VolumeAuditConstrainedReason[]
 }): MicrocycleVolumeAudit {
   const constrainedReasons = [
     ...(input.constrainedReasons ?? []),
     ...(input.isDeload ? (["deload"] as const) : []),
   ]
-  const target = targetFor(input)
+  const sessionTrainingTypes =
+    input.phase === "advanced"
+      ? input.sessions
+          .map((session) => session.trainingType)
+          .filter(
+            (trainingType): trainingType is VolumeAuditTrainingType =>
+              trainingType !== undefined,
+          )
+      : []
+  const target =
+    sessionTrainingTypes.length > 0
+      ? targetForTrainingTypes({
+          phase: input.phase,
+          completedSessionCount: input.completedSessionCount,
+          currentBlock: input.currentBlock,
+          trainingTypes: sessionTrainingTypes,
+        })
+      : targetFor(input)
   const setsByMuscle = new Map<string, number>()
 
   for (const session of input.sessions) {
@@ -134,24 +199,32 @@ export function auditMicrocycleVolume(input: {
       }
 
       for (const muscleGroup of exercise.plannedAnalysis.muscleGroups) {
+        const auditKey = auditMuscleGroupKey(muscleGroup)
         setsByMuscle.set(
-          muscleGroup,
-          (setsByMuscle.get(muscleGroup) ?? 0) + exercise.sets.length,
+          auditKey,
+          (setsByMuscle.get(auditKey) ?? 0) + exercise.sets.length,
         )
       }
     }
   }
 
+  const auditedMuscleGroups = [
+    ...new Set([
+      ...(input.expectedMuscleGroups ?? []).map(auditMuscleGroupKey),
+      ...setsByMuscle.keys(),
+    ]),
+  ]
   const muscleGroupAudits = Object.fromEntries(
-    [...setsByMuscle.entries()].map(([muscleGroup, sets]) => [
+    auditedMuscleGroups.map((muscleGroup) => [
       muscleGroup,
       {
         status: statusForSets({
-          sets,
+          sets: setsByMuscle.get(muscleGroup) ?? 0,
           min: target.min,
+          max: target.max,
           constrainedReasons,
         }),
-        sets,
+        sets: setsByMuscle.get(muscleGroup) ?? 0,
         targetMinSets: target.min,
         targetMaxSets: target.max,
         constrainedReasons,

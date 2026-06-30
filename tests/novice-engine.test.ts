@@ -481,6 +481,24 @@ describe("novice workout engine", () => {
     ).not.toContain(blacklistedExerciseId)
   })
 
+  it("audits blacklisted-away template muscle groups as constrained zero volume", () => {
+    const gluteNoviceCoreIds = STRENGTH_EXERCISES.filter(
+      (exercise) =>
+        exercise.tags.includes("NOVICE_CORE") &&
+        exercise.primaryMuscle === "GLUTES",
+    ).map((exercise) => exercise.id)
+
+    const session = generateSession(makeState(0, gluteNoviceCoreIds))
+
+    expect(gluteNoviceCoreIds.length).toBeGreaterThan(0)
+    expect(session.microcycleAudit.status).toBe("constrained")
+    expect(session.microcycleAudit.muscleGroupAudits.glutes).toMatchObject({
+      status: "constrained",
+      sets: 0,
+      constrainedReasons: ["blacklist"],
+    })
+  })
+
   it("keeps more than five blacklisted exercises out across ten generated sessions", () => {
     const blacklistedExerciseIds = Array.from(
       new Set(

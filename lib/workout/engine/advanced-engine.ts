@@ -1,5 +1,6 @@
 import {
   EXERCISES_BY_ID,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   resolveMuscleKeys,
   type Exercise,
@@ -101,6 +102,14 @@ const TEMPLATES: TemplateDefinition[] = [
 /** 本阶段所有模板引用到的肌群（用于校验目录覆盖，消除 fallback 抓取） */
 export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
   ...new Set(TEMPLATES.flatMap((template) => template.mainMuscles)),
+]
+
+const TEMPLATE_MAIN_MUSCLE_KEYS = [
+  ...new Set(
+    TEMPLATES.flatMap((template) =>
+      template.mainMuscles.flatMap((muscle) => MUSCLE_MAP[muscle]),
+    ),
+  ),
 ]
 
 const TRAINING_TYPE_CONFIG: Record<TrainingType, TrainingTypeConfig> = {
@@ -430,11 +439,6 @@ export function generateSession(
   } = {},
 ): GeneratedAdvancedWorkoutPlan {
   const plan = generateSessionRaw(state, options)
-  const sessionsSinceAdvancedStart = Math.max(
-    0,
-    state.completedSessionCount - ADVANCED_SESSION_START,
-  )
-  const template = TEMPLATES[sessionsSinceAdvancedStart % TEMPLATES.length]
   const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
     generateSessionRaw(
       {
@@ -456,11 +460,14 @@ export function generateSession(
       phase: plan.phase,
       completedSessionCount: state.completedSessionCount,
       currentBlock: plan.trainingState.currentBlock,
-      trainingType: template.trainingType,
       isDeload: microcyclePlans.some((item) => item.isDeload),
+      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
       constrainedReasons:
         state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
-      sessions: microcyclePlans,
+      sessions: microcyclePlans.map((item) => ({
+        exercises: item.exercises,
+        trainingType: TEMPLATES[item.templateIndex].trainingType,
+      })),
     }),
   }
 }

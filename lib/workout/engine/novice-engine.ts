@@ -1,5 +1,6 @@
 import {
   ALL_EXERCISES,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   resolveMuscleKeys,
   type Exercise,
@@ -86,7 +87,7 @@ const TEMPLATES: TemplateDefinition[] = [
     name: "下A",
     asFocus: "lower",
     warmupSupportMuscles: ["GLUTES", "CORE"],
-    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "股四头肌站姿拉伸", muscleGroups: ["quadriceps"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -106,7 +107,7 @@ const TEMPLATES: TemplateDefinition[] = [
     name: "下B",
     asFocus: "lower",
     warmupSupportMuscles: ["GLUTES", "CORE"],
-    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "臀肌仰卧拉伸", muscleGroups: ["glutes"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -121,6 +122,14 @@ export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
       ...template.warmupSupportMuscles,
       ...template.mainMuscles,
     ]),
+  ),
+]
+
+const TEMPLATE_MAIN_MUSCLE_KEYS = [
+  ...new Set(
+    TEMPLATES.flatMap((template) =>
+      template.mainMuscles.flatMap((muscle) => MUSCLE_MAP[muscle]),
+    ),
   ),
 ]
 
@@ -631,6 +640,7 @@ export function generateSession(
       phase: plan.phase,
       completedSessionCount: state.completedSessionCount,
       isDeload: microcyclePlans.some((item) => item.isDeload),
+      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
       constrainedReasons:
         state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
       sessions: microcyclePlans,
