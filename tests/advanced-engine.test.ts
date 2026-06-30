@@ -131,25 +131,17 @@ describe("advanced workout engine", () => {
   })
 
   it("audits the same full DUP microcycle consistently from different starting templates", () => {
-    const audits = [240, 242, 244].map(
+    // The microcycle audit must describe the canonical rotation, so generating
+    // from any session in the cycle yields an identical per-muscle volume audit.
+    const audits = [240, 241, 242, 243, 244, 245].map(
       (count) => generateSession(makeState(count)).microcycleAudit,
     )
 
-    expect(audits.map((audit) => audit.muscleGroupAudits.chest.status)).toEqual([
-      "pass",
-      "pass",
-      "pass",
-    ])
-    expect(
-      new Set(
-        audits.map((audit) => audit.muscleGroupAudits.chest.targetMinSets),
-      ).size,
-    ).toBe(1)
-    expect(
-      new Set(
-        audits.map((audit) => audit.muscleGroupAudits.chest.targetMaxSets),
-      ).size,
-    ).toBe(1)
+    const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)
+    for (const muscleGroupAudits of rest) {
+      expect(muscleGroupAudits).toEqual(reference)
+    }
+    expect(reference.chest.status).toBe("pass")
   })
 
   it("prescribes strength, hypertrophy, and endurance rep ranges with matching RPE", () => {

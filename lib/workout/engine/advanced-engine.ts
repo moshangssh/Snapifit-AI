@@ -443,11 +443,20 @@ export function generateSession(
   } = {},
 ): GeneratedAdvancedWorkoutPlan {
   const plan = generateSessionRaw(state, options)
+  // 把重建锚定到轮换边界，使审计描述的是同一个规范 microcycle，与从周期内
+  // 哪一次 session 生成无关。若用前向窗口（count + index），窗口会跨过
+  // rotationOffset 边界，导致次要肌群容量随入口漂移。
+  const sessionsSinceAdvancedStart = Math.max(
+    0,
+    state.completedSessionCount - ADVANCED_SESSION_START,
+  )
+  const microcycleStart =
+    state.completedSessionCount - (sessionsSinceAdvancedStart % TEMPLATES.length)
   const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
     generateSessionRaw(
       {
         ...state,
-        completedSessionCount: state.completedSessionCount + index,
+        completedSessionCount: microcycleStart + index,
       },
       options,
     ),
