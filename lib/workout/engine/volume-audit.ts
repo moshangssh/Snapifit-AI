@@ -199,17 +199,33 @@ export function computeMicrocycleAdjustmentCapacity(input: {
     )
     const sessionRoom = Math.max(0, input.perSessionMainSetCap - sessionMainSets)
 
+    // Sum per-exercise room by muscle key within this session, then clamp each
+    // key's contribution by sessionRoom. One session can never absorb more than
+    // sessionRoom added sets total, so when several main exercises share a key
+    // the per-session cap holds per key — not just per exercise (#74). (Note:
+    // the cap is still a shared budget across keys; this clamp bounds each key,
+    // not simultaneous deficits on different keys competing for the same room.)
+    const sessionHeadroom = new Map<string, number>()
     for (const exercise of mainStrength) {
-      const addable = Math.min(
-        Math.max(0, input.perExerciseMainSetCap - exercise.sets.length),
-        sessionRoom,
+      const perExerciseRoom = Math.max(
+        0,
+        input.perExerciseMainSetCap - exercise.sets.length,
       )
-      if (addable <= 0) continue
+      if (perExerciseRoom <= 0) continue
 
       for (const muscleGroup of exercise.plannedAnalysis.muscleGroups) {
         const key = auditMuscleGroupKey(muscleGroup)
-        headroomExisting.set(key, (headroomExisting.get(key) ?? 0) + addable)
+        sessionHeadroom.set(
+          key,
+          (sessionHeadroom.get(key) ?? 0) + perExerciseRoom,
+        )
       }
+    }
+
+    for (const [key, room] of sessionHeadroom) {
+      const contribution = Math.min(room, sessionRoom)
+      if (contribution <= 0) continue
+      headroomExisting.set(key, (headroomExisting.get(key) ?? 0) + contribution)
     }
   }
 

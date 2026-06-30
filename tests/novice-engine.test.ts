@@ -537,6 +537,45 @@ describe("novice workout engine", () => {
     ).toBeUndefined()
   })
 
+  it("never places two main-strength exercises on the same audit key in one session", () => {
+    // Guard for the bounded-adjustment per-session cap: computeMicrocycleAdjustment-
+    // Capacity stays safe only because each novice session touches every audit muscle
+    // key at most once (one exercise per distinct primary muscle; one shoulder slot).
+    // If a future template or muscle-key mapping breaks that, two mains could share a
+    // key in one session and the capacity model could over-count past the per-session
+    // cap — this test goes red the moment that becomes reachable.
+    const auditKey = (muscleGroup: string) =>
+      muscleGroup === "side-deltoids" || muscleGroup === "back-deltoids"
+        ? "front-deltoids"
+        : muscleGroup
+
+    for (let completedSessionCount = 0; completedSessionCount < 72; completedSessionCount++) {
+      const session = generateSession(makeState(completedSessionCount))
+      const exercisesPerKey = new Map<string, number>()
+
+      for (const exercise of session.exercises) {
+        if (
+          exercise.phase !== "main" ||
+          exercise.plannedAnalysis.exerciseType !== "strength"
+        ) {
+          continue
+        }
+        for (const key of new Set(
+          exercise.plannedAnalysis.muscleGroups.map(auditKey),
+        )) {
+          exercisesPerKey.set(key, (exercisesPerKey.get(key) ?? 0) + 1)
+        }
+      }
+
+      for (const [key, count] of exercisesPerKey) {
+        expect(
+          count,
+          `session ${completedSessionCount} has ${count} main exercises on "${key}"`,
+        ).toBeLessThanOrEqual(1)
+      }
+    }
+  })
+
   it("keeps more than five blacklisted exercises out across ten generated sessions", () => {
     const blacklistedExerciseIds = Array.from(
       new Set(

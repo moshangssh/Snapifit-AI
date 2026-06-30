@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   auditMicrocycleVolume,
   auditSessionVolume,
+  computeMicrocycleAdjustmentCapacity,
 } from "@/lib/workout/engine/volume-audit"
 import type { WorkoutPlanExerciseDraft } from "@/lib/workout/types"
 
@@ -269,6 +270,60 @@ describe("training volume audit", () => {
       constrainedReasons: ["as_safety_lock", "blacklist"],
     })
     expect(audit.muscleGroupAudits.glutes.adjustment).toBeUndefined()
+  })
+
+  it("does not over-count per-session headroom when two main exercises share a muscle key", () => {
+    // One session, two chest main exercises @ 2 sets each (4 session main sets).
+    // Per-session cap 6 leaves room for only 2 more sets; per-exercise cap 5 is
+    // not the binding constraint. The session's chest headroom must be capped at
+    // the 2 sets that physically fit — not 2+2=4 — so the per-session cap holds
+    // per key, not just per exercise (#74: 保留单次 main 组数上限).
+    const sessions = [
+      {
+        exercises: [
+          draft("main", "strength", 2, ["chest"]),
+          draft("main", "strength", 2, ["chest"]),
+        ],
+      },
+    ]
+    const capacity = computeMicrocycleAdjustmentCapacity({
+      sessions,
+      perExerciseMainSetCap: 5,
+      perSessionMainSetCap: 6,
+    })
+
+    expect(capacity.chest.headroomExisting).toBe(2)
+
+    // Target min 8 at session 30, chest has 4 sets -> deficit 4, but only 2 fit.
+    // The honest verdict is constrained, never an 'adjusted' that breaks the cap.
+    const audit = auditMicrocycleVolume({
+      phase: "novice",
+      completedSessionCount: 30,
+      isDeload: false,
+      constrainedReasons: ["exercise_pool_limit"],
+      sessions,
+      adjustmentCapacity: capacity,
+    })
+
+    expect(audit.muscleGroupAudits.chest.status).toBe("constrained")
+    expect(audit.muscleGroupAudits.chest.adjustment).toBeUndefined()
+  })
+
+  it("still aggregates headroom across separate sessions that share a muscle key", () => {
+    // Two DIFFERENT sessions each with one chest exercise @ 2 sets: per-session caps
+    // are independent, so each session contributes its own room (per-exercise cap 5 -
+    // 2 = 3, within sessionRoom 4) and chest headroom legitimately sums to 6 — the
+    // clamp must bound per session, not collapse the cross-session total to one cap.
+    const capacity = computeMicrocycleAdjustmentCapacity({
+      sessions: [
+        { exercises: [draft("main", "strength", 2, ["chest"])] },
+        { exercises: [draft("main", "strength", 2, ["chest"])] },
+      ],
+      perExerciseMainSetCap: 5,
+      perSessionMainSetCap: 6,
+    })
+
+    expect(capacity.chest.headroomExisting).toBe(6)
   })
 
   it("uses DUP training-type targets for advanced microcycles", () => {
