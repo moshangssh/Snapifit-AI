@@ -429,13 +429,17 @@ function generateSessionRaw(
             : plannedDeloadWeightKg(exercise, recentWorkoutSessionSummaries),
     }),
   )
-  const exercises = buildSupportPhaseExercises({
-    mainExercises,
-    effectiveUserWeightKg,
+  const supportExercises = buildSupportPhaseExercises({
+    mainExercises: selectedExercises,
     blacklist: state.blacklistedExerciseIds,
-    offset: rotationOffset,
+    rotationOffset,
+    effectiveUserWeightKg,
     unlockedRiskCategories: state.unlockedRiskCategories,
   })
+  const warmup = supportExercises.filter((exercise) => exercise.phase === "warmup")
+  const cooldown = supportExercises.filter(
+    (exercise) => exercise.phase === "cooldown",
+  )
 
   return {
     templateIndex,
@@ -447,7 +451,7 @@ function generateSessionRaw(
       currentBlock: block,
       blockStartSession,
     },
-    exercises,
+    exercises: [...warmup, ...mainExercises, ...cooldown],
   }
 }
 

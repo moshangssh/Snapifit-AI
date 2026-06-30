@@ -405,13 +405,17 @@ function generateSessionRaw(
       state.unlockedRiskCategories,
     ),
   )
-  const exercises = buildSupportPhaseExercises({
-    mainExercises,
-    effectiveUserWeightKg,
+  const supportExercises = buildSupportPhaseExercises({
+    mainExercises: selectedExercises,
     blacklist: state.blacklistedExerciseIds,
-    offset: rotationOffset,
+    rotationOffset,
+    effectiveUserWeightKg,
     unlockedRiskCategories: state.unlockedRiskCategories,
   })
+  const warmup = supportExercises.filter((exercise) => exercise.phase === "warmup")
+  const cooldown = supportExercises.filter(
+    (exercise) => exercise.phase === "cooldown",
+  )
 
   return {
     templateIndex,
@@ -426,7 +430,7 @@ function generateSessionRaw(
           ? state.completedSessionCount
           : state.lastDeloadSession,
     },
-    exercises,
+    exercises: [...warmup, ...mainExercises, ...cooldown],
   }
 }
 

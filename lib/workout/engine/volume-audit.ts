@@ -49,7 +49,7 @@ function targetFor(input: {
   phase: TrainingPhase
   completedSessionCount: number
   currentBlock?: "accumulation" | "intensification" | "deload"
-  trainingType?: "strength" | "hypertrophy" | "endurance"
+  trainingType?: VolumeAuditTrainingType
 }) {
   if (input.phase === "intermediate") {
     if (input.currentBlock === "intensification") return { min: 4, max: 8 }

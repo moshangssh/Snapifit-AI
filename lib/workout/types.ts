@@ -17,6 +17,24 @@ export type WorkoutExerciseAnalysisStatus =
   | "fallback"
 
 export type WorkoutExercisePhase = "warmup" | "main" | "cooldown"
+export type WorkoutAuditStatus = "pass" | "adjusted" | "constrained" | "fail"
+
+export interface WorkoutSessionAuditSnapshot {
+  status: WorkoutAuditStatus
+  mainSetCount: number
+  summary: string
+  reasonCodes?: string[]
+  constrainedReasons?: string[]
+}
+
+export interface WorkoutMicrocycleAuditSnapshot {
+  status: WorkoutAuditStatus
+  mainSetCount: number
+  sessionCount?: number
+  summary: string
+  reasonCodes?: string[]
+  constrainedReasons?: string[]
+}
 
 export interface WorkoutExerciseAnalysis {
   exerciseType: ExerciseEntry["exercise_type"]
@@ -155,6 +173,8 @@ export interface WorkoutSession {
   templateIndex?: number  // 模板索引：0-3（新手4模板）或 0-5（中高级6模板）
   isDeload?: boolean      // 是否减载训练
   phase?: TrainingPhase  // 训练阶段快照（历史回溯用）
+  sessionAudit?: WorkoutSessionAuditSnapshot
+  microcycleAudit?: WorkoutMicrocycleAuditSnapshot
 }
 
 export interface WorkoutPlanExerciseDraft {
@@ -181,4 +201,6 @@ export interface CreateWorkoutSessionInput {
   templateIndex?: number
   isDeload?: boolean
   phase?: TrainingPhase
+  sessionAudit?: WorkoutSessionAuditSnapshot
+  microcycleAudit?: WorkoutMicrocycleAuditSnapshot
 }
