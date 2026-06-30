@@ -499,6 +499,44 @@ describe("novice workout engine", () => {
     })
   })
 
+  it("adjusts a later-novice microcycle below the eight-set target by adding sets", () => {
+    // Sessions 25-72 target 8-12 sets per major muscle group, but the four-template
+    // rotation only prescribes 6 sets each. Bounded volume adjustment closes the gap
+    // by adding sets to existing main work rather than padding with new exercises.
+    // (Session 40's microcycle window avoids the deload weeks at 32-34 and 48-50.)
+    const session = generateSession(makeState(40))
+
+    expect(session.microcycleAudit.status).toBe("adjusted")
+    expect(session.microcycleAudit.muscleGroupAudits.chest).toMatchObject({
+      status: "adjusted",
+      sets: 6,
+      targetMinSets: 8,
+      adjustment: { addedExercise: false, adjustedSets: 8 },
+    })
+  })
+
+  it("stays constrained at the later-novice target when a muscle pool is fully blacklisted", () => {
+    const gluteNoviceCoreIds = STRENGTH_EXERCISES.filter(
+      (exercise) =>
+        exercise.tags.includes("NOVICE_CORE") &&
+        exercise.primaryMuscle === "GLUTES",
+    ).map((exercise) => exercise.id)
+
+    const session = generateSession(makeState(40, gluteNoviceCoreIds))
+
+    // Other muscles are below the eight-set target and get adjusted, but glutes have
+    // no safe pool left, so the microcycle reads constrained rather than bypassing it.
+    expect(session.microcycleAudit.status).toBe("constrained")
+    expect(session.microcycleAudit.muscleGroupAudits.glutes).toMatchObject({
+      status: "constrained",
+      sets: 0,
+      constrainedReasons: ["blacklist"],
+    })
+    expect(
+      session.microcycleAudit.muscleGroupAudits.glutes.adjustment,
+    ).toBeUndefined()
+  })
+
   it("keeps more than five blacklisted exercises out across ten generated sessions", () => {
     const blacklistedExerciseIds = Array.from(
       new Set(

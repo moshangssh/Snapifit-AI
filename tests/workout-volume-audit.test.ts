@@ -177,6 +177,100 @@ describe("training volume audit", () => {
     expect(deload.constrainedReasons).toContain("deload")
   })
 
+  it("adjusts low microcycle volume by adding sets to existing main work", () => {
+    const audit = auditMicrocycleVolume({
+      phase: "novice",
+      completedSessionCount: 30,
+      isDeload: false,
+      sessions: [
+        { exercises: [draft("main", "strength", 3)] },
+        { exercises: [draft("main", "strength", 3)] },
+      ],
+      adjustmentCapacity: {
+        chest: { headroomExisting: 4, headroomNewExercise: 0 },
+      },
+    })
+
+    expect(audit.status).toBe("adjusted")
+    expect(audit.muscleGroupAudits.chest).toMatchObject({
+      status: "adjusted",
+      sets: 6,
+      targetMinSets: 8,
+      adjustment: { addedSets: 2, addedExercise: false, adjustedSets: 8 },
+    })
+  })
+
+  it("adds a new main exercise only when a muscle group cannot be carried by sets", () => {
+    const audit = auditMicrocycleVolume({
+      phase: "novice",
+      completedSessionCount: 30,
+      isDeload: false,
+      expectedMuscleGroups: ["chest", "glutes"],
+      sessions: [{ exercises: [draft("main", "strength", 8, ["chest"])] }],
+      adjustmentCapacity: {
+        glutes: { headroomExisting: 0, headroomNewExercise: 8 },
+      },
+    })
+
+    expect(audit.status).toBe("adjusted")
+    expect(audit.muscleGroupAudits.chest.status).toBe("pass")
+    expect(audit.muscleGroupAudits.glutes).toMatchObject({
+      status: "adjusted",
+      sets: 0,
+      adjustment: { addedSets: 8, addedExercise: true, adjustedSets: 8 },
+    })
+  })
+
+  it("stays constrained instead of exceeding the per-session set cap", () => {
+    const audit = auditMicrocycleVolume({
+      phase: "novice",
+      completedSessionCount: 30,
+      isDeload: false,
+      constrainedReasons: ["exercise_pool_limit"],
+      sessions: [
+        { exercises: [draft("main", "strength", 3)] },
+        { exercises: [draft("main", "strength", 3)] },
+      ],
+      // Deficit is 2 but only 1 more set fits within the caps and no new
+      // exercise can be added, so the engine must not over-fill.
+      adjustmentCapacity: {
+        chest: { headroomExisting: 1, headroomNewExercise: 0 },
+      },
+    })
+
+    expect(audit.status).toBe("constrained")
+    expect(audit.muscleGroupAudits.chest).toMatchObject({
+      status: "constrained",
+      sets: 6,
+      constrainedReasons: ["exercise_pool_limit"],
+    })
+    expect(audit.muscleGroupAudits.chest.adjustment).toBeUndefined()
+  })
+
+  it("stays constrained when AS locks or the blacklist leave no safe way to adjust", () => {
+    const audit = auditMicrocycleVolume({
+      phase: "novice",
+      completedSessionCount: 30,
+      isDeload: false,
+      expectedMuscleGroups: ["glutes"],
+      constrainedReasons: ["as_safety_lock", "blacklist"],
+      sessions: [],
+      // No existing glute work and no safe candidate to add, so volume cannot be
+      // reached without breaking a safety rule.
+      adjustmentCapacity: {
+        glutes: { headroomExisting: 0, headroomNewExercise: 0 },
+      },
+    })
+
+    expect(audit.status).toBe("constrained")
+    expect(audit.muscleGroupAudits.glutes).toMatchObject({
+      status: "constrained",
+      sets: 0,
+      constrainedReasons: ["as_safety_lock", "blacklist"],
+    })
+    expect(audit.muscleGroupAudits.glutes.adjustment).toBeUndefined()
+  })
+
   it("uses DUP training-type targets for advanced microcycles", () => {
     const strength = auditMicrocycleVolume({
       phase: "advanced",

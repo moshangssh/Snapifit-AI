@@ -20,12 +20,34 @@ export interface SessionVolumeAudit {
   constrainedReasons: VolumeAuditConstrainedReason[]
 }
 
+export interface MuscleGroupVolumeAdjustment {
+  /** Main strength sets the bounded adjustment adds to reach the target minimum. */
+  addedSets: number
+  /** Whether reaching the target required introducing one new safe main exercise. */
+  addedExercise: boolean
+  /** Resulting main strength sets after the bounded adjustment. */
+  adjustedSets: number
+}
+
+/**
+ * Per muscle group, how much main strength volume the engine may still add safely.
+ * `headroomExisting` are sets that fit on the muscle's already-prescribed main
+ * exercises (within per-exercise and per-session caps); `headroomNewExercise` are
+ * the additional sets reachable only by introducing one new safe main exercise
+ * (0 when AS locks, the blacklist, or the phase pool leave no candidate).
+ */
+export interface MicrocycleVolumeAdjustmentCapacity {
+  headroomExisting: number
+  headroomNewExercise: number
+}
+
 export interface MuscleGroupVolumeAudit {
   status: VolumeAuditStatus
   sets: number
   targetMinSets: number
   targetMaxSets: number
   constrainedReasons: VolumeAuditConstrainedReason[]
+  adjustment?: MuscleGroupVolumeAdjustment
 }
 
 export interface MicrocycleVolumeAudit {
@@ -66,18 +88,49 @@ function targetFor(input: {
   return noviceTarget(input.completedSessionCount)
 }
 
-function statusForSets(input: {
+const NO_ADJUSTMENT_CAPACITY: MicrocycleVolumeAdjustmentCapacity = {
+  headroomExisting: 0,
+  headroomNewExercise: 0,
+}
+
+/**
+ * Decide one muscle group's audit outcome, applying 有限容量调整 (bounded volume
+ * adjustment) when the prescription is below target but can be corrected safely.
+ *
+ * Bounded adjustment prefers adding sets to existing main work before introducing a
+ * new main exercise, and it never exceeds the supplied capacity, so per-session caps,
+ * AS safety locks, the blacklist, and the phase pool stay intact. When the deficit
+ * cannot be closed within capacity the group stays `constrained` (if a reason explains
+ * the shortfall) or `fail`, never bypassing safety just to hit a number.
+ */
+function decideMuscleAudit(input: {
   sets: number
   min: number
   max: number
   constrainedReasons: VolumeAuditConstrainedReason[]
-}): VolumeAuditStatus {
-  if (input.constrainedReasons.includes("deload")) return "constrained"
-  if (input.sets < input.min) {
-    return input.constrainedReasons.length > 0 ? "constrained" : "fail"
+  capacity: MicrocycleVolumeAdjustmentCapacity
+}): { status: VolumeAuditStatus; adjustment?: MuscleGroupVolumeAdjustment } {
+  if (input.constrainedReasons.includes("deload")) return { status: "constrained" }
+  if (input.sets > input.max) return { status: "fail" }
+  if (input.sets >= input.min) return { status: "pass" }
+
+  const deficit = input.min - input.sets
+  const { headroomExisting, headroomNewExercise } = input.capacity
+
+  if (deficit <= headroomExisting + headroomNewExercise) {
+    return {
+      status: "adjusted",
+      adjustment: {
+        addedSets: deficit,
+        addedExercise: deficit > headroomExisting,
+        adjustedSets: input.sets + deficit,
+      },
+    }
   }
-  if (input.sets > input.max) return "fail"
-  return "pass"
+
+  return {
+    status: input.constrainedReasons.length > 0 ? "constrained" : "fail",
+  }
 }
 
 function targetForTrainingTypes(input: {
@@ -115,6 +168,69 @@ function auditMuscleGroupKey(muscleGroup: string) {
   }
 
   return muscleGroup
+}
+
+/**
+ * Compute how much main strength volume each muscle group can still absorb safely,
+ * for use as `auditMicrocycleVolume`'s `adjustmentCapacity`. Headroom on existing main
+ * work never breaks the per-exercise or per-session set cap; a new safe exercise's
+ * headroom is only offered for muscle groups the engine reports still have a usable
+ * candidate (`muscleGroupsWithSafeCandidate`), so AS locks, the blacklist, and the
+ * phase pool are respected by construction.
+ */
+export function computeMicrocycleAdjustmentCapacity(input: {
+  sessions: Array<{ exercises: WorkoutPlanExerciseDraft[] }>
+  perExerciseMainSetCap: number
+  perSessionMainSetCap: number
+  muscleGroupsWithSafeCandidate?: Iterable<string>
+  newExerciseSetCount?: number
+}): Record<string, MicrocycleVolumeAdjustmentCapacity> {
+  const headroomExisting = new Map<string, number>()
+
+  for (const session of input.sessions) {
+    const mainStrength = session.exercises.filter(
+      (exercise) =>
+        exercise.phase === "main" &&
+        exercise.plannedAnalysis.exerciseType === "strength",
+    )
+    const sessionMainSets = mainStrength.reduce(
+      (total, exercise) => total + exercise.sets.length,
+      0,
+    )
+    const sessionRoom = Math.max(0, input.perSessionMainSetCap - sessionMainSets)
+
+    for (const exercise of mainStrength) {
+      const addable = Math.min(
+        Math.max(0, input.perExerciseMainSetCap - exercise.sets.length),
+        sessionRoom,
+      )
+      if (addable <= 0) continue
+
+      for (const muscleGroup of exercise.plannedAnalysis.muscleGroups) {
+        const key = auditMuscleGroupKey(muscleGroup)
+        headroomExisting.set(key, (headroomExisting.get(key) ?? 0) + addable)
+      }
+    }
+  }
+
+  const safeCandidateKeys = new Set(
+    [...(input.muscleGroupsWithSafeCandidate ?? [])].map(auditMuscleGroupKey),
+  )
+  const newExerciseSetCount =
+    input.newExerciseSetCount ?? input.perExerciseMainSetCap
+  const keys = new Set([...headroomExisting.keys(), ...safeCandidateKeys])
+
+  return Object.fromEntries(
+    [...keys].map((key) => [
+      key,
+      {
+        headroomExisting: headroomExisting.get(key) ?? 0,
+        headroomNewExercise: safeCandidateKeys.has(key)
+          ? newExerciseSetCount
+          : 0,
+      },
+    ]),
+  )
 }
 
 export function auditSessionVolume(input: {
@@ -164,6 +280,7 @@ export function auditMicrocycleVolume(input: {
     trainingType?: VolumeAuditTrainingType
   }>
   constrainedReasons?: VolumeAuditConstrainedReason[]
+  adjustmentCapacity?: Record<string, MicrocycleVolumeAdjustmentCapacity>
 }): MicrocycleVolumeAudit {
   const constrainedReasons = [
     ...(input.constrainedReasons ?? []),
@@ -215,21 +332,31 @@ export function auditMicrocycleVolume(input: {
     ]),
   ]
   const muscleGroupAudits = Object.fromEntries(
-    auditedMuscleGroups.map((muscleGroup) => [
-      muscleGroup,
-      {
-        status: statusForSets({
-          sets: setsByMuscle.get(muscleGroup) ?? 0,
-          min: target.min,
-          max: target.max,
-          constrainedReasons,
-        }),
-        sets: setsByMuscle.get(muscleGroup) ?? 0,
-        targetMinSets: target.min,
-        targetMaxSets: target.max,
+    auditedMuscleGroups.map((muscleGroup) => {
+      const sets = setsByMuscle.get(muscleGroup) ?? 0
+      const decision = decideMuscleAudit({
+        sets,
+        min: target.min,
+        max: target.max,
         constrainedReasons,
-      },
-    ]),
+        capacity:
+          input.adjustmentCapacity?.[muscleGroup] ?? NO_ADJUSTMENT_CAPACITY,
+      })
+
+      return [
+        muscleGroup,
+        {
+          status: decision.status,
+          sets,
+          targetMinSets: target.min,
+          targetMaxSets: target.max,
+          constrainedReasons,
+          ...(decision.adjustment
+            ? { adjustment: decision.adjustment }
+            : {}),
+        },
+      ]
+    }),
   )
   const statuses = Object.values(muscleGroupAudits).map((audit) => audit.status)
   const status =
@@ -241,7 +368,9 @@ export function auditMicrocycleVolume(input: {
         ? "fail"
         : statuses.includes("constrained")
           ? "constrained"
-          : "pass"
+          : statuses.includes("adjusted")
+            ? "adjusted"
+            : "pass"
 
   return {
     status,

@@ -462,4 +462,27 @@ describe("workout plan route", () => {
     expect(payload.microcycleAudit.status).toBe("constrained")
     expect(payload.microcycleAudit.constrainedReasons).toContain("blacklist")
   })
+
+  it("returns an adjusted microcycle audit that explains the bounded set increase", async () => {
+    const { POST } = await import("@/app/api/ai/workout-plan/route")
+
+    const response = await POST(
+      createRequest({
+        ...createBaseBody(),
+        trainingState: {
+          phase: "novice",
+          completedSessionCount: 40,
+          blacklistedExerciseIds: [],
+        },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.phase).toBe("novice")
+    expect(payload.microcycleAudit.status).toBe("adjusted")
+    expect(payload.microcycleAudit.adjustment.addedSets).toBeGreaterThan(0)
+    expect(payload.microcycleAudit.adjustment.addedExercises).toBe(0)
+    expect(payload.microcycleAudit.summary).toContain("加组")
+  })
 })
