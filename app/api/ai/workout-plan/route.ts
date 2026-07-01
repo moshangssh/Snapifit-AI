@@ -55,6 +55,9 @@ export async function POST(req: Request) {
           "INSUFFICIENT_TRAINING_HISTORY",
           insufficientHistoryMessage(result),
         )
+      default:
+        // 编译期穷尽性检查：新增 PlanWorkoutResult 结局却漏接 wire 映射时会在此报错
+        return result satisfies never
     }
   } catch (error) {
     return handleAIError(error)
