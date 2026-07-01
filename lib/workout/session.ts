@@ -257,6 +257,10 @@ export function setWorkoutExerciseActualRpe(
   exerciseId: string,
   actualRpe: number,
 ): WorkoutSession {
+  // 非有限值（NaN / ±Infinity）不是有效评分：忽略这次更新，既不写入 NaN 污染
+  // 下游配重，也不覆盖既有评分。UI 数字输入已拦一层，这里守住公开 API 边界。
+  if (!Number.isFinite(actualRpe)) return session
+
   const exercises = session.exercises.map((exercise) =>
     exercise.exerciseId === exerciseId && exercise.phase === "main"
       ? { ...exercise, actualRpe: clampActualRpe(actualRpe) }

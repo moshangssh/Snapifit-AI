@@ -311,6 +311,24 @@ describe("workout session core", () => {
     expect(rpeOf(setWorkoutExerciseActualRpe(session, mainExerciseId, 0))).toBe(1)
   })
 
+  it("ignores a non-finite actual RPE instead of persisting NaN", () => {
+    const session = createWorkoutSessionFromPlan(makeInput())
+    const mainExerciseId = session.exercises[0].exerciseId
+
+    // Garbage input (NaN / ±Infinity) must not be stored — it would poison
+    // downstream load math — and must not clobber an already-recorded rating.
+    const afterNaN = setWorkoutExerciseActualRpe(session, mainExerciseId, Number.NaN)
+    expect(afterNaN.exercises[0].actualRpe).toBeUndefined()
+
+    const rated = setWorkoutExerciseActualRpe(session, mainExerciseId, 8)
+    const afterGarbage = setWorkoutExerciseActualRpe(
+      rated,
+      mainExerciseId,
+      Number.NaN,
+    )
+    expect(afterGarbage.exercises[0].actualRpe).toBe(8)
+  })
+
   it("does not record actual RPE on warmup or cooldown exercises", () => {
     const plan = generateSession({
       phase: "novice",
