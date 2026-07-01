@@ -182,8 +182,8 @@ function estimatedOneRepMaxKg(weightKg: number, reps: number): number {
 /**
  * 实际 RPE 相对目标 RPE 的小幅反向修正系数（ADR-0011）。
  * e1RM × 目标强度仍是配重基础；实际 RPE 每高于目标 1 分下次约下调 3%，每低于
- * 1 分上调约 3%，总修正限制在 -9% 到 +6%。缺少实际 RPE 时系数为 1，保持
- * 现有 e1RM 自回归行为不变。
+ * 1 分上调约 3%，总修正限制在 -9% 到 +6%。缺少或非有限实际 RPE 时系数为 1，
+ * 保持现有 e1RM 自回归行为不变。
  */
 const RPE_CORRECTION_PER_POINT = 0.03
 const RPE_CORRECTION_MIN = -0.09
@@ -193,7 +193,9 @@ function actualRpeCorrectionFactor(
   actualRpe: number | undefined,
   targetRpe: TrainingTypeConfig["rpe"],
 ): number {
-  if (typeof actualRpe !== "number") return 1
+  // 非有限值（缺失 / NaN / ±Infinity）一律不修正，避免把 NaN 传导进配重。
+  // typeof 负责把 undefined 收窄掉，Number.isFinite 拦住 NaN/±Infinity。
+  if (typeof actualRpe !== "number" || !Number.isFinite(actualRpe)) return 1
 
   const raw = (targetRpe - actualRpe) * RPE_CORRECTION_PER_POINT
   const bounded = Math.min(

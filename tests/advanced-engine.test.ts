@@ -522,6 +522,22 @@ describe("advanced workout engine actual RPE correction", () => {
     )
   })
 
+  it("falls back to the e1RM base load when actual RPE is non-finite", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    // A malformed actual RPE (NaN / Infinity) must never poison the load with
+    // NaN — it falls back to the uncorrected e1RM base (42.0), like a missing value.
+    expect(
+      mainWeightFor([sessionWith(chestId, 40, 5, Number.NaN)], 240, chestId),
+    ).toBe(42)
+    expect(
+      mainWeightFor(
+        [sessionWith(chestId, 40, 5, Number.POSITIVE_INFINITY)],
+        240,
+        chestId,
+      ),
+    ).toBe(42)
+  })
+
   it("corrects against each training type's own target RPE", () => {
     // An exercise the rotation places on both 肌肥大上 (242, RPE 8) and 耐力上
     // (244, RPE 7), so one actual RPE compares against different targets.
