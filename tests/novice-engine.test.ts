@@ -1326,4 +1326,24 @@ describe("novice workout engine", () => {
     ])
     expect(nextChest?.sets.map((set) => set.plannedReps)).toEqual([8, 8, 8])
   })
+
+  // #80 established this invariance for advanced; it must hold for every engine.
+  // A canonical microcycle (4 sessions aligned to the rotation boundary) must audit
+  // identically regardless of which member session generates the plan. {12,13,14,15}
+  // is the tightest repro: a forward window from session 13 drags deload-16 — which
+  // belongs to the *next* microcycle — into the audit, flipping pass → constrained.
+  it("audits the same canonical microcycle identically from every member session", () => {
+    const audits = [12, 13, 14, 15].map(
+      (count) => generateSession(makeState(count)).microcycleAudit,
+    )
+
+    const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)
+    for (const muscleGroupAudits of rest) {
+      expect(muscleGroupAudits).toEqual(reference)
+    }
+    for (const audit of audits) {
+      expect(audit.status).toBe(audits[0].status)
+    }
+    expect(audits[0].status).toBe("pass")
+  })
 })

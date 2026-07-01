@@ -463,11 +463,22 @@ export function generateSession(
   } = {},
 ): GeneratedIntermediateWorkoutPlan {
   const plan = generateSessionRaw(state, options)
+  // 把微周期重建锚定到轮换边界，使审计始终描述同一个规范 microcycle，与从周期内
+  // 哪一次 session 生成无关（对齐 advanced-engine，见 #80）。前向窗口
+  // （count + index）会跨过轮换边界、并把「基准动作→变式」切换点（第 6 节课）
+  // 后的 session 拖进来，令同一微周期的逐肌群组数随入口剧烈漂移。
+  const sessionsSinceIntermediateStart = Math.max(
+    0,
+    state.completedSessionCount - NOVICE_SESSION_COUNT,
+  )
+  const microcycleStart =
+    state.completedSessionCount -
+    (sessionsSinceIntermediateStart % TEMPLATES.length)
   const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
     generateSessionRaw(
       {
         ...state,
-        completedSessionCount: state.completedSessionCount + index,
+        completedSessionCount: microcycleStart + index,
       },
       options,
     ),

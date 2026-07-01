@@ -424,6 +424,21 @@ describe("intermediate workout engine", () => {
       expect(exercise.sets.map((set) => set.plannedReps)).toEqual([10, 10, 10])
     }
   })
+
+  // #80 established this invariance for advanced; it must hold here too. {72..77} is
+  // one canonical microcycle (all accumulation, all benchmark). A forward window from
+  // session 77 reaches past the benchmark→variant switch (session 6) and stacks the
+  // same muscle repeatedly, so the per-muscle audit must not depend on the entry point.
+  it("audits the same canonical microcycle identically from every member session", () => {
+    const audits = [72, 73, 74, 75, 76, 77].map(
+      (count) => generateSession(makeState(count)).microcycleAudit,
+    )
+
+    const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)
+    for (const muscleGroupAudits of rest) {
+      expect(muscleGroupAudits).toEqual(reference)
+    }
+  })
 })
 
 describe("intermediate workout engine AS safety lock", () => {
