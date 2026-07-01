@@ -1,22 +1,16 @@
 import type {
-  RecentWorkoutSessionSummary,
-  TrainingPhase,
-  TrainingState,
   WorkoutAuditStatus,
   WorkoutExercisePhase,
-  WorkoutPlanContextSnapshot,
   WorkoutMicrocycleAuditSnapshot,
   WorkoutPlanExerciseDraft,
   WorkoutSessionAuditSnapshot,
   WorkoutVolumeAdjustmentSummary,
 } from "@/lib/workout/types"
-import { generateSession } from "@/lib/workout/engine/adaptive-engine"
+import type {
+  MicrocycleVolumeAudit,
+  SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 
-const MICROCYCLE_SESSION_COUNTS: Record<TrainingPhase, number> = {
-  novice: 4,
-  intermediate: 6,
-  advanced: 6,
-}
 const REQUIRED_SESSION_PHASES: WorkoutExercisePhase[] = [
   "warmup",
   "main",
@@ -24,30 +18,7 @@ const REQUIRED_SESSION_PHASES: WorkoutExercisePhase[] = [
 ]
 const MISSING_THREE_PHASE_STRUCTURE = "missing_three_phase_structure"
 
-interface AuditedWorkoutPlan {
-  phase: TrainingPhase
-  trainingState: TrainingState
-  exercises: WorkoutPlanExerciseDraft[]
-  sessionAudit?: {
-    status: WorkoutAuditStatus
-    constrainedReasons?: string[]
-  }
-  microcycleAudit?: {
-    status: WorkoutAuditStatus
-    constrainedReasons?: string[]
-    muscleGroupAudits?: Record<
-      string,
-      {
-        status: WorkoutAuditStatus
-        adjustment?: {
-          addedSets: number
-          addedExercise: boolean
-          adjustedSets: number
-        }
-      }
-    >
-  }
-}
+type PlanExercises = { exercises: WorkoutPlanExerciseDraft[] }
 
 export function countMainStrengthSets(
   exercises: readonly WorkoutPlanExerciseDraft[],
@@ -65,39 +36,27 @@ function missingSessionPhases(
   return REQUIRED_SESSION_PHASES.filter((phase) => !phases.has(phase))
 }
 
-function auditStatusForPlans(plans: readonly AuditedWorkoutPlan[]) {
+function auditStatusForPlans(plans: readonly PlanExercises[]) {
   return plans.some((plan) => missingSessionPhases(plan.exercises).length > 0)
     ? "fail"
     : "pass"
 }
 
-function reasonCodesForPlans(plans: readonly AuditedWorkoutPlan[]) {
+function reasonCodesForPlans(plans: readonly PlanExercises[]) {
   return auditStatusForPlans(plans) === "fail"
     ? [MISSING_THREE_PHASE_STRUCTURE]
     : undefined
 }
 
-function nextTrainingStateAfterPlan(
-  plan: AuditedWorkoutPlan,
-): TrainingState {
-  return {
-    ...plan.trainingState,
-    completedSessionCount: plan.trainingState.completedSessionCount + 1,
-  }
-}
-
 /**
- * Summarize 有限容量调整 (bounded volume adjustment) from a microcycle audit, so the
- * snapshot can explain what the engine corrected (added sets / new exercises and which
+ * Summarize 有限容量调整 (bounded volume adjustment) from a microcycle volume audit, so
+ * the 审计快照 can explain what the engine corrected (added sets / new exercises and which
  * muscle groups). Returns undefined when nothing was adjusted.
  */
 function summarizeAdjustment(
-  microcycleAudit: AuditedWorkoutPlan["microcycleAudit"],
+  microcycleAudit: MicrocycleVolumeAudit,
 ): WorkoutVolumeAdjustmentSummary | undefined {
-  const muscleGroupAudits = microcycleAudit?.muscleGroupAudits
-  if (!muscleGroupAudits) return undefined
-
-  const adjusted = Object.entries(muscleGroupAudits).filter(
+  const adjusted = Object.entries(microcycleAudit.muscleGroupAudits).filter(
     ([, audit]) => audit.status === "adjusted" && audit.adjustment,
   )
   if (adjusted.length === 0) return undefined
@@ -114,64 +73,35 @@ function summarizeAdjustment(
   }
 }
 
-function generateMicrocyclePlans(input: {
-  currentPlan: AuditedWorkoutPlan
-  sessionCount: number
-  effectiveUserWeightKg?: number
-  recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
-  fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
-}): AuditedWorkoutPlan[] {
-  const plans: AuditedWorkoutPlan[] = [input.currentPlan]
-  let nextState = nextTrainingStateAfterPlan(input.currentPlan)
-
-  while (plans.length < input.sessionCount) {
-    const plan = generateSession(nextState, {
-      effectiveUserWeightKg: input.effectiveUserWeightKg,
-      recentWorkoutSessionSummaries: input.recentWorkoutSessionSummaries,
-      fatigueSnapshot: input.fatigueSnapshot,
-    })
-
-    plans.push(plan)
-    nextState = nextTrainingStateAfterPlan(plan)
-  }
-
-  return plans
-}
-
-export function createAuditSnapshots(input: {
-  plan: AuditedWorkoutPlan
-  effectiveUserWeightKg?: number
-  recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
-  fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
+/**
+ * Map the engine's internal volume audits into the external 审计快照, reusing the one
+ * rotation-aligned microcycle the engine already generated (see #80 / ADR-0012). No
+ * session is regenerated here; `microcyclePlans` is the canonical microcycle the caller
+ * built once, and the `*VolumeAudit` inputs are its already-computed detailed audits.
+ */
+export function toAuditSnapshots(input: {
+  sessionExercises: readonly WorkoutPlanExerciseDraft[]
+  microcyclePlans: readonly PlanExercises[]
+  sessionVolumeAudit: SessionVolumeAudit
+  microcycleVolumeAudit: MicrocycleVolumeAudit
 }): {
   sessionAudit: WorkoutSessionAuditSnapshot
   microcycleAudit: WorkoutMicrocycleAuditSnapshot
 } {
-  const mainSetCount = countMainStrengthSets(input.plan.exercises)
-  const sessionMissingPhases = missingSessionPhases(input.plan.exercises)
-  const sessionStatus =
-    sessionMissingPhases.length > 0
-      ? "fail"
-      : input.plan.sessionAudit?.status ?? "pass"
+  const mainSetCount = countMainStrengthSets(input.sessionExercises)
+  const sessionMissingPhases = missingSessionPhases(input.sessionExercises)
+  const sessionStatus: WorkoutAuditStatus =
+    sessionMissingPhases.length > 0 ? "fail" : input.sessionVolumeAudit.status
   const sessionReasonCodes =
-    sessionMissingPhases.length > 0
-      ? [MISSING_THREE_PHASE_STRUCTURE]
-      : undefined
-  const sessionCount = MICROCYCLE_SESSION_COUNTS[input.plan.phase]
-  const microcyclePlans = generateMicrocyclePlans({
-    currentPlan: input.plan,
-    sessionCount,
-    effectiveUserWeightKg: input.effectiveUserWeightKg,
-    recentWorkoutSessionSummaries: input.recentWorkoutSessionSummaries,
-    fatigueSnapshot: input.fatigueSnapshot,
-  })
-  const microcycleMainSetCount = microcyclePlans.reduce(
+    sessionMissingPhases.length > 0 ? [MISSING_THREE_PHASE_STRUCTURE] : undefined
+
+  const microcycleMainSetCount = input.microcyclePlans.reduce(
     (sum, plan) => sum + countMainStrengthSets(plan.exercises),
     0,
   )
-  const structureMicrocycleStatus = auditStatusForPlans(microcyclePlans)
-  const detailedMicrocycleStatus = input.plan.microcycleAudit?.status
-  const microcycleStatus =
+  const structureMicrocycleStatus = auditStatusForPlans(input.microcyclePlans)
+  const detailedMicrocycleStatus = input.microcycleVolumeAudit.status
+  const microcycleStatus: WorkoutAuditStatus =
     detailedMicrocycleStatus === "constrained"
       ? "constrained"
       : structureMicrocycleStatus === "fail"
@@ -182,10 +112,10 @@ export function createAuditSnapshots(input: {
   const microcycleReasonCodes =
     microcycleStatus === "constrained" || microcycleStatus === "adjusted"
       ? undefined
-      : reasonCodesForPlans(microcyclePlans)
+      : reasonCodesForPlans(input.microcyclePlans)
   const adjustment =
     microcycleStatus === "adjusted"
-      ? summarizeAdjustment(input.plan.microcycleAudit)
+      ? summarizeAdjustment(input.microcycleVolumeAudit)
       : undefined
   const microcycleSummary = adjustment
     ? `本轮主训练 ${microcycleMainSetCount} 组，已为 ${adjustment.muscleGroups.length} 个肌群加组 ${adjustment.addedSets} 组以达到目标` +
@@ -200,15 +130,15 @@ export function createAuditSnapshots(input: {
       mainSetCount,
       summary: `本次主训练 ${mainSetCount} 组`,
       reasonCodes: sessionReasonCodes,
-      constrainedReasons: input.plan.sessionAudit?.constrainedReasons,
+      constrainedReasons: input.sessionVolumeAudit.constrainedReasons,
     },
     microcycleAudit: {
       status: microcycleStatus,
       mainSetCount: microcycleMainSetCount,
-      sessionCount,
+      sessionCount: input.microcyclePlans.length,
       summary: microcycleSummary,
       reasonCodes: microcycleReasonCodes,
-      constrainedReasons: input.plan.microcycleAudit?.constrainedReasons,
+      constrainedReasons: input.microcycleVolumeAudit.constrainedReasons,
       ...(adjustment ? { adjustment } : {}),
     },
   }

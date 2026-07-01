@@ -4,7 +4,7 @@ import {
   STRENGTH_EXERCISES,
   findVariants,
 } from "@/lib/workout/engine/catalog"
-import { generateSession } from "@/lib/workout/engine/intermediate-engine"
+import { describeVolume, generateSession } from "@/lib/workout/engine/intermediate-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 
 function benchmarkIds(): string[] {
@@ -151,11 +151,9 @@ describe("intermediate workout engine", () => {
     ])
     expect(session.sessionAudit).toMatchObject({
       status: "pass",
-      hasThreePhaseStructure: true,
     })
     expect(session.microcycleAudit).toMatchObject({
-      phase: "intermediate",
-      generatedSessionCount: 6,
+      sessionCount: 6,
     })
   })
 
@@ -431,7 +429,7 @@ describe("intermediate workout engine", () => {
   // same muscle repeatedly, so the per-muscle audit must not depend on the entry point.
   it("audits the same canonical microcycle identically from every member session", () => {
     const audits = [72, 73, 74, 75, 76, 77].map(
-      (count) => generateSession(makeState(count)).microcycleAudit,
+      (count) => describeVolume(makeState(count)).microcycle,
     )
 
     const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)

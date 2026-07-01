@@ -1,20 +1,13 @@
-import type { TrainingPhase, TrainingState } from "@/lib/workout/types"
-import {
-  generateSession as generateAdvancedSession,
-  type GeneratedAdvancedWorkoutPlan,
-} from "@/lib/workout/engine/advanced-engine"
-import {
-  generateSession as generateIntermediateSession,
-  type GeneratedIntermediateWorkoutPlan,
-} from "@/lib/workout/engine/intermediate-engine"
-import {
-  generateSession as generateNoviceSession,
-  type GeneratedWorkoutPlan,
-} from "@/lib/workout/engine/novice-engine"
 import type {
+  GeneratedWorkoutPlan,
   RecentWorkoutSessionSummary,
+  TrainingPhase,
+  TrainingState,
   WorkoutPlanContextSnapshot,
 } from "@/lib/workout/types"
+import { generateSession as generateAdvancedSession } from "@/lib/workout/engine/advanced-engine"
+import { generateSession as generateIntermediateSession } from "@/lib/workout/engine/intermediate-engine"
+import { generateSession as generateNoviceSession } from "@/lib/workout/engine/novice-engine"
 
 export type PhaseTransitionReason =
   | "novice_session_threshold"
@@ -115,10 +108,7 @@ export function generateSession(
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
     fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
   } = {},
-):
-  | GeneratedWorkoutPlan
-  | GeneratedIntermediateWorkoutPlan
-  | GeneratedAdvancedWorkoutPlan {
+): GeneratedWorkoutPlan {
   if (state.phase === "intermediate") {
     return generateIntermediateSession(state, options)
   }

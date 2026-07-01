@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
 import {
+  assessBenchmarkReadiness,
   calculateProgress,
   getBenchmarkCandidateDetails,
   selectBenchmarkCandidates,
+  type BenchmarkCandidateDetail,
+  type BenchmarkTrainingGroup,
 } from "@/lib/workout/engine/benchmark-selection"
 import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
@@ -262,5 +265,70 @@ describe("benchmark exercise selection", () => {
     expect(groups).toContain("legs")
     expect(groups).toContain("arms")
     expect(groups).toContain("core")
+  })
+})
+
+describe("assessBenchmarkReadiness", () => {
+  function candidate(
+    trainingGroup: BenchmarkTrainingGroup,
+    trainingCount: number,
+    id = `${trainingGroup}-${trainingCount}`,
+  ): BenchmarkCandidateDetail {
+    return { id, name: id, trainingGroup, trainingCount, progressWeightKg: 0 }
+  }
+
+  it("is ready for advanced when at least five candidates exist", () => {
+    const candidates = Array.from({ length: 5 }, (_, index) =>
+      candidate("chest", 1, `c${index}`),
+    )
+    expect(assessBenchmarkReadiness(candidates, "advanced")).toEqual({
+      ready: true,
+    })
+  })
+
+  it("is not ready for advanced below five candidates, reporting have/required", () => {
+    const candidates = Array.from({ length: 3 }, (_, index) =>
+      candidate("chest", 1, `c${index}`),
+    )
+    expect(assessBenchmarkReadiness(candidates, "advanced")).toEqual({
+      ready: false,
+      have: 3,
+      required: 5,
+    })
+  })
+
+  it("is ready for intermediate when six distinct groups have been trained", () => {
+    const groups: BenchmarkTrainingGroup[] = [
+      "chest",
+      "back",
+      "shoulders",
+      "legs",
+      "arms",
+      "core",
+    ]
+    const candidates = groups.map((group) => candidate(group, 2))
+    expect(assessBenchmarkReadiness(candidates, "intermediate")).toEqual({
+      ready: true,
+    })
+  })
+
+  it("counts only trained candidates toward intermediate group coverage", () => {
+    // core has a candidate but was never completed (trainingCount 0) → only 5 groups
+    const trained: BenchmarkTrainingGroup[] = [
+      "chest",
+      "back",
+      "shoulders",
+      "legs",
+      "arms",
+    ]
+    const candidates = [
+      ...trained.map((group) => candidate(group, 2)),
+      candidate("core", 0),
+    ]
+    expect(assessBenchmarkReadiness(candidates, "intermediate")).toEqual({
+      ready: false,
+      have: 5,
+      required: 6,
+    })
   })
 })

@@ -3,7 +3,7 @@ import {
   AS_CORE_EXERCISES,
   STRENGTH_EXERCISES,
 } from "@/lib/workout/engine/catalog"
-import { generateSession } from "@/lib/workout/engine/advanced-engine"
+import { describeVolume, generateSession } from "@/lib/workout/engine/advanced-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
@@ -122,11 +122,9 @@ describe("advanced workout engine", () => {
     ])
     expect(sessions[0].sessionAudit).toMatchObject({
       status: "pass",
-      hasThreePhaseStructure: true,
     })
     expect(sessions[0].microcycleAudit).toMatchObject({
-      phase: "advanced",
-      generatedSessionCount: 6,
+      sessionCount: 6,
     })
   })
 
@@ -134,7 +132,7 @@ describe("advanced workout engine", () => {
     // The microcycle audit must describe the canonical rotation, so generating
     // from any session in the cycle yields an identical per-muscle volume audit.
     const audits = [240, 241, 242, 243, 244, 245].map(
-      (count) => generateSession(makeState(count)).microcycleAudit,
+      (count) => describeVolume(makeState(count)).microcycle,
     )
 
     const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)
