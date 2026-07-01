@@ -437,6 +437,16 @@ describe("intermediate workout engine", () => {
       expect(muscleGroupAudits).toEqual(reference)
     }
   })
+
+  // The snapshot's 本轮主训练 N 组 must follow the same canonical rotation as the detailed
+  // audit. [108..113] is the deload microcycle, so a forward-window snapshot drifted across
+  // entry points before #80's completion (44/48/51/56/59/63); it must now report one value.
+  it("reports one microcycle mainSetCount from every member session", () => {
+    const mainSetCounts = [108, 109, 110, 111, 112, 113].map(
+      (count) => generateSession(makeState(count)).microcycleAudit.mainSetCount,
+    )
+    expect(new Set(mainSetCounts).size).toBe(1)
+  })
 })
 
 describe("intermediate workout engine AS safety lock", () => {

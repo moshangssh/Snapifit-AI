@@ -142,6 +142,17 @@ describe("advanced workout engine", () => {
     expect(reference.chest.status).toBe("pass")
   })
 
+  // The snapshot's 本轮主训练 N 组 must follow the same canonical rotation as the detailed
+  // audit. [252..257] is one microcycle that leads into the deload at 258, so a forward-window
+  // snapshot drifted hard across entry points before #80's completion (68/64/61/56/52/48);
+  // the rotation-aligned snapshot must report one value for the whole microcycle.
+  it("reports one microcycle mainSetCount from every member session", () => {
+    const mainSetCounts = [252, 253, 254, 255, 256, 257].map(
+      (count) => generateSession(makeState(count)).microcycleAudit.mainSetCount,
+    )
+    expect(new Set(mainSetCounts).size).toBe(1)
+  })
+
   it("prescribes strength, hypertrophy, and endurance rep ranges with matching RPE", () => {
     const strength = generateSession(makeState(240))
     const hypertrophy = generateSession(makeState(242))

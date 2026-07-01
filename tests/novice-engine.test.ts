@@ -1349,4 +1349,14 @@ describe("novice workout engine", () => {
     }
     expect(audits[0].status).toBe("pass")
   })
+
+  // The snapshot's 本轮主训练 N 组 must follow the same canonical rotation as the detailed
+  // audit above. Before #80 was completed the snapshot summed a forward window and drifted
+  // across entry points (54/49/45/40 for one microcycle); it must now be invariant.
+  it("reports one microcycle mainSetCount from every member session", () => {
+    const mainSetCounts = [12, 13, 14, 15].map(
+      (count) => generateSession(makeState(count)).microcycleAudit.mainSetCount,
+    )
+    expect(new Set(mainSetCounts).size).toBe(1)
+  })
 })
