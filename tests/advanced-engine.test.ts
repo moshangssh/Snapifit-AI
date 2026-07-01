@@ -422,6 +422,136 @@ describe("advanced workout engine e1RM autoregulation", () => {
   })
 })
 
+describe("advanced workout engine actual RPE correction", () => {
+  function sessionWith(
+    exerciseId: string,
+    weightKg: number,
+    reps: number,
+    actualRpe?: number,
+    completedAt = "2026-06-01T00:00:00.000Z",
+    sets = 3,
+  ): RecentWorkoutSessionSummary {
+    return {
+      completedAt,
+      exercises: [
+        {
+          catalogExerciseId: exerciseId,
+          exerciseName: "benchmark",
+          phase: "main",
+          completedSets: sets,
+          wasReplaced: false,
+          wasSkipped: false,
+          actualRpe,
+          muscleGroups: ["chest"],
+          sets: Array.from({ length: sets }, () => ({
+            plannedWeightKg: weightKg,
+            plannedReps: reps,
+            actualWeightKg: weightKg,
+            actualReps: reps,
+            isCompleted: true,
+            isSkipped: false,
+          })),
+        },
+      ],
+    }
+  }
+
+  function mainWeightFor(
+    history: RecentWorkoutSessionSummary[],
+    completedSessionCount: number,
+    exerciseId: string,
+  ) {
+    return generateSession(makeState(completedSessionCount), {
+      recentWorkoutSessionSummaries: history,
+    }).exercises.find(
+      (exercise) =>
+        exercise.phase === "main" && exercise.catalogExerciseId === exerciseId,
+    )?.sets[0]?.plannedWeightKg
+  }
+
+  it("lowers the next load when actual RPE is above target (~3% per point)", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    // strength day (target RPE 9), 40×5 → e1RM 46.667 × 0.90 = 42.0 base.
+    // Actual RPE 10 (1 over) → −3% → 40.75; RPE 11 (2 over) → −6% → 39.5.
+    expect(mainWeightFor([sessionWith(chestId, 40, 5, 10)], 240, chestId)).toBe(
+      40.75,
+    )
+    expect(mainWeightFor([sessionWith(chestId, 40, 5, 11)], 240, chestId)).toBe(
+      39.5,
+    )
+  })
+
+  it("raises the next load when actual RPE is below target (~3% per point)", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    // strength day (target RPE 9), 40×5 base 42.0.
+    // Actual RPE 8 (1 under) → +3% → 43.25; RPE 7 (2 under) → +6% → 44.5.
+    expect(mainWeightFor([sessionWith(chestId, 40, 5, 8)], 240, chestId)).toBe(
+      43.25,
+    )
+    expect(mainWeightFor([sessionWith(chestId, 40, 5, 7)], 240, chestId)).toBe(
+      44.5,
+    )
+  })
+
+  it("caps the total correction at -9% down and +6% up", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    // strength day (target RPE 9), 40×5 base 42.0.
+    // 4 over would be −12% but the floor is −9% → 38.25 (not 37.0);
+    // an even harsher 6 over stays at the same −9% floor.
+    expect(mainWeightFor([sessionWith(chestId, 40, 5, 13)], 240, chestId)).toBe(
+      38.25,
+    )
+    expect(mainWeightFor([sessionWith(chestId, 40, 5, 15)], 240, chestId)).toBe(
+      38.25,
+    )
+    // 3 under would be +9% but the ceiling is +6% → 44.5 (not 45.75).
+    expect(mainWeightFor([sessionWith(chestId, 40, 5, 6)], 240, chestId)).toBe(
+      44.5,
+    )
+  })
+
+  it("keeps the e1RM base load when actual RPE is missing or equals target", () => {
+    const chestId = lifetimeBenchmarkIds()[0]
+    // Optional field: missing actual RPE must not alter the e1RM autoregulation.
+    expect(
+      mainWeightFor([sessionWith(chestId, 40, 5, undefined)], 240, chestId),
+    ).toBe(42)
+    // Actual RPE exactly at target (9) is a zero-point deviation → no correction.
+    expect(mainWeightFor([sessionWith(chestId, 40, 5, 9)], 240, chestId)).toBe(
+      42,
+    )
+  })
+
+  it("corrects against each training type's own target RPE", () => {
+    // An exercise the rotation places on both 肌肥大上 (242, RPE 8) and 耐力上
+    // (244, RPE 7), so one actual RPE compares against different targets.
+    const hypIds = new Set(
+      generateSession(makeState(242))
+        .exercises.filter((exercise) => exercise.phase === "main")
+        .map((exercise) => exercise.catalogExerciseId),
+    )
+    const sharedId = generateSession(makeState(244))
+      .exercises.filter((exercise) => exercise.phase === "main")
+      .map((exercise) => exercise.catalogExerciseId)
+      .find((id) => typeof id === "string" && hypIds.has(id))!
+    const chestId = lifetimeBenchmarkIds()[0]
+
+    // Same actual RPE 8, one 40×10 performance:
+    //  strength target 9 → 1 under → +3% (48.0 → 49.5)
+    //  hypertrophy target 8 → on target → base (40.0)
+    //  endurance target 7 → 1 over → −3% (33.0 → 32.0)
+    expect(
+      mainWeightFor([sessionWith(chestId, 40, 10, 8)], 240, chestId),
+    ).toBe(49.5)
+    expect(
+      mainWeightFor([sessionWith(sharedId, 40, 10, 8)], 242, sharedId),
+    ).toBe(40)
+    expect(
+      mainWeightFor([sessionWith(sharedId, 40, 10, 8)], 244, sharedId),
+    ).toBe(32)
+  })
+})
+
 describe("advanced workout engine AS safety lock", () => {
   function poolState(
     completedSessionCount: number,
