@@ -7,6 +7,7 @@ import {
   FALLBACK_STRENGTH_ANALYSIS,
   removeWorkoutSessionEntries,
   replaceWorkoutExercise,
+  setWorkoutExerciseActualRpe,
   setWorkoutExerciseDiscomfortFlag,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
@@ -207,6 +208,28 @@ describe("workout session core", () => {
     )
   })
 
+  it("keeps the main exercise actual RPE in the recent workout summary", () => {
+    let session = createWorkoutSessionFromPlan(makeInput())
+    const mainExercise = session.exercises[0]
+
+    session = setWorkoutExerciseActualRpe(session, mainExercise.exerciseId, 9)
+    session = completeWorkoutSet(
+      session,
+      mainExercise.exerciseId,
+      1,
+      "2026-04-23T10:00:00.000Z",
+    )
+
+    const summary = summarizeWorkoutSession({
+      ...session,
+      status: "completed",
+      completedAt: "2026-04-23T10:05:00.000Z",
+    })
+
+    expect(summary.exercises[0].phase).toBe("main")
+    expect(summary.exercises[0].actualRpe).toBe(9)
+  })
+
   it("summarizes discomfort flags for replacement decisions", () => {
     const plan = generateSession(
       {
@@ -246,6 +269,128 @@ describe("workout session core", () => {
     )
 
     expect(exerciseSummary?.discomfortFlag).toBe(true)
+  })
+
+  it("records an action-level actual RPE on a main exercise", () => {
+    const session = createWorkoutSessionFromPlan(makeInput())
+    const mainExerciseId = session.exercises[0].exerciseId
+
+    const rated = setWorkoutExerciseActualRpe(session, mainExerciseId, 8)
+
+    expect(rated.exercises[0].phase).toBe("main")
+    expect(rated.exercises[0].actualRpe).toBe(8)
+  })
+
+  it("allows finishing a workout even when actual RPE was never recorded", () => {
+    let session = createWorkoutSessionFromPlan(makeInput())
+    const first = session.exercises[0].exerciseId
+    const second = session.exercises[1].exerciseId
+
+    for (const setIndex of [1, 2, 3]) {
+      session = completeWorkoutSet(
+        session,
+        first,
+        setIndex,
+        `2026-04-23T10:0${setIndex}:00.000Z`,
+      )
+    }
+    session = completeWorkoutSet(session, second, 1, "2026-04-23T10:04:00.000Z")
+
+    expect(session.exercises[0].actualRpe).toBeUndefined()
+    expect(canCompleteWorkoutSession(session)).toBe(true)
+  })
+
+  it("clamps actual RPE to a whole number within 1 to 10", () => {
+    const session = createWorkoutSessionFromPlan(makeInput())
+    const mainExerciseId = session.exercises[0].exerciseId
+    const rpeOf = (s: ReturnType<typeof setWorkoutExerciseActualRpe>) =>
+      s.exercises[0].actualRpe
+
+    expect(rpeOf(setWorkoutExerciseActualRpe(session, mainExerciseId, 8.4))).toBe(8)
+    expect(rpeOf(setWorkoutExerciseActualRpe(session, mainExerciseId, 12))).toBe(10)
+    expect(rpeOf(setWorkoutExerciseActualRpe(session, mainExerciseId, 0))).toBe(1)
+  })
+
+  it("does not record actual RPE on warmup or cooldown exercises", () => {
+    const plan = generateSession({
+      phase: "novice",
+      completedSessionCount: 2,
+      blacklistedExerciseIds: [],
+    })
+    const session = createWorkoutSessionFromPlan({
+      ...makeInput(),
+      exercises: plan.exercises,
+    })
+    const warmup = session.exercises.find(
+      (exercise) => exercise.phase === "warmup",
+    )
+    const cooldown = session.exercises.find(
+      (exercise) => exercise.phase === "cooldown",
+    )
+
+    const afterWarmup = setWorkoutExerciseActualRpe(
+      session,
+      warmup?.exerciseId ?? "",
+      8,
+    )
+    const afterCooldown = setWorkoutExerciseActualRpe(
+      afterWarmup,
+      cooldown?.exerciseId ?? "",
+      7,
+    )
+
+    expect(
+      afterCooldown.exercises.find((e) => e.phase === "warmup")?.actualRpe,
+    ).toBeUndefined()
+    expect(
+      afterCooldown.exercises.find((e) => e.phase === "cooldown")?.actualRpe,
+    ).toBeUndefined()
+  })
+
+  it("carries actual RPE into progression summary but keeps audit snapshots out of it", () => {
+    const input = {
+      ...makeInput(),
+      sessionAudit: {
+        status: "pass",
+        mainSetCount: 4,
+        summary: "本次主训练 4 组",
+      },
+      microcycleAudit: {
+        status: "pass",
+        mainSetCount: 16,
+        summary: "本轮主训练 16 组",
+      },
+    } satisfies CreateWorkoutSessionInput
+    let session = createWorkoutSessionFromPlan(input)
+    session = setWorkoutExerciseActualRpe(
+      session,
+      session.exercises[0].exerciseId,
+      8,
+    )
+    session = completeWorkoutSet(
+      session,
+      session.exercises[0].exerciseId,
+      1,
+      "2026-04-23T10:00:00.000Z",
+    )
+
+    const summary = summarizeWorkoutSession({
+      ...session,
+      status: "completed",
+      completedAt: "2026-04-23T10:05:00.000Z",
+    })
+    const entries = workoutSessionToExerciseEntries(
+      session,
+      "2026-04-23T10:05:00.000Z",
+    )
+
+    // Actual RPE is demonstrated performance → belongs in the progression summary.
+    expect(summary.exercises[0].actualRpe).toBe(8)
+    // Audit snapshots are prescription context, not performance → never in history.
+    expect(summary).not.toHaveProperty("sessionAudit")
+    expect(summary).not.toHaveProperty("microcycleAudit")
+    expect(entries[0]).not.toHaveProperty("sessionAudit")
+    expect(entries[0]).not.toHaveProperty("actualRpe")
   })
 
   it("syncs changed weight only to later untouched unfinished sets", () => {

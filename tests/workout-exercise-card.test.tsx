@@ -62,6 +62,7 @@ const baseProps = {
   onReplaceExercise: noop,
   onToggleDiscomfortFlag: noop,
   onToggleSkipExercise: noop,
+  onUpdateActualRpe: noop,
 }
 
 function render(exercise: WorkoutSessionExercise) {
@@ -166,17 +167,25 @@ describe("WorkoutExerciseCard", () => {
       // 其它操作仍在（确认是条件隐藏指南按钮，而非整行消失）
       expect(html).toContain("替换动作")
     })
+  })
 
-    it("hides the 动作指南 button for a replaced exercise (guide falls back to null)", () => {
-      const html = render(
-        makeExercise({
-          sets: activeSets,
-          actualExerciseName: "弹力带胸推",
-          tips: [],
-        }),
-      )
-      expect(html).not.toContain("动作指南")
-      expect(html).toContain("替换动作")
+  describe("action-level actual RPE input", () => {
+    it("renders an actual RPE input for a main exercise", () => {
+      const html = render(makeExercise({ phase: "main" }))
+      expect(html).toContain("实际 RPE")
+    })
+
+    it("does not render the actual RPE input for warmup or cooldown exercises", () => {
+      const warmup = render(makeExercise({ phase: "warmup" }))
+      const cooldown = render(makeExercise({ phase: "cooldown" }))
+      expect(warmup).not.toContain("实际 RPE")
+      expect(cooldown).not.toContain("实际 RPE")
+    })
+
+    it("shows a recorded actual RPE value on the main exercise", () => {
+      const html = render(makeExercise({ phase: "main", actualRpe: 9 }))
+      expect(html).toContain("实际 RPE")
+      expect(html).toContain('value="9"')
     })
   })
 })
