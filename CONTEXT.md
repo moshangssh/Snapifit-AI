@@ -56,6 +56,10 @@ _Avoid_: 营养素配比, 宏量比例, 固定五五二分
 A fixed sequence of exercises that defines one training session. The engine rotates through templates (上A → 下A → 上B → 下B → ...) based on completed session count, not calendar dates. Each template specifies warmup, main, and cooldown phases.
 _Avoid_: 训练计划 (too broad; a "plan" spans multiple sessions), 单次训练 (implementation detail)
 
+**三阶段训练结构 (Three-Phase Session Structure)**:
+Every generated resistance-training session contains warmup, main, and cooldown phases. Intermediate, advanced, and deload sessions keep this structure; warmup and cooldown are selected from the session's main muscle focus and are not optional text prompts.
+_Avoid_: 主训练清单, 动作列表
+
 **课次 (Session Count)**:
 The count of completed training sessions. Used as the primary driver for template rotation and deload triggering. A "microcycle" is one full rotation through all templates (4 sessions = 1 microcycle for upper/lower split).
 _Avoid_: 训练周 (calendar week; the engine ignores dates), 第几天
@@ -67,6 +71,10 @@ _Avoid_: 训练水平 (static label; phases are dynamic and transition-based)
 **渐进规则 (Progression Rule)**:
 The algorithm that decides when to increase weight, maintain, reduce reps, or switch exercises. Novice phase uses linear progression (add weight each session if target reps met). Intermediate uses block periodization. Advanced uses daily undulating periodization with RPE-anchored e1RM autoregulation — load floats with recent demonstrated performance rather than a fixed per-session increment.
 _Avoid_: 加重规则 (too narrow; progression includes deload and reps adjustment, not just adding weight)
+
+**实际 RPE (Actual RPE)**:
+The user's per-main-exercise rating of how hard the completed work felt, recorded after the exercise rather than per set. Advanced progression may compare it with the target RPE; warmup and cooldown movements do not require it.
+_Avoid_: 每组 RPE, RIR (not part of the first implementation), 疲劳分
 
 **减载 (Deload)**:
 A planned reduction in training intensity (-30% weight) and volume (-33% sets: 3 → 2) to allow recovery. For novice phase, triggered every 16 sessions, lasting 3 sessions. Exercises and structure remain the same.
@@ -83,6 +91,38 @@ _Avoid_: 疼痛标记 (too clinical), 跳过 (skip implies laziness; this is a s
 **动作指南 (Exercise Guide)**:
 The per-exercise reference content surfaced for a catalog movement: overview, step-by-step instructions, technique tips, common mistakes, and a demo video. It is keyed off the exercise's catalog identity (not the session record) and is purely educational — it never overrides the engine's prescription or the AS safety reminder. The training card shows a compact summary (overview + a few tips/mistakes); the full content, including video and all steps, lives behind a "动作指南" button. Movements with no source content (custom or AI-generated) simply omit the guide.
 _Avoid_: 注意事项 (this names only the AS safety reminder — a fixed, engine-authored safety line shown on every exercise; the guide is the richer, movement-specific content layered beneath it), 教程 (tutorial implies a course; this is reference content)
+
+**力量训练处方 (Resistance Training Prescription)**:
+The engine-generated resistance-training recommendation for a session or phase, covering template structure, main strength volume, progression, deload, and safety constraints. It does not include WHO aerobic-minute targets unless a separate aerobic prescription is explicitly added.
+_Avoid_: 运动处方 (too broad; includes aerobic and clinical screening), 有氧处方
+
+**WHO 肌力建议 (WHO Strength Recommendation)**:
+The WHO physical-activity recommendation subset that asks adults to perform muscle-strengthening activities involving major muscle groups on 2 or more days per week. In this app it is separate from WHO aerobic-minute guidance, which is not part of the resistance-training engine.
+_Avoid_: WHO 完整指南对齐, WHO 有氧目标
+
+**训练容量审计 (Training Volume Audit)**:
+A rules-based check that evaluates whether the prescribed main strength work is within the target set range for the user's training phase and current training context. Novice volume starts from a minimum effective dose (6-10 sets per major muscle group per microcycle), progresses toward 8-12 sets later in novice phase, and changes by block or training type in later phases; warmup, cooldown, mobility, and deload reductions are not treated as ordinary hypertrophy or strength volume.
+_Avoid_: 容量统计 (descriptive only), 肌群统计 (too narrow)
+
+**审计快照 (Audit Snapshot)**:
+The session-level and microcycle-level audit result attached to a generated plan and saved with the workout session. It explains prescription quality to the UI, but it is not user performance data and does not drive progression history.
+_Avoid_: 训练表现, 完成结果
+
+**审计状态 (Audit Status)**:
+The outcome of a 训练容量审计: `pass` for normal compliance, `adjusted` when the engine corrected the prescription, `constrained` when deload, AS safety locks, blacklist, or pool limits intentionally prevent a target, and `fail` for an unexplained engine error.
+_Avoid_: 合格/不合格 (too binary), 错误状态
+
+**有限容量调整 (Bounded Volume Adjustment)**:
+The only automatic correction the engine may apply when strength volume is low: add a small number of sets to an existing main exercise before adding a new exercise, while preserving per-session set caps, AS safety locks, blacklists, and phase exercise pools.
+_Avoid_: 自动补齐 (too broad), 强行达标
+
+**单次训练审计 (Session Audit)**:
+The part of 训练容量审计 that checks one generated session for complete structure and acceptable per-session main strength load. It cannot prove weekly or microcycle muscle coverage by itself.
+_Avoid_: 当日合规, 本次统计
+
+**微周期审计 (Microcycle Audit)**:
+The part of 训练容量审计 that checks one full template rotation for muscle frequency and main strength set targets. A novice microcycle is 4 completed-session slots; intermediate and advanced microcycles are 6 completed-session slots.
+_Avoid_: 周审计 (calendar weeks are not the engine driver), 月度统计
 
 ### Phase Progression
 

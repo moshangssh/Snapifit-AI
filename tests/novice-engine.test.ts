@@ -481,6 +481,101 @@ describe("novice workout engine", () => {
     ).not.toContain(blacklistedExerciseId)
   })
 
+  it("audits blacklisted-away template muscle groups as constrained zero volume", () => {
+    const gluteNoviceCoreIds = STRENGTH_EXERCISES.filter(
+      (exercise) =>
+        exercise.tags.includes("NOVICE_CORE") &&
+        exercise.primaryMuscle === "GLUTES",
+    ).map((exercise) => exercise.id)
+
+    const session = generateSession(makeState(0, gluteNoviceCoreIds))
+
+    expect(gluteNoviceCoreIds.length).toBeGreaterThan(0)
+    expect(session.microcycleAudit.status).toBe("constrained")
+    expect(session.microcycleAudit.muscleGroupAudits.glutes).toMatchObject({
+      status: "constrained",
+      sets: 0,
+      constrainedReasons: ["blacklist"],
+    })
+  })
+
+  it("adjusts a later-novice microcycle below the eight-set target by adding sets", () => {
+    // Sessions 25-72 target 8-12 sets per major muscle group, but the four-template
+    // rotation only prescribes 6 sets each. Bounded volume adjustment closes the gap
+    // by adding sets to existing main work rather than padding with new exercises.
+    // (Session 40's microcycle window avoids the deload weeks at 32-34 and 48-50.)
+    const session = generateSession(makeState(40))
+
+    expect(session.microcycleAudit.status).toBe("adjusted")
+    expect(session.microcycleAudit.muscleGroupAudits.chest).toMatchObject({
+      status: "adjusted",
+      sets: 6,
+      targetMinSets: 8,
+      adjustment: { addedExercise: false, adjustedSets: 8 },
+    })
+  })
+
+  it("stays constrained at the later-novice target when a muscle pool is fully blacklisted", () => {
+    const gluteNoviceCoreIds = STRENGTH_EXERCISES.filter(
+      (exercise) =>
+        exercise.tags.includes("NOVICE_CORE") &&
+        exercise.primaryMuscle === "GLUTES",
+    ).map((exercise) => exercise.id)
+
+    const session = generateSession(makeState(40, gluteNoviceCoreIds))
+
+    // Other muscles are below the eight-set target and get adjusted, but glutes have
+    // no safe pool left, so the microcycle reads constrained rather than bypassing it.
+    expect(session.microcycleAudit.status).toBe("constrained")
+    expect(session.microcycleAudit.muscleGroupAudits.glutes).toMatchObject({
+      status: "constrained",
+      sets: 0,
+      constrainedReasons: ["blacklist"],
+    })
+    expect(
+      session.microcycleAudit.muscleGroupAudits.glutes.adjustment,
+    ).toBeUndefined()
+  })
+
+  it("never places two main-strength exercises on the same audit key in one session", () => {
+    // Guard for the bounded-adjustment per-session cap: computeMicrocycleAdjustment-
+    // Capacity stays safe only because each novice session touches every audit muscle
+    // key at most once (one exercise per distinct primary muscle; one shoulder slot).
+    // If a future template or muscle-key mapping breaks that, two mains could share a
+    // key in one session and the capacity model could over-count past the per-session
+    // cap — this test goes red the moment that becomes reachable.
+    const auditKey = (muscleGroup: string) =>
+      muscleGroup === "side-deltoids" || muscleGroup === "back-deltoids"
+        ? "front-deltoids"
+        : muscleGroup
+
+    for (let completedSessionCount = 0; completedSessionCount < 72; completedSessionCount++) {
+      const session = generateSession(makeState(completedSessionCount))
+      const exercisesPerKey = new Map<string, number>()
+
+      for (const exercise of session.exercises) {
+        if (
+          exercise.phase !== "main" ||
+          exercise.plannedAnalysis.exerciseType !== "strength"
+        ) {
+          continue
+        }
+        for (const key of new Set(
+          exercise.plannedAnalysis.muscleGroups.map(auditKey),
+        )) {
+          exercisesPerKey.set(key, (exercisesPerKey.get(key) ?? 0) + 1)
+        }
+      }
+
+      for (const [key, count] of exercisesPerKey) {
+        expect(
+          count,
+          `session ${completedSessionCount} has ${count} main exercises on "${key}"`,
+        ).toBeLessThanOrEqual(1)
+      }
+    }
+  })
+
   it("keeps more than five blacklisted exercises out across ten generated sessions", () => {
     const blacklistedExerciseIds = Array.from(
       new Set(
@@ -1230,5 +1325,25 @@ describe("novice workout engine", () => {
       chestExercise?.sets[0].plannedWeightKg,
     ])
     expect(nextChest?.sets.map((set) => set.plannedReps)).toEqual([8, 8, 8])
+  })
+
+  // #80 established this invariance for advanced; it must hold for every engine.
+  // A canonical microcycle (4 sessions aligned to the rotation boundary) must audit
+  // identically regardless of which member session generates the plan. {12,13,14,15}
+  // is the tightest repro: a forward window from session 13 drags deload-16 — which
+  // belongs to the *next* microcycle — into the audit, flipping pass → constrained.
+  it("audits the same canonical microcycle identically from every member session", () => {
+    const audits = [12, 13, 14, 15].map(
+      (count) => generateSession(makeState(count)).microcycleAudit,
+    )
+
+    const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)
+    for (const muscleGroupAudits of rest) {
+      expect(muscleGroupAudits).toEqual(reference)
+    }
+    for (const audit of audits) {
+      expect(audit.status).toBe(audits[0].status)
+    }
+    expect(audits[0].status).toBe("pass")
   })
 })

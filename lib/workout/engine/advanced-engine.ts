@@ -1,16 +1,24 @@
 import {
   EXERCISES_BY_ID,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   resolveMuscleKeys,
   type Exercise,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
+import { buildSupportPhaseExercises } from "@/lib/workout/engine/support-phases"
 import {
   ADVANCED_SESSION_START,
   calculateDeloadParams,
   shouldAdvancedDeload,
 } from "@/lib/workout/engine/deload"
+import {
+  auditMicrocycleVolume,
+  auditSessionVolume,
+  type MicrocycleVolumeAudit,
+  type SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   RecentWorkoutSessionSummary,
@@ -35,7 +43,14 @@ export interface GeneratedAdvancedWorkoutPlan {
   isDeload: boolean
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: SessionVolumeAudit
+  microcycleAudit: MicrocycleVolumeAudit
 }
+
+type RawGeneratedAdvancedWorkoutPlan = Omit<
+  GeneratedAdvancedWorkoutPlan,
+  "sessionAudit" | "microcycleAudit"
+>
 
 interface TemplateDefinition {
   name: TemplateName
@@ -87,6 +102,14 @@ const TEMPLATES: TemplateDefinition[] = [
 /** 本阶段所有模板引用到的肌群（用于校验目录覆盖，消除 fallback 抓取） */
 export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
   ...new Set(TEMPLATES.flatMap((template) => template.mainMuscles)),
+]
+
+const TEMPLATE_MAIN_MUSCLE_KEYS = [
+  ...new Set(
+    TEMPLATES.flatMap((template) =>
+      template.mainMuscles.flatMap((muscle) => MUSCLE_MAP[muscle]),
+    ),
+  ),
 ]
 
 const TRAINING_TYPE_CONFIG: Record<TrainingType, TrainingTypeConfig> = {
@@ -156,6 +179,32 @@ function estimatedOneRepMaxKg(weightKg: number, reps: number): number {
   return weightKg * (1 + reps / 30)
 }
 
+/**
+ * 实际 RPE 相对目标 RPE 的小幅反向修正系数（ADR-0011）。
+ * e1RM × 目标强度仍是配重基础；实际 RPE 每高于目标 1 分下次约下调 3%，每低于
+ * 1 分上调约 3%，总修正限制在 -9% 到 +6%。缺少或非有限实际 RPE 时系数为 1，
+ * 保持现有 e1RM 自回归行为不变。
+ */
+const RPE_CORRECTION_PER_POINT = 0.03
+const RPE_CORRECTION_MIN = -0.09
+const RPE_CORRECTION_MAX = 0.06
+
+function actualRpeCorrectionFactor(
+  actualRpe: number | undefined,
+  targetRpe: TrainingTypeConfig["rpe"],
+): number {
+  // 非有限值（缺失 / NaN / ±Infinity）一律不修正，避免把 NaN 传导进配重。
+  // typeof 负责把 undefined 收窄掉，Number.isFinite 拦住 NaN/±Infinity。
+  if (typeof actualRpe !== "number" || !Number.isFinite(actualRpe)) return 1
+
+  const raw = (targetRpe - actualRpe) * RPE_CORRECTION_PER_POINT
+  const bounded = Math.min(
+    RPE_CORRECTION_MAX,
+    Math.max(RPE_CORRECTION_MIN, raw),
+  )
+  return 1 + bounded
+}
+
 function latestCompletedExercise(
   history: RecentWorkoutSessionSummary[],
   exerciseId: string,
@@ -216,12 +265,13 @@ function plannedTrainingTypeWeightKg(
   config: TrainingTypeConfig,
   history: RecentWorkoutSessionSummary[],
 ): number {
-  const e1rm = recentEstimatedOneRepMaxKg(
-    latestCompletedExercise(history, exercise.id),
-  )
+  const latest = latestCompletedExercise(history, exercise.id)
+  const e1rm = recentEstimatedOneRepMaxKg(latest)
 
   if (typeof e1rm === "number") {
-    return roundToQuarterKg(e1rm * RPE_INTENSITY[config.rpe])
+    // ADR-0011：e1RM × 目标强度为基础，实际 RPE 只做小幅反向修正。
+    const correction = actualRpeCorrectionFactor(latest?.actualRpe, config.rpe)
+    return roundToQuarterKg(e1rm * RPE_INTENSITY[config.rpe] * correction)
   }
 
   return roundToQuarterKg(plannedWeightKg(exercise))
@@ -338,14 +388,14 @@ function selectExercisesForTemplate(
   return selected
 }
 
-export function generateSession(
+function generateSessionRaw(
   state: TrainingState,
   options: {
     effectiveUserWeightKg?: number
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
     fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
   } = {},
-): GeneratedAdvancedWorkoutPlan {
+): RawGeneratedAdvancedWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
@@ -368,6 +418,31 @@ export function generateSession(
     state,
     rotationOffset,
   )
+  const mainExercises = selectedExercises.map((exercise) =>
+    draftMainExercise(
+      exercise,
+      effectiveUserWeightKg,
+      config,
+      plannedTrainingTypeWeightKg(
+        exercise,
+        config,
+        recentWorkoutSessionSummaries,
+      ),
+      isDeload,
+      state.unlockedRiskCategories,
+    ),
+  )
+  const supportExercises = buildSupportPhaseExercises({
+    mainExercises: selectedExercises,
+    blacklist: state.blacklistedExerciseIds,
+    rotationOffset,
+    effectiveUserWeightKg,
+    unlockedRiskCategories: state.unlockedRiskCategories,
+  })
+  const warmup = supportExercises.filter((exercise) => exercise.phase === "warmup")
+  const cooldown = supportExercises.filter(
+    (exercise) => exercise.phase === "cooldown",
+  )
 
   return {
     templateIndex,
@@ -382,19 +457,57 @@ export function generateSession(
           ? state.completedSessionCount
           : state.lastDeloadSession,
     },
-    exercises: selectedExercises.map((exercise) =>
-      draftMainExercise(
-        exercise,
-        effectiveUserWeightKg,
-        config,
-        plannedTrainingTypeWeightKg(
-          exercise,
-          config,
-          recentWorkoutSessionSummaries,
-        ),
-        isDeload,
-        state.unlockedRiskCategories,
-      ),
+    exercises: [...warmup, ...mainExercises, ...cooldown],
+  }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: {
+    effectiveUserWeightKg?: number
+    recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
+    fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
+  } = {},
+): GeneratedAdvancedWorkoutPlan {
+  const plan = generateSessionRaw(state, options)
+  // 把重建锚定到轮换边界，使审计描述的是同一个规范 microcycle，与从周期内
+  // 哪一次 session 生成无关。若用前向窗口（count + index），窗口会跨过
+  // rotationOffset 边界，导致次要肌群容量随入口漂移。
+  const sessionsSinceAdvancedStart = Math.max(
+    0,
+    state.completedSessionCount - ADVANCED_SESSION_START,
+  )
+  const microcycleStart =
+    state.completedSessionCount - (sessionsSinceAdvancedStart % TEMPLATES.length)
+  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
+    generateSessionRaw(
+      {
+        ...state,
+        completedSessionCount: microcycleStart + index,
+      },
+      options,
     ),
+  )
+
+  return {
+    ...plan,
+    sessionAudit: auditSessionVolume({
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+      exercises: plan.exercises,
+    }),
+    microcycleAudit: auditMicrocycleVolume({
+      phase: plan.phase,
+      completedSessionCount: state.completedSessionCount,
+      currentBlock: plan.trainingState.currentBlock,
+      isDeload: microcyclePlans.some((item) => item.isDeload),
+      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
+      constrainedReasons:
+        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
+      sessions: microcyclePlans.map((item) => ({
+        exercises: item.exercises,
+        trainingType: TEMPLATES[item.templateIndex].trainingType,
+      })),
+    }),
   }
 }

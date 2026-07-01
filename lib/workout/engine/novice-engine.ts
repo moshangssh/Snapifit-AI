@@ -1,5 +1,6 @@
 import {
   ALL_EXERCISES,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   resolveMuscleKeys,
   type Exercise,
@@ -15,6 +16,13 @@ import {
   calculateDeloadParams,
   shouldDeload,
 } from "@/lib/workout/engine/deload"
+import {
+  auditMicrocycleVolume,
+  auditSessionVolume,
+  computeMicrocycleAdjustmentCapacity,
+  type MicrocycleVolumeAudit,
+  type SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 import { evaluateProgression } from "@/lib/workout/engine/progression"
 import { findReplacement } from "@/lib/workout/engine/replacement"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
@@ -35,7 +43,14 @@ export interface GeneratedWorkoutPlan {
   isDeload: boolean
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: SessionVolumeAudit
+  microcycleAudit: MicrocycleVolumeAudit
 }
+
+type RawGeneratedWorkoutPlan = Omit<
+  GeneratedWorkoutPlan,
+  "sessionAudit" | "microcycleAudit"
+>
 
 interface GenerateSessionOptions {
   effectiveUserWeightKg?: number
@@ -73,7 +88,7 @@ const TEMPLATES: TemplateDefinition[] = [
     name: "下A",
     asFocus: "lower",
     warmupSupportMuscles: ["GLUTES", "CORE"],
-    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "股四头肌站姿拉伸", muscleGroups: ["quadriceps"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -93,7 +108,7 @@ const TEMPLATES: TemplateDefinition[] = [
     name: "下B",
     asFocus: "lower",
     warmupSupportMuscles: ["GLUTES", "CORE"],
-    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "GLUTES", "CORE"],
+    mainMuscles: ["QUADS", "HAMSTRINGS", "GLUTES", "CORE"],
     cooldownSupport: [
       { name: "臀肌仰卧拉伸", muscleGroups: ["glutes"] },
       { name: "仰卧腹式呼吸", muscleGroups: ["abs"] },
@@ -110,6 +125,24 @@ export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
     ]),
   ),
 ]
+
+const TEMPLATE_MAIN_MUSCLE_KEYS = [
+  ...new Set(
+    TEMPLATES.flatMap((template) =>
+      template.mainMuscles.flatMap((muscle) => MUSCLE_MAP[muscle]),
+    ),
+  ),
+]
+
+/** Unique main muscle groups across the four templates, for adjustment capacity. */
+const TEMPLATE_MAIN_MUSCLE_GROUPS: readonly MuscleGroup[] = [
+  ...new Set(TEMPLATES.flatMap((template) => template.mainMuscles)),
+]
+
+// 有限容量调整的上限：单个 main 动作最多加到 5 组，单次训练 main 总组数不超过 18，
+// 避免审计为了凑容量把训练拉得过长（见 #74 验收：保留单次 main 组数上限）。
+const NOVICE_MAIN_SET_CAP_PER_EXERCISE = 5
+const NOVICE_MAIN_SET_CAP_PER_SESSION = 18
 
 const EXERCISES_BY_ID = new Map(
   ALL_EXERCISES.map((exercise) => [exercise.id, exercise]),
@@ -484,10 +517,10 @@ function resolveMainExerciseReplacements(input: {
   }
 }
 
-export function generateSession(
+function generateSessionRaw(
   state: TrainingState,
   options: GenerateSessionOptions = {},
-): GeneratedWorkoutPlan {
+): RawGeneratedWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
@@ -589,5 +622,94 @@ export function generateSession(
     isDeload,
     trainingState,
     exercises: [...warmup, ...main, ...cooldown],
+  }
+}
+
+/**
+ * Muscle keys that still have at least one AS-safe, non-blacklisted NOVICE_CORE main
+ * exercise the microcycle has not already used. These are the only muscles for which
+ * bounded volume adjustment may introduce a new main exercise; a muscle whose pool is
+ * exhausted by the blacklist or AS lock is intentionally left to read as constrained.
+ */
+function muscleKeysWithSafeMainCandidate(
+  microcyclePlans: RawGeneratedWorkoutPlan[],
+  state: TrainingState,
+): MuscleKey[] {
+  const usedMainIds = new Set(
+    microcyclePlans.flatMap((plan) =>
+      plan.exercises
+        .filter(
+          (exercise) =>
+            exercise.phase === "main" &&
+            exercise.plannedAnalysis.exerciseType === "strength" &&
+            exercise.catalogExerciseId,
+        )
+        .map((exercise) => exercise.catalogExerciseId as string),
+    ),
+  )
+  const keys: MuscleKey[] = []
+
+  for (const muscle of TEMPLATE_MAIN_MUSCLE_GROUPS) {
+    const [candidate] = selectExercises({
+      muscle,
+      tags: ["NOVICE_CORE"],
+      excludeIds: [...state.blacklistedExerciseIds, ...usedMainIds],
+      count: 1,
+      unlockedRiskCategories: state.unlockedRiskCategories,
+    })
+
+    if (candidate) keys.push(...MUSCLE_MAP[muscle])
+  }
+
+  return keys
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: GenerateSessionOptions = {},
+): GeneratedWorkoutPlan {
+  const plan = generateSessionRaw(state, options)
+  // 把微周期重建锚定到轮换边界，使审计始终描述同一个规范 microcycle，与从周期内
+  // 哪一次 session 生成无关（对齐 advanced-engine，见 #80）。用前向窗口
+  // （count + index）会把下一个微周期的 session（例如一节减载）拖进本次审计，
+  // 令同一微周期随入口在 pass/constrained 间漂移。
+  const microcycleStart =
+    state.completedSessionCount -
+    (state.completedSessionCount % TEMPLATES.length)
+  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
+    generateSessionRaw(
+      {
+        ...state,
+        completedSessionCount: microcycleStart + index,
+      },
+      options,
+    ),
+  )
+
+  return {
+    ...plan,
+    sessionAudit: auditSessionVolume({
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+      exercises: plan.exercises,
+    }),
+    microcycleAudit: auditMicrocycleVolume({
+      phase: plan.phase,
+      completedSessionCount: state.completedSessionCount,
+      isDeload: microcyclePlans.some((item) => item.isDeload),
+      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
+      constrainedReasons:
+        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
+      sessions: microcyclePlans,
+      adjustmentCapacity: computeMicrocycleAdjustmentCapacity({
+        sessions: microcyclePlans,
+        perExerciseMainSetCap: NOVICE_MAIN_SET_CAP_PER_EXERCISE,
+        perSessionMainSetCap: NOVICE_MAIN_SET_CAP_PER_SESSION,
+        muscleGroupsWithSafeCandidate: muscleKeysWithSafeMainCandidate(
+          microcyclePlans,
+          state,
+        ),
+      }),
+    }),
   }
 }

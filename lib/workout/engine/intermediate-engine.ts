@@ -1,5 +1,6 @@
 import {
   EXERCISES_BY_ID,
+  MUSCLE_MAP,
   STRENGTH_EXERCISES,
   findVariants,
   resolveMuscleKeys,
@@ -7,6 +8,13 @@ import {
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
+import { buildSupportPhaseExercises } from "@/lib/workout/engine/support-phases"
+import {
+  auditMicrocycleVolume,
+  auditSessionVolume,
+  type MicrocycleVolumeAudit,
+  type SessionVolumeAudit,
+} from "@/lib/workout/engine/volume-audit"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   RecentWorkoutSessionSummary,
@@ -24,7 +32,14 @@ export interface GeneratedIntermediateWorkoutPlan {
   isDeload: boolean
   trainingState: TrainingState
   exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: SessionVolumeAudit
+  microcycleAudit: MicrocycleVolumeAudit
 }
+
+type RawGeneratedIntermediateWorkoutPlan = Omit<
+  GeneratedIntermediateWorkoutPlan,
+  "sessionAudit" | "microcycleAudit"
+>
 
 interface TemplateDefinition {
   name: TemplateName
@@ -54,6 +69,14 @@ const TEMPLATES: TemplateDefinition[] = [
 /** 本阶段所有模板引用到的肌群（用于校验目录覆盖，消除 fallback 抓取） */
 export const TEMPLATE_MUSCLE_GROUPS: readonly MuscleGroup[] = [
   ...new Set(TEMPLATES.flatMap((template) => template.mainMuscles)),
+]
+
+const TEMPLATE_MAIN_MUSCLE_KEYS = [
+  ...new Set(
+    TEMPLATES.flatMap((template) =>
+      template.mainMuscles.flatMap((muscle) => MUSCLE_MAP[muscle]),
+    ),
+  ),
 ]
 
 function analysis(
@@ -366,13 +389,13 @@ function usesBenchmarkExercises(blockSessionIndex: number): boolean {
   )
 }
 
-export function generateSession(
+function generateSessionRaw(
   state: TrainingState,
   options: {
     effectiveUserWeightKg?: number
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
   } = {},
-): GeneratedIntermediateWorkoutPlan {
+): RawGeneratedIntermediateWorkoutPlan {
   const effectiveUserWeightKg = options.effectiveUserWeightKg ?? 70
   const recentWorkoutSessionSummaries =
     options.recentWorkoutSessionSummaries ?? []
@@ -406,6 +429,17 @@ export function generateSession(
             : plannedDeloadWeightKg(exercise, recentWorkoutSessionSummaries),
     }),
   )
+  const supportExercises = buildSupportPhaseExercises({
+    mainExercises: selectedExercises,
+    blacklist: state.blacklistedExerciseIds,
+    rotationOffset,
+    effectiveUserWeightKg,
+    unlockedRiskCategories: state.unlockedRiskCategories,
+  })
+  const warmup = supportExercises.filter((exercise) => exercise.phase === "warmup")
+  const cooldown = supportExercises.filter(
+    (exercise) => exercise.phase === "cooldown",
+  )
 
   return {
     templateIndex,
@@ -417,6 +451,55 @@ export function generateSession(
       currentBlock: block,
       blockStartSession,
     },
-    exercises: mainExercises,
+    exercises: [...warmup, ...mainExercises, ...cooldown],
+  }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: {
+    effectiveUserWeightKg?: number
+    recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
+  } = {},
+): GeneratedIntermediateWorkoutPlan {
+  const plan = generateSessionRaw(state, options)
+  // 把微周期重建锚定到轮换边界，使审计始终描述同一个规范 microcycle，与从周期内
+  // 哪一次 session 生成无关（对齐 advanced-engine，见 #80）。前向窗口
+  // （count + index）会跨过轮换边界、并把「基准动作→变式」切换点（第 6 节课）
+  // 后的 session 拖进来，令同一微周期的逐肌群组数随入口剧烈漂移。
+  const sessionsSinceIntermediateStart = Math.max(
+    0,
+    state.completedSessionCount - NOVICE_SESSION_COUNT,
+  )
+  const microcycleStart =
+    state.completedSessionCount -
+    (sessionsSinceIntermediateStart % TEMPLATES.length)
+  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
+    generateSessionRaw(
+      {
+        ...state,
+        completedSessionCount: microcycleStart + index,
+      },
+      options,
+    ),
+  )
+
+  return {
+    ...plan,
+    sessionAudit: auditSessionVolume({
+      phase: plan.phase,
+      isDeload: plan.isDeload,
+      exercises: plan.exercises,
+    }),
+    microcycleAudit: auditMicrocycleVolume({
+      phase: plan.phase,
+      completedSessionCount: state.completedSessionCount,
+      currentBlock: plan.trainingState.currentBlock,
+      isDeload: microcyclePlans.some((item) => item.isDeload),
+      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
+      constrainedReasons:
+        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
+      sessions: microcyclePlans,
+    }),
   }
 }

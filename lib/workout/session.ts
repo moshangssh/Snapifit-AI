@@ -91,6 +91,8 @@ export function createWorkoutSessionFromPlan(
     templateIndex: input.templateIndex,
     isDeload: input.isDeload,
     phase: input.phase,
+    sessionAudit: input.sessionAudit,
+    microcycleAudit: input.microcycleAudit,
     derived: {
       completedSetCount: 0,
       totalSetCount: 0,
@@ -239,6 +241,29 @@ export function setWorkoutExerciseDiscomfortFlag(
           ...exercise,
           discomfortFlag,
         }
+      : exercise,
+  )
+
+  return refreshWorkoutSessionDerived({ ...session, exercises })
+}
+
+/** 实际 RPE 记录为 1-10 的整数：UI 步进器无上限，进入表现数据前先规整。 */
+function clampActualRpe(value: number): number {
+  return Math.min(10, Math.max(1, Math.round(value)))
+}
+
+export function setWorkoutExerciseActualRpe(
+  session: WorkoutSession,
+  exerciseId: string,
+  actualRpe: number,
+): WorkoutSession {
+  // 非有限值（NaN / ±Infinity）不是有效评分：忽略这次更新，既不写入 NaN 污染
+  // 下游配重，也不覆盖既有评分。UI 数字输入已拦一层，这里守住公开 API 边界。
+  if (!Number.isFinite(actualRpe)) return session
+
+  const exercises = session.exercises.map((exercise) =>
+    exercise.exerciseId === exerciseId && exercise.phase === "main"
+      ? { ...exercise, actualRpe: clampActualRpe(actualRpe) }
       : exercise,
   )
 

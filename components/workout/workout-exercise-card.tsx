@@ -29,6 +29,10 @@ const SET_REPS_INPUT_CLASS =
 const SET_WEIGHT_INPUT_CLASS =
   "h-[14px] w-10 border-0 bg-transparent p-0 text-[11px] leading-none shadow-none ring-offset-0 [appearance:textfield] focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-100 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 
+// 实际 RPE 步进输入：1-10 整数，仅主训练动作、可选、完成前后皆可记录
+const RPE_INPUT_CLASS =
+  "h-6 w-12 rounded-md border-border bg-card px-2 text-center text-[13px] font-semibold tabular-nums shadow-none ring-offset-0 [appearance:textfield] focus-visible:ring-1 focus-visible:ring-foreground focus-visible:ring-offset-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+
 // 卡片上「动作指南」摘要：技巧/常见错误各取前几条；完整内容留待后续切片的指南 Dialog
 const GUIDE_SUMMARY_LIMIT = 3
 
@@ -50,6 +54,7 @@ interface WorkoutExerciseCardProps {
   onReplaceExercise: (exerciseId: string, name: string) => void
   onToggleDiscomfortFlag: (exerciseId: string, discomfortFlag: boolean) => void
   onToggleSkipExercise: (exerciseId: string, isSkipped: boolean) => void
+  onUpdateActualRpe: (exerciseId: string, actualRpe: number) => void
 }
 
 export function WorkoutExerciseCard({
@@ -60,6 +65,7 @@ export function WorkoutExerciseCard({
   onReplaceExercise,
   onToggleDiscomfortFlag,
   onToggleSkipExercise,
+  onUpdateActualRpe,
 }: WorkoutExerciseCardProps) {
   const displayName = exercise.actualExerciseName ?? exercise.plannedExerciseName
   const phase = exercise.phase ?? "main"
@@ -186,6 +192,23 @@ export function WorkoutExerciseCard({
           />
         ))}
       </div>
+
+      {/* 实际 RPE：仅主训练动作显示，完成前后皆可记录，留空即未填、不阻塞完成训练 */}
+      {phase === "main" && !exercise.isExerciseSkipped && (
+        <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">实际 RPE</span>
+          <WorkoutSetNumberInput
+            value={exercise.actualRpe}
+            disabled={false}
+            min={1}
+            step={1}
+            integerOnly
+            className={RPE_INPUT_CLASS}
+            onCommit={(value) => onUpdateActualRpe(exercise.exerciseId, value)}
+          />
+          <span className="text-[11px]">/ 10 · 选填</span>
+        </label>
+      )}
 
       {!isDone && (
         <div className="mt-3 flex flex-wrap gap-2">

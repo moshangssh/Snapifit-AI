@@ -7,7 +7,7 @@ import {
   Dumbbell,
   Sigma,
 } from "lucide-react"
-import type { WorkoutSession } from "@/lib/workout/types"
+import type { WorkoutAuditStatus, WorkoutSession } from "@/lib/workout/types"
 import { canCompleteWorkoutSession } from "@/lib/workout/session"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -32,6 +32,7 @@ interface WorkoutPlanWorkbenchProps {
   onReplaceExercise: (exerciseId: string, name: string) => void
   onToggleDiscomfortFlag: (exerciseId: string, discomfortFlag: boolean) => void
   onToggleSkipExercise: (exerciseId: string, isSkipped: boolean) => void
+  onUpdateActualRpe: (exerciseId: string, actualRpe: number) => void
 }
 
 export function WorkoutPlanWorkbench({
@@ -44,6 +45,7 @@ export function WorkoutPlanWorkbench({
   onReplaceExercise,
   onToggleDiscomfortFlag,
   onToggleSkipExercise,
+  onUpdateActualRpe,
 }: WorkoutPlanWorkbenchProps) {
   const title =
     session.sessionRole === "next" && session.status === "draft"
@@ -59,6 +61,11 @@ export function WorkoutPlanWorkbench({
       ? undefined
       : session.exercises.find((exercise) => !isExerciseDone(exercise))?.exerciseId
   const totalVolumeKg = calculateCompletedVolumeKg(session)
+  const auditStatusLabel = getAuditStatusLabel(session.sessionAudit?.status)
+  const sessionAuditSummary =
+    session.sessionAudit?.summary ?? `本次主训练 ${countMainSets(session)} 组`
+  const microcycleAuditSummary =
+    session.microcycleAudit?.summary ?? "本轮主训练待生成审计"
   const estimatedCalories = Math.round(
     session.exercises.reduce(
       (sum, exercise) =>
@@ -166,6 +173,7 @@ export function WorkoutPlanWorkbench({
                 onReplaceExercise={onReplaceExercise}
                 onToggleDiscomfortFlag={onToggleDiscomfortFlag}
                 onToggleSkipExercise={onToggleSkipExercise}
+                onUpdateActualRpe={onUpdateActualRpe}
               />
             ))}
           </div>
@@ -180,8 +188,8 @@ export function WorkoutPlanWorkbench({
                     </Tile>
                     <div className="card-title flex items-center gap-2">
                       本次肌群容量
-                      <span className="stamp border-[#FDE68A] bg-[#FEF3C7] text-[#92400E]">
-                        待实现
+                      <span className="stamp border-[#BBF7D0] bg-[#DCFCE7] text-[#166534]">
+                        {auditStatusLabel}
                       </span>
                     </div>
                   </div>
@@ -190,9 +198,20 @@ export function WorkoutPlanWorkbench({
                     {session.derived.totalSetCount} 组
                   </span>
                 </div>
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  此功能仍在开发中
-                </p>
+                <div className="mt-4 grid gap-2 text-sm">
+                  <div className="rounded-lg border border-border bg-[var(--surface-subtle)] px-3 py-2">
+                    <div className="text-xs text-muted-foreground">单次训练审计</div>
+                    <div className="mt-1 font-medium text-foreground">
+                      {sessionAuditSummary}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-[var(--surface-subtle)] px-3 py-2">
+                    <div className="text-xs text-muted-foreground">微周期审计</div>
+                    <div className="mt-1 font-medium text-foreground">
+                      {microcycleAuditSummary}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -263,6 +282,20 @@ function calculateCompletedVolumeKg(session: WorkoutSession) {
     }, 0)
     return exerciseTotal + setTotal
   }, 0)
+}
+
+function countMainSets(session: WorkoutSession) {
+  return session.exercises
+    .filter((exercise) => exercise.phase === "main")
+    .reduce((sum, exercise) => sum + exercise.sets.length, 0)
+}
+
+function getAuditStatusLabel(status: WorkoutAuditStatus | undefined) {
+  if (status === "pass") return "处方通过"
+  if (status === "adjusted") return "已调整"
+  if (status === "constrained") return "受限"
+  if (status === "fail") return "未通过"
+  return "未审计"
 }
 
 function getElapsedLabel(startedAt: string | undefined, status: WorkoutSession["status"]) {
