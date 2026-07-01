@@ -140,6 +140,36 @@ export function getBenchmarkCandidateDetails(
   return selected
 }
 
+export type BenchmarkReadiness =
+  | { ready: true }
+  | { ready: false; have: number; required: number }
+
+/**
+ * 判断用户训练史是否足以进入下一阶段并挑选基准动作。高级转换要求至少 5 个候选动作；
+ * 中级转换要求候选覆盖至少 6 个训练组（且有实际训练记录）。not-ready 时返回当前实有数量
+ * 与所需数量，供调用方组织给用户的说明。
+ */
+export function assessBenchmarkReadiness(
+  candidates: readonly BenchmarkCandidateDetail[],
+  nextPhase: "intermediate" | "advanced",
+): BenchmarkReadiness {
+  if (nextPhase === "advanced") {
+    return candidates.length >= 5
+      ? { ready: true }
+      : { ready: false, have: candidates.length, required: 5 }
+  }
+
+  const trainedGroups = new Set(
+    candidates
+      .filter((candidate) => candidate.trainingCount > 0)
+      .map((candidate) => candidate.trainingGroup),
+  )
+
+  return trainedGroups.size >= 6
+    ? { ready: true }
+    : { ready: false, have: trainedGroups.size, required: 6 }
+}
+
 function buildCandidateDetails(
   history: RecentWorkoutSessionSummary[],
   novicePool: readonly Exercise[],

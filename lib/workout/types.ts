@@ -204,6 +204,22 @@ export interface WorkoutPlanExerciseDraft {
   discomfortFlag?: boolean
 }
 
+/**
+ * The engine's single output shape across all three 训练阶段. `phase` is the
+ * discriminant; `sessionAudit`/`microcycleAudit` are the 审计快照 (external audit
+ * representation) — the detailed volume audit stays internal to the engine.
+ */
+export interface GeneratedWorkoutPlan {
+  templateIndex: number
+  templateName: string
+  phase: TrainingPhase
+  isDeload: boolean
+  trainingState: TrainingState
+  exercises: WorkoutPlanExerciseDraft[]
+  sessionAudit: WorkoutSessionAuditSnapshot
+  microcycleAudit: WorkoutMicrocycleAuditSnapshot
+}
+
 export interface CreateWorkoutSessionInput {
   sessionRole: WorkoutSessionRole
   effectiveUserWeightKg: number

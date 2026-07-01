@@ -19,8 +19,10 @@ import {
   type MicrocycleVolumeAudit,
   type SessionVolumeAudit,
 } from "@/lib/workout/engine/volume-audit"
+import { toAuditSnapshots } from "@/lib/workout/engine/audit"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
+  GeneratedWorkoutPlan,
   RecentWorkoutSessionSummary,
   WorkoutExerciseAnalysis,
   WorkoutPlanContextSnapshot,
@@ -36,21 +38,10 @@ type TemplateName =
   | "耐力下"
 type TrainingType = "strength" | "hypertrophy" | "endurance"
 
-export interface GeneratedAdvancedWorkoutPlan {
-  templateIndex: number
-  templateName: TemplateName
-  phase: "advanced"
-  isDeload: boolean
-  trainingState: TrainingState
-  exercises: WorkoutPlanExerciseDraft[]
-  sessionAudit: SessionVolumeAudit
-  microcycleAudit: MicrocycleVolumeAudit
-}
-
 type RawGeneratedAdvancedWorkoutPlan = Omit<
-  GeneratedAdvancedWorkoutPlan,
+  GeneratedWorkoutPlan,
   "sessionAudit" | "microcycleAudit"
->
+> & { templateName: TemplateName }
 
 interface TemplateDefinition {
   name: TemplateName
@@ -461,14 +452,21 @@ function generateSessionRaw(
   }
 }
 
-export function generateSession(
+type GenerateAdvancedOptions = {
+  effectiveUserWeightKg?: number
+  recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
+  fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
+}
+
+function buildVolumeAudits(
   state: TrainingState,
-  options: {
-    effectiveUserWeightKg?: number
-    recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
-    fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
-  } = {},
-): GeneratedAdvancedWorkoutPlan {
+  options: GenerateAdvancedOptions = {},
+): {
+  plan: RawGeneratedAdvancedWorkoutPlan
+  microcyclePlans: RawGeneratedAdvancedWorkoutPlan[]
+  sessionVolumeAudit: SessionVolumeAudit
+  microcycleVolumeAudit: MicrocycleVolumeAudit
+} {
   const plan = generateSessionRaw(state, options)
   // 把重建锚定到轮换边界，使审计描述的是同一个规范 microcycle，与从周期内
   // 哪一次 session 生成无关。若用前向窗口（count + index），窗口会跨过
@@ -490,13 +488,14 @@ export function generateSession(
   )
 
   return {
-    ...plan,
-    sessionAudit: auditSessionVolume({
+    plan,
+    microcyclePlans,
+    sessionVolumeAudit: auditSessionVolume({
       phase: plan.phase,
       isDeload: plan.isDeload,
       exercises: plan.exercises,
     }),
-    microcycleAudit: auditMicrocycleVolume({
+    microcycleVolumeAudit: auditMicrocycleVolume({
       phase: plan.phase,
       completedSessionCount: state.completedSessionCount,
       currentBlock: plan.trainingState.currentBlock,
@@ -510,4 +509,38 @@ export function generateSession(
       })),
     }),
   }
+}
+
+export function generateSession(
+  state: TrainingState,
+  options: GenerateAdvancedOptions = {},
+): GeneratedWorkoutPlan {
+  const { plan, microcyclePlans, sessionVolumeAudit, microcycleVolumeAudit } =
+    buildVolumeAudits(state, options)
+
+  return {
+    ...plan,
+    ...toAuditSnapshots({
+      sessionExercises: plan.exercises,
+      microcyclePlans,
+      sessionVolumeAudit,
+      microcycleVolumeAudit,
+    }),
+  }
+}
+
+/**
+ * Internal seam: the detailed 训练容量审计 over the engine's actual generated
+ * microcycle, for the engine's own tests. `generateSession` returns the 审计快照.
+ */
+export function describeVolume(
+  state: TrainingState,
+  options: GenerateAdvancedOptions = {},
+): { session: SessionVolumeAudit; microcycle: MicrocycleVolumeAudit } {
+  const { sessionVolumeAudit, microcycleVolumeAudit } = buildVolumeAudits(
+    state,
+    options,
+  )
+
+  return { session: sessionVolumeAudit, microcycle: microcycleVolumeAudit }
 }

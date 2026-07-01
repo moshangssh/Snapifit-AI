@@ -3,7 +3,7 @@ import {
   AS_CORE_EXERCISES,
   STRENGTH_EXERCISES,
 } from "@/lib/workout/engine/catalog"
-import { generateSession } from "@/lib/workout/engine/advanced-engine"
+import { describeVolume, generateSession } from "@/lib/workout/engine/advanced-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type { RecentWorkoutSessionSummary } from "@/lib/workout/types"
 
@@ -122,11 +122,9 @@ describe("advanced workout engine", () => {
     ])
     expect(sessions[0].sessionAudit).toMatchObject({
       status: "pass",
-      hasThreePhaseStructure: true,
     })
     expect(sessions[0].microcycleAudit).toMatchObject({
-      phase: "advanced",
-      generatedSessionCount: 6,
+      sessionCount: 6,
     })
   })
 
@@ -134,7 +132,7 @@ describe("advanced workout engine", () => {
     // The microcycle audit must describe the canonical rotation, so generating
     // from any session in the cycle yields an identical per-muscle volume audit.
     const audits = [240, 241, 242, 243, 244, 245].map(
-      (count) => generateSession(makeState(count)).microcycleAudit,
+      (count) => describeVolume(makeState(count)).microcycle,
     )
 
     const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)
@@ -142,6 +140,17 @@ describe("advanced workout engine", () => {
       expect(muscleGroupAudits).toEqual(reference)
     }
     expect(reference.chest.status).toBe("pass")
+  })
+
+  // The snapshot's 本轮主训练 N 组 must follow the same canonical rotation as the detailed
+  // audit. [252..257] is one microcycle that leads into the deload at 258, so a forward-window
+  // snapshot drifted hard across entry points before #80's completion (68/64/61/56/52/48);
+  // the rotation-aligned snapshot must report one value for the whole microcycle.
+  it("reports one microcycle mainSetCount from every member session", () => {
+    const mainSetCounts = [252, 253, 254, 255, 256, 257].map(
+      (count) => generateSession(makeState(count)).microcycleAudit.mainSetCount,
+    )
+    expect(new Set(mainSetCounts).size).toBe(1)
   })
 
   it("prescribes strength, hypertrophy, and endurance rep ranges with matching RPE", () => {

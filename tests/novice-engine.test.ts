@@ -4,7 +4,7 @@ import {
   STRENGTH_EXERCISES,
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
-import { generateSession } from "@/lib/workout/engine/novice-engine"
+import { describeVolume, generateSession } from "@/lib/workout/engine/novice-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import { AS_DIMENSIONS } from "@/tests/fixtures/as-dimensions"
 
@@ -489,10 +489,11 @@ describe("novice workout engine", () => {
     ).map((exercise) => exercise.id)
 
     const session = generateSession(makeState(0, gluteNoviceCoreIds))
+    const volume = describeVolume(makeState(0, gluteNoviceCoreIds))
 
     expect(gluteNoviceCoreIds.length).toBeGreaterThan(0)
     expect(session.microcycleAudit.status).toBe("constrained")
-    expect(session.microcycleAudit.muscleGroupAudits.glutes).toMatchObject({
+    expect(volume.microcycle.muscleGroupAudits.glutes).toMatchObject({
       status: "constrained",
       sets: 0,
       constrainedReasons: ["blacklist"],
@@ -505,9 +506,10 @@ describe("novice workout engine", () => {
     // by adding sets to existing main work rather than padding with new exercises.
     // (Session 40's microcycle window avoids the deload weeks at 32-34 and 48-50.)
     const session = generateSession(makeState(40))
+    const volume = describeVolume(makeState(40))
 
     expect(session.microcycleAudit.status).toBe("adjusted")
-    expect(session.microcycleAudit.muscleGroupAudits.chest).toMatchObject({
+    expect(volume.microcycle.muscleGroupAudits.chest).toMatchObject({
       status: "adjusted",
       sets: 6,
       targetMinSets: 8,
@@ -523,17 +525,18 @@ describe("novice workout engine", () => {
     ).map((exercise) => exercise.id)
 
     const session = generateSession(makeState(40, gluteNoviceCoreIds))
+    const volume = describeVolume(makeState(40, gluteNoviceCoreIds))
 
     // Other muscles are below the eight-set target and get adjusted, but glutes have
     // no safe pool left, so the microcycle reads constrained rather than bypassing it.
     expect(session.microcycleAudit.status).toBe("constrained")
-    expect(session.microcycleAudit.muscleGroupAudits.glutes).toMatchObject({
+    expect(volume.microcycle.muscleGroupAudits.glutes).toMatchObject({
       status: "constrained",
       sets: 0,
       constrainedReasons: ["blacklist"],
     })
     expect(
-      session.microcycleAudit.muscleGroupAudits.glutes.adjustment,
+      volume.microcycle.muscleGroupAudits.glutes.adjustment,
     ).toBeUndefined()
   })
 
@@ -1334,7 +1337,7 @@ describe("novice workout engine", () => {
   // belongs to the *next* microcycle — into the audit, flipping pass → constrained.
   it("audits the same canonical microcycle identically from every member session", () => {
     const audits = [12, 13, 14, 15].map(
-      (count) => generateSession(makeState(count)).microcycleAudit,
+      (count) => describeVolume(makeState(count)).microcycle,
     )
 
     const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)
@@ -1345,5 +1348,15 @@ describe("novice workout engine", () => {
       expect(audit.status).toBe(audits[0].status)
     }
     expect(audits[0].status).toBe("pass")
+  })
+
+  // The snapshot's 本轮主训练 N 组 must follow the same canonical rotation as the detailed
+  // audit above. Before #80 was completed the snapshot summed a forward window and drifted
+  // across entry points (54/49/45/40 for one microcycle); it must now be invariant.
+  it("reports one microcycle mainSetCount from every member session", () => {
+    const mainSetCounts = [12, 13, 14, 15].map(
+      (count) => generateSession(makeState(count)).microcycleAudit.mainSetCount,
+    )
+    expect(new Set(mainSetCounts).size).toBe(1)
   })
 })

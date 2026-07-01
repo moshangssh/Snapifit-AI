@@ -4,7 +4,7 @@ import {
   STRENGTH_EXERCISES,
   findVariants,
 } from "@/lib/workout/engine/catalog"
-import { generateSession } from "@/lib/workout/engine/intermediate-engine"
+import { describeVolume, generateSession } from "@/lib/workout/engine/intermediate-engine"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 
 function benchmarkIds(): string[] {
@@ -151,11 +151,9 @@ describe("intermediate workout engine", () => {
     ])
     expect(session.sessionAudit).toMatchObject({
       status: "pass",
-      hasThreePhaseStructure: true,
     })
     expect(session.microcycleAudit).toMatchObject({
-      phase: "intermediate",
-      generatedSessionCount: 6,
+      sessionCount: 6,
     })
   })
 
@@ -431,13 +429,23 @@ describe("intermediate workout engine", () => {
   // same muscle repeatedly, so the per-muscle audit must not depend on the entry point.
   it("audits the same canonical microcycle identically from every member session", () => {
     const audits = [72, 73, 74, 75, 76, 77].map(
-      (count) => generateSession(makeState(count)).microcycleAudit,
+      (count) => describeVolume(makeState(count)).microcycle,
     )
 
     const [reference, ...rest] = audits.map((audit) => audit.muscleGroupAudits)
     for (const muscleGroupAudits of rest) {
       expect(muscleGroupAudits).toEqual(reference)
     }
+  })
+
+  // The snapshot's 本轮主训练 N 组 must follow the same canonical rotation as the detailed
+  // audit. [108..113] is the deload microcycle, so a forward-window snapshot drifted across
+  // entry points before #80's completion (44/48/51/56/59/63); it must now report one value.
+  it("reports one microcycle mainSetCount from every member session", () => {
+    const mainSetCounts = [108, 109, 110, 111, 112, 113].map(
+      (count) => generateSession(makeState(count)).microcycleAudit.mainSetCount,
+    )
+    expect(new Set(mainSetCounts).size).toBe(1)
   })
 })
 
