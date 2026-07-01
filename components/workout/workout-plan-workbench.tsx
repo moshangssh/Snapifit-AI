@@ -32,6 +32,7 @@ interface WorkoutPlanWorkbenchProps {
   onReplaceExercise: (exerciseId: string, name: string) => void
   onToggleDiscomfortFlag: (exerciseId: string, discomfortFlag: boolean) => void
   onToggleSkipExercise: (exerciseId: string, isSkipped: boolean) => void
+  onUpdateActualRpe: (exerciseId: string, actualRpe: number) => void
 }
 
 export function WorkoutPlanWorkbench({
@@ -44,6 +45,7 @@ export function WorkoutPlanWorkbench({
   onReplaceExercise,
   onToggleDiscomfortFlag,
   onToggleSkipExercise,
+  onUpdateActualRpe,
 }: WorkoutPlanWorkbenchProps) {
   const title =
     session.sessionRole === "next" && session.status === "draft"
@@ -171,6 +173,7 @@ export function WorkoutPlanWorkbench({
                 onReplaceExercise={onReplaceExercise}
                 onToggleDiscomfortFlag={onToggleDiscomfortFlag}
                 onToggleSkipExercise={onToggleSkipExercise}
+                onUpdateActualRpe={onUpdateActualRpe}
               />
             ))}
           </div>

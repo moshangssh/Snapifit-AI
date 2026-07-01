@@ -247,6 +247,25 @@ export function setWorkoutExerciseDiscomfortFlag(
   return refreshWorkoutSessionDerived({ ...session, exercises })
 }
 
+/** 实际 RPE 记录为 1-10 的整数：UI 步进器无上限，进入表现数据前先规整。 */
+function clampActualRpe(value: number): number {
+  return Math.min(10, Math.max(1, Math.round(value)))
+}
+
+export function setWorkoutExerciseActualRpe(
+  session: WorkoutSession,
+  exerciseId: string,
+  actualRpe: number,
+): WorkoutSession {
+  const exercises = session.exercises.map((exercise) =>
+    exercise.exerciseId === exerciseId && exercise.phase === "main"
+      ? { ...exercise, actualRpe: clampActualRpe(actualRpe) }
+      : exercise,
+  )
+
+  return refreshWorkoutSessionDerived({ ...session, exercises })
+}
+
 export function canCompleteWorkoutSession(session: WorkoutSession): boolean {
   if (session.status !== "active") return false
   return session.exercises.every((exercise) =>

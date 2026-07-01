@@ -128,6 +128,7 @@ describe("WorkoutPlanWorkbench audit sidebar", () => {
         onReplaceExercise={noop}
         onToggleDiscomfortFlag={noop}
         onToggleSkipExercise={noop}
+        onUpdateActualRpe={noop}
       />,
     )
 
@@ -136,5 +137,25 @@ describe("WorkoutPlanWorkbench audit sidebar", () => {
     expect(html).toContain("本轮主训练 16 组")
     expect(html).not.toContain("待实现")
     expect(html).not.toContain("此功能仍在开发中")
+  })
+
+  it("exposes the actual RPE input on main exercises only", () => {
+    const html = renderToStaticMarkup(
+      <WorkoutPlanWorkbench
+        session={makeSession()}
+        isFinishing={false}
+        onFinishWorkout={noop}
+        onAbandonWorkout={noop}
+        onUpdateSetValue={noop}
+        onCompleteSet={noop}
+        onReplaceExercise={noop}
+        onToggleDiscomfortFlag={noop}
+        onToggleSkipExercise={noop}
+        onUpdateActualRpe={noop}
+      />,
+    )
+
+    // Exactly one RPE input — the single main exercise, not the warmup.
+    expect(html.match(/实际 RPE/g)).toHaveLength(1)
   })
 })

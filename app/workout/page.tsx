@@ -19,6 +19,7 @@ import {
   FALLBACK_STRENGTH_ANALYSIS,
   removeWorkoutSessionEntries,
   replaceWorkoutExercise,
+  setWorkoutExerciseActualRpe,
   setWorkoutExerciseDiscomfortFlag,
   setWorkoutExerciseSkipped,
   updateWorkoutSetValue,
@@ -533,6 +534,11 @@ export default function WorkoutPage() {
       onToggleSkipExercise={(exerciseId, isSkipped) =>
         updateSession((session) =>
           setWorkoutExerciseSkipped(session, exerciseId, isSkipped),
+        )
+      }
+      onUpdateActualRpe={(exerciseId, actualRpe) =>
+        updateSession((session) =>
+          setWorkoutExerciseActualRpe(session, exerciseId, actualRpe),
         )
       }
     />

@@ -86,6 +86,7 @@ export interface WorkoutSessionExercise {
   // 训练引擎字段
   catalogExerciseId?: string  // catalog 动作 ID（用于追踪进度和替换）
   discomfortFlag?: boolean    // 用户标记"感觉不对"（触发立即替换+黑名单）
+  actualRpe?: number          // 动作级实际 RPE（仅 main 动作，可选，不阻塞完成）
 }
 
 export interface TrainingState {
@@ -123,6 +124,7 @@ export interface RecentWorkoutSessionSummary {
     wasReplaced: boolean
     wasSkipped: boolean
     discomfortFlag?: boolean
+    actualRpe?: number
     muscleGroups: string[]
     sets?: Array<{
       plannedWeightKg?: number
