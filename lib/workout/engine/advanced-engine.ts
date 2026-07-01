@@ -179,6 +179,30 @@ function estimatedOneRepMaxKg(weightKg: number, reps: number): number {
   return weightKg * (1 + reps / 30)
 }
 
+/**
+ * 实际 RPE 相对目标 RPE 的小幅反向修正系数（ADR-0011）。
+ * e1RM × 目标强度仍是配重基础；实际 RPE 每高于目标 1 分下次约下调 3%，每低于
+ * 1 分上调约 3%，总修正限制在 -9% 到 +6%。缺少实际 RPE 时系数为 1，保持
+ * 现有 e1RM 自回归行为不变。
+ */
+const RPE_CORRECTION_PER_POINT = 0.03
+const RPE_CORRECTION_MIN = -0.09
+const RPE_CORRECTION_MAX = 0.06
+
+function actualRpeCorrectionFactor(
+  actualRpe: number | undefined,
+  targetRpe: TrainingTypeConfig["rpe"],
+): number {
+  if (typeof actualRpe !== "number") return 1
+
+  const raw = (targetRpe - actualRpe) * RPE_CORRECTION_PER_POINT
+  const bounded = Math.min(
+    RPE_CORRECTION_MAX,
+    Math.max(RPE_CORRECTION_MIN, raw),
+  )
+  return 1 + bounded
+}
+
 function latestCompletedExercise(
   history: RecentWorkoutSessionSummary[],
   exerciseId: string,
@@ -239,12 +263,13 @@ function plannedTrainingTypeWeightKg(
   config: TrainingTypeConfig,
   history: RecentWorkoutSessionSummary[],
 ): number {
-  const e1rm = recentEstimatedOneRepMaxKg(
-    latestCompletedExercise(history, exercise.id),
-  )
+  const latest = latestCompletedExercise(history, exercise.id)
+  const e1rm = recentEstimatedOneRepMaxKg(latest)
 
   if (typeof e1rm === "number") {
-    return roundToQuarterKg(e1rm * RPE_INTENSITY[config.rpe])
+    // ADR-0011：e1RM × 目标强度为基础，实际 RPE 只做小幅反向修正。
+    const correction = actualRpeCorrectionFactor(latest?.actualRpe, config.rpe)
+    return roundToQuarterKg(e1rm * RPE_INTENSITY[config.rpe] * correction)
   }
 
   return roundToQuarterKg(plannedWeightKg(exercise))
