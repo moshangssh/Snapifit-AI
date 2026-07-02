@@ -4,6 +4,12 @@ Snapifit AI tracks daily nutrition, activity, and recovery so the user can make 
 
 ## Language
 
+### 日常记录
+
+**每日记录 (DailyLog)**:
+某一天的完整健康记录——当天的饮食、运动、体重与每日状态,连同由它们派生的当日能量口径(摘要与基础消耗)。以日期为键,是同日决策与写入的最小聚合单元;跨日数据与跨聚合数据(如个人档案 Profile)不属于它。
+_Avoid_: 健康日志 (太宽), 当日数据 (太泛)
+
 ### Nutrition & Diet
 
 **今日热量预算**:
@@ -24,7 +30,7 @@ _Avoid_: 今日热量预算
 
 **基础消耗**:
 The same-day estimated expenditure before recorded exercise is added. It comes from BMR times the user's 日常活动档位. It covers basal metabolism, non-exercise daily movement, and average food thermic effect; it excludes intentional workouts and low-confidence AI metabolic hints.
-_Avoid_: 今日总消耗, 运动消耗, 传统 TDEE, AI 额外消耗
+_Avoid_: 今日总消耗, 运动消耗, 传统 TDEE, AI 额外消耗, 代谢率
 
 **日常活动档位**:
 The user's usual non-exercise activity level used to estimate 基础消耗. It describes ordinary movement such as walking, commuting, chores, standing work, or physical labor; intentional workouts are recorded separately and added outside this multiplier.
