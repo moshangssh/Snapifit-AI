@@ -11,15 +11,16 @@ import type {
 
 /**
  * DailyLog 写入意图。判别式落在**输入**(意图),输出只有一种结局——写好的 DailyLog
- * (区别于 planWorkout 的判别式**输出**)。本片建立首页用到的分支;
- * addEntries(工作台)、replaceSessionEntries(训练页)由后续切片扩展。
+ * (区别于 planWorkout 的判别式**输出**)。
  */
 export type DailyLogWrite =
+  | { kind: "addEntries"; food?: FoodEntry[]; exercise?: ExerciseEntry[] }
   | { kind: "removeEntry"; id: string; type: "food" | "exercise" }
   | { kind: "updateEntry"; entry: FoodEntry | ExerciseEntry; type: "food" | "exercise" }
   | { kind: "setWeight"; weight: number | undefined }
   | { kind: "setDailyStatus"; status: DailyStatus }
   | { kind: "setMealPlanSuggestion"; suggestion: MealPlanSuggestion }
+  | { kind: "replaceSessionEntries"; sessionId: string; entries: ExerciseEntry[] }
   | { kind: "reconcile" }
 
 export interface ApplyDailyLogWriteContext {
@@ -46,6 +47,12 @@ export function applyDailyLogWrite(
 
 function applyStructuralChange(log: DailyLog, write: DailyLogWrite): DailyLog {
   switch (write.kind) {
+    case "addEntries":
+      return {
+        ...log,
+        foodEntries: [...log.foodEntries, ...(write.food ?? [])],
+        exerciseEntries: [...log.exerciseEntries, ...(write.exercise ?? [])],
+      }
     case "removeEntry":
       return write.type === "food"
         ? { ...log, foodEntries: log.foodEntries.filter((entry) => entry.log_id !== write.id) }
@@ -70,12 +77,26 @@ function applyStructuralChange(log: DailyLog, write: DailyLogWrite): DailyLog {
       return { ...log, dailyStatus: write.status }
     case "setMealPlanSuggestion":
       return { ...log, mealPlanSuggestion: write.suggestion }
+    case "replaceSessionEntries":
+      return {
+        ...log,
+        exerciseEntries: [
+          ...log.exerciseEntries.filter(
+            (entry) => !isWorkoutSessionEntry(entry, write.sessionId),
+          ),
+          ...write.entries,
+        ],
+      }
     case "reconcile":
       return log
     default:
       // 编译期穷尽性检查:新增 DailyLogWrite 分支却漏接结构改动时会在此报错
       return write satisfies never
   }
+}
+
+function isWorkoutSessionEntry(entry: ExerciseEntry, sessionId: string): boolean {
+  return entry.log_id.startsWith(`workout:${sessionId}:`)
 }
 
 // 每次写入都从当前 userProfile + log.weight 重算并盖章基础消耗。

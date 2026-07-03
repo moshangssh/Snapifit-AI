@@ -202,6 +202,56 @@ describe("applyDailyLogWrite — setWeight", () => {
   })
 })
 
+describe("applyDailyLogWrite — replaceSessionEntries", () => {
+  it("replaces entries from the same workout session, appends the new entries, recomputes the summary, and stamps 基础消耗", () => {
+    const manualEntry = exerciseEntry({
+      log_id: "manual-entry",
+      exercise_name: "散步",
+      calories_burned_estimated: 70,
+    })
+    const staleSessionEntry = exerciseEntry({
+      log_id: "workout:session-1:bench",
+      exercise_name: "旧卧推",
+      calories_burned_estimated: 86,
+    })
+    const otherSessionEntry = exerciseEntry({
+      log_id: "workout:session-2:squat",
+      exercise_name: "深蹲",
+      calories_burned_estimated: 120,
+    })
+    const newEntries = [
+      exerciseEntry({
+        log_id: "workout:session-1:bench",
+        exercise_name: "卧推",
+        calories_burned_estimated: 100,
+      }),
+      exerciseEntry({
+        log_id: "workout:session-1:row",
+        exercise_name: "划船",
+        calories_burned_estimated: 80,
+      }),
+    ]
+    const log = baseLog({
+      exerciseEntries: [manualEntry, staleSessionEntry, otherSessionEntry],
+    })
+
+    const result = applyDailyLogWrite(
+      log,
+      { kind: "replaceSessionEntries", sessionId: "session-1", entries: newEntries },
+      { userProfile },
+    )
+
+    const expectedExerciseEntries = [manualEntry, otherSessionEntry, ...newEntries]
+    const rates = expectedRates(result)
+    expect(result.exerciseEntries).toEqual(expectedExerciseEntries)
+    expect(result.summary).toEqual(
+      recalculateDailySummary({ ...log, exerciseEntries: expectedExerciseEntries }),
+    )
+    expect(result.calculatedBMR).toBe(rates.bmr)
+    expect(result.baselineExpenditure).toBe(rates.baselineExpenditure)
+  })
+})
+
 describe("applyDailyLogWrite — setDailyStatus & setMealPlanSuggestion", () => {
   it("writes the daily status and stamps 基础消耗", () => {
     const status = { stress: 3, mood: 4, health: 5 }
@@ -239,6 +289,80 @@ describe("applyDailyLogWrite — setDailyStatus & setMealPlanSuggestion", () => 
     )
 
     expect(result.mealPlanSuggestion).toEqual(suggestion)
+  })
+})
+
+describe("applyDailyLogWrite — addEntries", () => {
+  it("appends food entries, recomputes the summary, and stamps 基础消耗", () => {
+    const log = baseLog({ foodEntries: [foodEntry({ log_id: "food-1" })] })
+    const newFood = [foodEntry({ log_id: "food-2" }), foodEntry({ log_id: "food-3" })]
+
+    const result = applyDailyLogWrite(
+      log,
+      { kind: "addEntries", food: newFood },
+      { userProfile },
+    )
+
+    expect(result.foodEntries.map((e) => e.log_id)).toEqual(["food-1", "food-2", "food-3"])
+    expect(result.summary).toEqual(
+      recalculateDailySummary({ ...log, foodEntries: [...log.foodEntries, ...newFood] }),
+    )
+    expect(result.baselineExpenditure).toBe(expectedRates(result).baselineExpenditure)
+  })
+
+  it("appends exercise entries and recomputes the summary", () => {
+    const log = baseLog({ exerciseEntries: [exerciseEntry({ log_id: "exercise-1" })] })
+    const newExercise = [exerciseEntry({ log_id: "exercise-2" })]
+
+    const result = applyDailyLogWrite(
+      log,
+      { kind: "addEntries", exercise: newExercise },
+      { userProfile },
+    )
+
+    expect(result.exerciseEntries.map((e) => e.log_id)).toEqual(["exercise-1", "exercise-2"])
+    expect(result.summary.totalCaloriesBurned).toBeGreaterThan(0)
+  })
+
+  it("appends both food and exercise entries together", () => {
+    const log = baseLog()
+    const newFood = [foodEntry({ log_id: "food-1" })]
+    const newExercise = [exerciseEntry({ log_id: "exercise-1" })]
+
+    const result = applyDailyLogWrite(
+      log,
+      { kind: "addEntries", food: newFood, exercise: newExercise },
+      { userProfile },
+    )
+
+    expect(result.foodEntries).toEqual(newFood)
+    expect(result.exerciseEntries).toEqual(newExercise)
+    expect(result.summary.totalCaloriesConsumed).toBeGreaterThan(0)
+    expect(result.summary.totalCaloriesBurned).toBeGreaterThan(0)
+  })
+
+  it("handles empty arrays without error", () => {
+    const log = baseLog({ foodEntries: [foodEntry()] })
+
+    const result = applyDailyLogWrite(
+      log,
+      { kind: "addEntries", food: [], exercise: [] },
+      { userProfile },
+    )
+
+    expect(result.foodEntries).toEqual(log.foodEntries)
+    expect(result.exerciseEntries).toEqual(log.exerciseEntries)
+    expect(result.baselineExpenditure).toBe(expectedRates(result).baselineExpenditure)
+  })
+
+  it("does not mutate the input log", () => {
+    const log = baseLog({ foodEntries: [foodEntry({ log_id: "food-1" })] })
+    const newFood = [foodEntry({ log_id: "food-2" })]
+
+    applyDailyLogWrite(log, { kind: "addEntries", food: newFood }, { userProfile })
+
+    expect(log.foodEntries).toHaveLength(1)
+    expect(log.foodEntries[0].log_id).toBe("food-1")
   })
 })
 
