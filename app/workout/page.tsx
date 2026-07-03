@@ -11,13 +11,12 @@ import { useToast } from "@/hooks/use-toast"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useWorkoutSessions } from "@/hooks/use-workout-sessions"
-import { recalculateDailySummary } from "@/lib/daily-summary"
+import { applyDailyLogWrite } from "@/lib/apply-daily-log-write"
 import type { AIConfig, DailyLog, UserProfile } from "@/lib/types"
 import {
   completeWorkoutSet,
   createWorkoutSessionFromPlan,
   FALLBACK_STRENGTH_ANALYSIS,
-  removeWorkoutSessionEntries,
   replaceWorkoutExercise,
   setWorkoutExerciseActualRpe,
   setWorkoutExerciseDiscomfortFlag,
@@ -350,21 +349,15 @@ export default function WorkoutPage() {
         exerciseEntries: [],
         summary: emptySummary,
       }
-      const exerciseEntries = [
-        ...removeWorkoutSessionEntries(
-          existingLog.exerciseEntries,
-          finishingSession.sessionId,
-        ),
-        ...entries,
-      ]
-      const updatedLogWithoutSummary: DailyLog = {
-        ...existingLog,
-        exerciseEntries,
-      }
-      const updatedLog: DailyLog = {
-        ...updatedLogWithoutSummary,
-        summary: recalculateDailySummary(updatedLogWithoutSummary),
-      }
+      const updatedLog = applyDailyLogWrite(
+        existingLog,
+        {
+          kind: "replaceSessionEntries",
+          sessionId: finishingSession.sessionId,
+          entries,
+        },
+        { userProfile },
+      )
 
       await saveDailyLog(dateKey, updatedLog)
       await markSessionCompleted({
@@ -375,7 +368,7 @@ export default function WorkoutPage() {
       const currentState = readTrainingState()
       const updatedState = recordCompletedTrainingSession(currentState)
       writeTrainingState(updatedState)
-      toast({ title: "训练已完成", description: "结果已写入今日运动记录。" })
+      toast({ title: "训练已完成", description: "结果已写入训练开始日运动记录。" })
     } catch (error) {
       console.error(error)
       toast({
@@ -394,7 +387,7 @@ export default function WorkoutPage() {
     saveActiveSession,
     saveDailyLog,
     toast,
-    userProfile.goal,
+    userProfile,
   ])
 
   const abandonWorkout = useCallback(async () => {
