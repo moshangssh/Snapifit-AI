@@ -202,6 +202,56 @@ describe("applyDailyLogWrite — setWeight", () => {
   })
 })
 
+describe("applyDailyLogWrite — replaceSessionEntries", () => {
+  it("replaces entries from the same workout session, appends the new entries, recomputes the summary, and stamps 基础消耗", () => {
+    const manualEntry = exerciseEntry({
+      log_id: "manual-entry",
+      exercise_name: "散步",
+      calories_burned_estimated: 70,
+    })
+    const staleSessionEntry = exerciseEntry({
+      log_id: "workout:session-1:bench",
+      exercise_name: "旧卧推",
+      calories_burned_estimated: 86,
+    })
+    const otherSessionEntry = exerciseEntry({
+      log_id: "workout:session-2:squat",
+      exercise_name: "深蹲",
+      calories_burned_estimated: 120,
+    })
+    const newEntries = [
+      exerciseEntry({
+        log_id: "workout:session-1:bench",
+        exercise_name: "卧推",
+        calories_burned_estimated: 100,
+      }),
+      exerciseEntry({
+        log_id: "workout:session-1:row",
+        exercise_name: "划船",
+        calories_burned_estimated: 80,
+      }),
+    ]
+    const log = baseLog({
+      exerciseEntries: [manualEntry, staleSessionEntry, otherSessionEntry],
+    })
+
+    const result = applyDailyLogWrite(
+      log,
+      { kind: "replaceSessionEntries", sessionId: "session-1", entries: newEntries },
+      { userProfile },
+    )
+
+    const expectedExerciseEntries = [manualEntry, otherSessionEntry, ...newEntries]
+    const rates = expectedRates(result)
+    expect(result.exerciseEntries).toEqual(expectedExerciseEntries)
+    expect(result.summary).toEqual(
+      recalculateDailySummary({ ...log, exerciseEntries: expectedExerciseEntries }),
+    )
+    expect(result.calculatedBMR).toBe(rates.bmr)
+    expect(result.baselineExpenditure).toBe(rates.baselineExpenditure)
+  })
+})
+
 describe("applyDailyLogWrite — setDailyStatus & setMealPlanSuggestion", () => {
   it("writes the daily status and stamps 基础消耗", () => {
     const status = { stress: 3, mood: 4, health: 5 }
