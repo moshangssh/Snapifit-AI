@@ -11,10 +11,10 @@ import type {
 
 /**
  * DailyLog 写入意图。判别式落在**输入**(意图),输出只有一种结局——写好的 DailyLog
- * (区别于 planWorkout 的判别式**输出**)。本片建立首页与训练页用到的分支;
- * addEntries(工作台)由后续切片扩展。
+ * (区别于 planWorkout 的判别式**输出**)。覆盖首页、工作台与训练页当前用到的分支。
  */
 export type DailyLogWrite =
+  | { kind: "addEntries"; food?: FoodEntry[]; exercise?: ExerciseEntry[] }
   | { kind: "removeEntry"; id: string; type: "food" | "exercise" }
   | { kind: "updateEntry"; entry: FoodEntry | ExerciseEntry; type: "food" | "exercise" }
   | { kind: "setWeight"; weight: number | undefined }
@@ -47,6 +47,12 @@ export function applyDailyLogWrite(
 
 function applyStructuralChange(log: DailyLog, write: DailyLogWrite): DailyLog {
   switch (write.kind) {
+    case "addEntries":
+      return {
+        ...log,
+        foodEntries: [...log.foodEntries, ...(write.food ?? [])],
+        exerciseEntries: [...log.exerciseEntries, ...(write.exercise ?? [])],
+      }
     case "removeEntry":
       return write.type === "food"
         ? { ...log, foodEntries: log.foodEntries.filter((entry) => entry.log_id !== write.id) }
