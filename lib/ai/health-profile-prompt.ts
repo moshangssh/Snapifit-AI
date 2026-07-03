@@ -52,14 +52,16 @@ export function buildProfilePromptSection(input: {
   const weight = input.weightKg ?? userProfile.weight
 
   const lines = [
-    `- 体重: ${weight} kg`,
-    `- 身高: ${userProfile.height} cm`,
-    `- 年龄: ${userProfile.age} 岁`,
+    `- 体重: ${weight ?? "未知"} kg`,
+    `- 身高: ${userProfile.height ?? "未知"} cm`,
+    `- 年龄: ${userProfile.age ?? "未知"} 岁`,
     `- 性别: ${formatGenderLabel(userProfile.gender)}`,
     `- 活动水平（日常状态，不含刻意运动）: ${
-      ACTIVITY_LEVEL_LABELS[userProfile.activityLevel] || userProfile.activityLevel
+      ACTIVITY_LEVEL_LABELS[userProfile.activityLevel] ||
+      userProfile.activityLevel ||
+      "未知"
     }`,
-    `- 健康目标: ${GOAL_LABELS[userProfile.goal] || userProfile.goal}`,
+    `- 健康目标: ${GOAL_LABELS[userProfile.goal] || userProfile.goal || "未知"}`,
   ]
 
   if (userProfile.targetWeight) {
