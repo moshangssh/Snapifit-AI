@@ -95,7 +95,7 @@ function WorkbenchContent() {
   const [isCompressing, setIsCompressing] = useState(false)
 
   // 使用本地存储钩子获取用户配置
-  const [userProfile] = useLocalStorage("userProfile", {
+  const [userProfile, , isUserProfileHydrated] = useLocalStorage("userProfile", {
     weight: 70,
     height: 170,
     age: 30,
@@ -134,7 +134,7 @@ function WorkbenchContent() {
   const { log: dailyLog, isLogLoaded, commit, tefAnalysisCountdown } = useDailyLogWriter({
     date: dateParam,
     userProfile,
-    isUserProfileHydrated: true, // localStorage 立即可用
+    isUserProfileHydrated,
     aiConfig,
     isAIConfigHydrated,
     getDailyLog,
@@ -309,9 +309,6 @@ function WorkbenchContent() {
         }
         result = await response.json()
       }
-
-      const updatedLog = { ...dailyLog }
-      const shouldScheduleTEF = activeTab === "food" && Array.isArray(result.food) && result.food.length > 0
 
       if (activeTab === "food" && result.food) {
         commit({ kind: "addEntries", food: result.food })
