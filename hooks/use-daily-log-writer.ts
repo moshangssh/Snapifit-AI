@@ -40,8 +40,11 @@ export interface UseDailyLogWriterResult {
   log: DailyLog
   /** 数据是否已从库加载完毕(用于门控依赖存库的派生 effect)。 */
   isLogLoaded: boolean
-  /** 表达一次用户写入意图:核心 → setState → 存库 → 刷新日历。返回写好的 log。 */
-  commit: (write: DailyLogWrite) => DailyLog
+  /**
+   * 表达一次用户写入意图:核心 → setState → 存库 → 刷新日历。返回写好的 log。
+   * 日志尚未加载完毕时拒绝写入并返回 null,防止空骨架覆盖当天已持久化数据(issue #98)。
+   */
+  commit: (write: DailyLogWrite) => DailyLog | null
   /** TEF 分析倒计时(秒),供 UI 展示。 */
   tefAnalysisCountdown: number
 }
@@ -71,26 +74,37 @@ export function useDailyLogWriter(params: UseDailyLogWriterParams): UseDailyLogW
   const [isLogLoaded, setIsLogLoaded] = useState(false)
   const [tefAnalysisCountdown, setTEFAnalysisCountdown] = useState(0)
 
-  // 日期变化或数据库就绪时,加载当天 DailyLog。加载完成前不被空骨架覆盖。
+  // 日期变化或数据库就绪时,加载当天 DailyLog。加载完成前不被空骨架覆盖;
+  // cleanup 置 ignore,防止切日期后旧请求乱序 resolve 时污染新日期状态并误开 commit 守卫。
   useEffect(() => {
     if (dbInitializing) return
     setIsLogLoaded(false)
+    let ignore = false
     Promise.resolve(getDailyLog(date)).then((data) => {
+      if (ignore) return
       setLog(data ?? emptyDailyLog(date))
       setIsLogLoaded(true)
     })
+    return () => {
+      ignore = true
+    }
   }, [date, getDailyLog, dbInitializing])
 
   // 一次用户写入:核心 → setState → 无条件存库 → 刷新日历日期。
+  // 加载完成前 log 还是空骨架,此时写入会整体覆盖当天已持久化数据,直接拒绝。
   const commit = useCallback(
-    (write: DailyLogWrite): DailyLog => {
+    (write: DailyLogWrite): DailyLog | null => {
+      if (!isLogLoaded) {
+        console.warn(`[useDailyLogWriter] ${date} 的日志尚未加载完毕,本次写入被拒绝:`, write.kind)
+        return null
+      }
       const next = applyDailyLogWrite(log, write, { userProfile })
       setLog(next)
       void Promise.resolve(saveDailyLog(next.date, next))
       void Promise.resolve(refreshRecords())
       return next
     },
-    [log, userProfile, saveDailyLog, refreshRecords],
+    [isLogLoaded, date, log, userProfile, saveDailyLog, refreshRecords],
   )
 
   // 基础消耗对账:日志加载或个人档案变更时跑一次 reconcile,
