@@ -5,7 +5,6 @@ import {
   completeWorkoutSet,
   createWorkoutSessionFromPlan,
   FALLBACK_STRENGTH_ANALYSIS,
-  removeWorkoutSessionEntries,
   replaceWorkoutExercise,
   setWorkoutExerciseActualRpe,
   setWorkoutExerciseDiscomfortFlag,
@@ -18,6 +17,7 @@ import {
   getEffectiveUserWeightKg,
   summarizeWorkoutSession,
 } from "@/lib/workout/context"
+import { getWorkoutExerciseEntryLogId } from "@/lib/workout/entry-log-id"
 import { generateSession } from "@/lib/workout/engine/novice-engine"
 import type { DailyLog, UserProfile } from "@/lib/types"
 import type { CreateWorkoutSessionInput } from "@/lib/workout/types"
@@ -522,6 +522,11 @@ describe("workout session core", () => {
     )
 
     expect(entries).toHaveLength(1)
+    // log_id 必须走 entry-log-id 生成器:写入核心按同一模块的谓词识别 session 条目,
+    // 这里手写模板串会让 replaceSessionEntries 去重静默失配(issue #100)。
+    expect(entries[0].log_id).toBe(
+      getWorkoutExerciseEntryLogId(session.sessionId, exerciseId),
+    )
     expect(entries[0].exercise_name).toBe("卧推")
     expect(entries[0].sets).toBe(3)
     expect(entries[0].reps).toBe(8)
@@ -575,38 +580,6 @@ describe("workout session core", () => {
 
     expect(first[0].log_id).toBe(`workout:${session.sessionId}:${exerciseId}`)
     expect(second[0].log_id).toBe(first[0].log_id)
-  })
-
-  it("removes entries derived from the same workout session", () => {
-    let session = createWorkoutSessionFromPlan(makeInput())
-    const exerciseId = session.exercises[0].exerciseId
-    session = completeWorkoutSet(
-      session,
-      exerciseId,
-      1,
-      "2026-04-23T10:00:00.000Z",
-    )
-    const entries = workoutSessionToExerciseEntries(
-      session,
-      "2026-04-23T10:05:00.000Z",
-    )
-    const existing = [
-      {
-        log_id: "manual-entry",
-        exercise_name: "散步",
-        exercise_type: "cardio" as const,
-        duration_minutes: 20,
-        estimated_mets: 3,
-        user_weight: 72,
-        calories_burned_estimated: 70,
-        is_estimated: true,
-      },
-      ...entries,
-    ]
-
-    expect(removeWorkoutSessionEntries(existing, session.sessionId)).toEqual([
-      existing[0],
-    ])
   })
 
   it("skips exercises that have no completed sets even when not skipped", () => {

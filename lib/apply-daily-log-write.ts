@@ -1,5 +1,6 @@
 import { calculateMetabolicRates } from "@/lib/health-utils"
 import { recalculateDailySummary } from "@/lib/daily-summary"
+import { isWorkoutSessionEntry } from "@/lib/workout/entry-log-id"
 import type {
   DailyLog,
   DailyStatus,
@@ -93,10 +94,6 @@ function applyStructuralChange(log: DailyLog, write: DailyLogWrite): DailyLog {
       // 编译期穷尽性检查:新增 DailyLogWrite 分支却漏接结构改动时会在此报错
       return write satisfies never
   }
-}
-
-function isWorkoutSessionEntry(entry: ExerciseEntry, sessionId: string): boolean {
-  return entry.log_id.startsWith(`workout:${sessionId}:`)
 }
 
 // 每次写入都从当前 userProfile + log.weight 重算并盖章基础消耗。

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { applyDailyLogWrite } from "@/lib/apply-daily-log-write"
 import { calculateMetabolicRates } from "@/lib/health-utils"
 import { recalculateDailySummary } from "@/lib/daily-summary"
+import { getWorkoutExerciseEntryLogId } from "@/lib/workout/entry-log-id"
 import type {
   DailyLog,
   ExerciseEntry,
@@ -249,6 +250,24 @@ describe("applyDailyLogWrite — replaceSessionEntries", () => {
     )
     expect(result.calculatedBMR).toBe(rates.bmr)
     expect(result.baselineExpenditure).toBe(rates.baselineExpenditure)
+  })
+
+  it("dedupes entries whose log_id came from getWorkoutExerciseEntryLogId, so re-completing a session never doubles it", () => {
+    // 防漂移契约(issue #100):条目 ID 走真实生成器而非手写字符串。若写入核心的
+    // session 谓词与生成器的前缀格式分家,重复入账同一 session 会产生两份条目,此测试变红。
+    const firstPass = exerciseEntry({
+      log_id: getWorkoutExerciseEntryLogId("session-1", "bench"),
+      exercise_name: "卧推",
+    })
+    const log = baseLog({ exerciseEntries: [firstPass] })
+
+    const result = applyDailyLogWrite(
+      log,
+      { kind: "replaceSessionEntries", sessionId: "session-1", entries: [firstPass] },
+      { userProfile },
+    )
+
+    expect(result.exerciseEntries).toEqual([firstPass])
   })
 })
 
