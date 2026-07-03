@@ -17,13 +17,11 @@ import {
   shouldDeload,
 } from "@/lib/workout/engine/deload"
 import {
-  auditMicrocycleVolume,
-  auditSessionVolume,
   computeMicrocycleAdjustmentCapacity,
   type MicrocycleVolumeAudit,
   type SessionVolumeAudit,
 } from "@/lib/workout/engine/volume-audit"
-import { toAuditSnapshots } from "@/lib/workout/engine/audit"
+import { createEngineSessionScaffold } from "@/lib/workout/engine/session-scaffold"
 import { evaluateProgression } from "@/lib/workout/engine/progression"
 import { findReplacement } from "@/lib/workout/engine/replacement"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
@@ -655,78 +653,37 @@ function muscleKeysWithSafeMainCandidate(
   return keys
 }
 
-function buildVolumeAudits(
+function buildNoviceAdjustmentCapacity(
+  microcyclePlans: RawGeneratedWorkoutPlan[],
   state: TrainingState,
-  options: GenerateSessionOptions = {},
-): {
-  plan: RawGeneratedWorkoutPlan
-  microcyclePlans: RawGeneratedWorkoutPlan[]
-  sessionVolumeAudit: SessionVolumeAudit
-  microcycleVolumeAudit: MicrocycleVolumeAudit
-} {
-  const plan = generateSessionRaw(state, options)
-  // 把微周期重建锚定到轮换边界，使审计始终描述同一个规范 microcycle，与从周期内
-  // 哪一次 session 生成无关（对齐 advanced-engine，见 #80）。用前向窗口
-  // （count + index）会把下一个微周期的 session（例如一节减载）拖进本次审计，
-  // 令同一微周期随入口在 pass/constrained 间漂移。
-  const microcycleStart =
-    state.completedSessionCount -
-    (state.completedSessionCount % TEMPLATES.length)
-  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
-    generateSessionRaw(
-      {
-        ...state,
-        completedSessionCount: microcycleStart + index,
-      },
-      options,
+) {
+  return computeMicrocycleAdjustmentCapacity({
+    sessions: microcyclePlans,
+    perExerciseMainSetCap: NOVICE_MAIN_SET_CAP_PER_EXERCISE,
+    perSessionMainSetCap: NOVICE_MAIN_SET_CAP_PER_SESSION,
+    muscleGroupsWithSafeCandidate: muscleKeysWithSafeMainCandidate(
+      microcyclePlans,
+      state,
     ),
-  )
-
-  return {
-    plan,
-    microcyclePlans,
-    sessionVolumeAudit: auditSessionVolume({
-      phase: plan.phase,
-      isDeload: plan.isDeload,
-      exercises: plan.exercises,
-    }),
-    microcycleVolumeAudit: auditMicrocycleVolume({
-      phase: plan.phase,
-      completedSessionCount: state.completedSessionCount,
-      isDeload: microcyclePlans.some((item) => item.isDeload),
-      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
-      constrainedReasons:
-        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
-      sessions: microcyclePlans,
-      adjustmentCapacity: computeMicrocycleAdjustmentCapacity({
-        sessions: microcyclePlans,
-        perExerciseMainSetCap: NOVICE_MAIN_SET_CAP_PER_EXERCISE,
-        perSessionMainSetCap: NOVICE_MAIN_SET_CAP_PER_SESSION,
-        muscleGroupsWithSafeCandidate: muscleKeysWithSafeMainCandidate(
-          microcyclePlans,
-          state,
-        ),
-      }),
-    }),
-  }
+  })
 }
+
+const scaffold = createEngineSessionScaffold<
+  GenerateSessionOptions,
+  RawGeneratedWorkoutPlan
+>({
+  phaseStartSession: 0,
+  templateCount: TEMPLATES.length,
+  expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
+  generateSessionRaw,
+  adjustmentCapacity: buildNoviceAdjustmentCapacity,
+})
 
 export function generateSession(
   state: TrainingState,
   options: GenerateSessionOptions = {},
 ): GeneratedWorkoutPlan {
-  const { plan, microcyclePlans, sessionVolumeAudit, microcycleVolumeAudit } =
-    buildVolumeAudits(state, options)
-
-  return {
-    ...plan,
-    ...toAuditSnapshots({
-      sessionExercises: plan.exercises,
-      microcyclePlans,
-      sessionVolumeAudit,
-      microcycleVolumeAudit,
-    }),
-  }
+  return scaffold.generateSession(state, options)
 }
 
 /**
@@ -738,10 +695,5 @@ export function describeVolume(
   state: TrainingState,
   options: GenerateSessionOptions = {},
 ): { session: SessionVolumeAudit; microcycle: MicrocycleVolumeAudit } {
-  const { sessionVolumeAudit, microcycleVolumeAudit } = buildVolumeAudits(
-    state,
-    options,
-  )
-
-  return { session: sessionVolumeAudit, microcycle: microcycleVolumeAudit }
+  return scaffold.describeVolume(state, options)
 }

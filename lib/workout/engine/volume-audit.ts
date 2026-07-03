@@ -59,7 +59,7 @@ export interface MicrocycleVolumeAudit {
   constrainedReasons: VolumeAuditConstrainedReason[]
 }
 
-type VolumeAuditTrainingType = "strength" | "hypertrophy" | "endurance"
+export type VolumeAuditTrainingType = "strength" | "hypertrophy" | "endurance"
 
 function noviceTarget(completedSessionCount: number) {
   return completedSessionCount <= 24
