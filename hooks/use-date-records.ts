@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { format } from "date-fns"
 import { HEALTH_DB_STORES, openHealthDatabase } from "@/lib/indexed-db"
+import { hasUserRecordedData } from "@/lib/daily-log-record"
 
 interface DateRecordsHook {
   hasRecord: (date: Date) => boolean
@@ -40,18 +41,9 @@ export function useDateRecords(): DateRecordsHook {
 
           if (allLogs && allLogs.length > 0) {
             allLogs.forEach((log) => {
-              if (
-                log &&
-                ((log.foodEntries && log.foodEntries.length > 0) ||
-                  (log.exerciseEntries && log.exerciseEntries.length > 0) ||
-                  log.weight !== undefined ||
-                  log.dailyStatus ||
-                  log.plannedTrainingType ||
-                  log.mealPlanSuggestion ||
-                  log.calculatedBMR ||
-                  log.calculatedTDEE ||
-                  log.tefAnalysis)
-              ) {
+              // 只有用户真正记录过内容才算"有记录";派生的基础消耗盖章
+              // (calculatedBMR 等)在浏览空日时也会写入,不能算作记录。
+              if (hasUserRecordedData(log)) {
                 dates.add(log.date)
               }
             })

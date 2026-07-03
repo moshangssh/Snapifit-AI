@@ -25,6 +25,7 @@ import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useAIMemory } from "@/hooks/use-ai-memory"
 import { EnhancedMessageRenderer } from "@/components/enhanced-message-renderer"
 import type { AIConfig, DailyLog, AIMemoryUpdateRequest } from "@/lib/types"
+import { hasUserRecordedData } from "@/lib/daily-log-record"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import {
@@ -550,16 +551,9 @@ export default function ChatPage() {
         const dateKey = format(date, "yyyy-MM-dd")
         try {
           const log = await getData(dateKey)
-          // 包含任何数据都加载（食物、运动、每日状态、体重等）
-          if (log && (
-            log.foodEntries?.length > 0 ||
-            log.exerciseEntries?.length > 0 ||
-            log.dailyStatus ||
-            log.weight !== undefined ||
-            log.calculatedBMR ||
-            log.calculatedTDEE ||
-            log.tefAnalysis
-          )) {
+          // 只加载用户真正记录过内容的日期;派生的基础消耗盖章不算数据,
+          // 否则仅浏览过的空日会被当作聊天上下文加载。
+          if (hasUserRecordedData(log)) {
             logs.push(log)
           }
         } catch {

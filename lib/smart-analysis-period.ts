@@ -117,22 +117,11 @@ export function getPeriodAnalysisDateKeys(
 
 export function hasPeriodAnalysisData(log: DailyLog | null | undefined): log is DailyLog {
   if (!log) return false
-
   return Boolean(
-    log.foodEntries.length > 0 ||
-      log.exerciseEntries.length > 0 ||
+    log.foodEntries?.length ||
+      log.exerciseEntries?.length ||
       log.weight !== undefined ||
-      log.dailyStatus ||
-      log.tefAnalysis ||
-      log.calculatedBMR ||
-      log.calculatedTDEE ||
-      log.baselineExpenditure ||
-      log.dailyTotalExpenditure ||
-      (log.summary?.totalCaloriesConsumed ?? 0) > 0 ||
-      (log.summary?.totalCaloriesBurned ?? 0) > 0 ||
-      (log.summary?.macros?.protein ?? 0) > 0 ||
-      (log.summary?.macros?.carbs ?? 0) > 0 ||
-      (log.summary?.macros?.fat ?? 0) > 0,
+      log.dailyStatus,
   )
 }
 

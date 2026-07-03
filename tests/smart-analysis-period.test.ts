@@ -25,6 +25,11 @@ function makeLog(
   }
 }
 
+const periodIgnoredOnlyLogCases: Array<[string, Partial<DailyLog>]> = [
+  ["meal suggestions", { mealPlanSuggestion: {} as never }],
+  ["legacy planned training", { plannedTrainingType: "high_output" }],
+]
+
 describe("smart analysis period helpers", () => {
   it("builds inclusive date keys ending at the selected date", () => {
     expect(getPeriodAnalysisDateKeys("7d", "2026-05-23")).toEqual([
@@ -56,7 +61,7 @@ describe("smart analysis period helpers", () => {
     })
   })
 
-  it("treats food, exercise, weight, status, and metabolic data as real records", () => {
+  it("treats user-recorded food, exercise, weight, and status as real records", () => {
     const logs = [
       makeLog("2026-05-17"),
       makeLog("2026-05-18", {
@@ -110,7 +115,8 @@ describe("smart analysis period helpers", () => {
     ]
 
     expect(hasPeriodAnalysisData(logs[0])).toBe(false)
-    expect(logs.filter(hasPeriodAnalysisData)).toHaveLength(5)
+    expect(hasPeriodAnalysisData(logs[5])).toBe(false)
+    expect(logs.filter(hasPeriodAnalysisData)).toHaveLength(4)
   })
 
   it("summarizes only real records and rounds period metrics", () => {
@@ -217,4 +223,51 @@ describe("smart analysis period helpers", () => {
     expect(summary.dailyRecords[0].foodNames).toEqual(["鸡胸肉"])
     expect(summary.dailyRecords[1].exerciseNames).toEqual(["力量训练"])
   })
+
+  it.each(periodIgnoredOnlyLogCases)(
+    "does not count %s as period samples",
+    (_label, ignoredOnlyLog) => {
+      const recordedLog = makeLog("2026-05-18", {
+        summary: {
+          totalCaloriesConsumed: 600,
+          totalCaloriesBurned: 0,
+          macros: { carbs: 70, protein: 30, fat: 20 },
+          micronutrients: {},
+        },
+        foodEntries: [
+          {
+            log_id: "food-1",
+            food_name: "燕麦",
+            consumed_grams: 100,
+            meal_type: "breakfast",
+            nutritional_info_per_100g: {
+              calories: 600,
+              carbohydrates: 70,
+              protein: 30,
+              fat: 20,
+            },
+            total_nutritional_info_consumed: {
+              calories: 600,
+              carbohydrates: 70,
+              protein: 30,
+              fat: 20,
+            },
+            is_estimated: true,
+          },
+        ],
+      })
+
+      const summary = buildPeriodAnalysisSummary({
+        range: "7d",
+        endDate: "2026-05-23",
+        logs: [recordedLog, makeLog("2026-05-19", ignoredOnlyLog)],
+      })
+
+      expect(summary.dataDays).toBe(1)
+      expect(summary.averages.calories).toBe(600)
+      expect(summary.dailyRecords.map((record) => record.date)).toEqual([
+        "2026-05-18",
+      ])
+    },
+  )
 })

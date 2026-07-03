@@ -35,7 +35,6 @@ import { useToast } from "@/hooks/use-toast"
 import type {
   FoodEntry,
   ExerciseEntry,
-  DailyLog,
   AIConfig,
   DailyStatus,
   UserProfile,
@@ -54,11 +53,10 @@ import { BackupAlert } from "@/components/backup-alert"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useDateRecords } from "@/hooks/use-date-records"
-import { calculateMetabolicRates } from "@/lib/health-utils"
+import { useDailyLogWriter } from "@/hooks/use-daily-log-writer"
 import { buildDailyEnergySnapshot } from "@/lib/daily-energy-snapshot"
 import { buildMealPlanBudgetSnapshot } from "@/lib/meal-planning"
 import { syncProfileWeightFromDailyLog } from "@/lib/profile-weight"
-import { scheduleTEFAnalysisForLog } from "@/lib/tef-background-analysis"
 import { formatDateParam, parseDateParam } from "@/lib/date-params"
 import { resolveSmartSuggestionsForDate } from "@/lib/smart-suggestions-history"
 import { cn } from "@/lib/utils"
@@ -94,7 +92,6 @@ function DashboardContent() {
   const currentLocale = zhCN
   const { toast } = useToast()
   const [chartRefreshTrigger, setChartRefreshTrigger] = useState<number>(0)
-  const [tefAnalysisCountdown, setTEFAnalysisCountdown] = useState(0)
   const [smartSuggestionsLoading, setSmartSuggestionsLoading] = useState(false)
   const [foodListExpanded, setFoodListExpanded] = useState(false)
   const [exerciseListExpanded, setExerciseListExpanded] = useState(false)
@@ -137,53 +134,24 @@ function DashboardContent() {
   // 使用日期记录检查Hook
   const { hasRecord, refreshRecords } = useDateRecords()
 
-  const [dailyLog, setDailyLog] = useState<DailyLog>(() => ({
-    date: format(selectedDate, "yyyy-MM-dd"),
-    foodEntries: [],
-    exerciseEntries: [],
-    summary: {
-      totalCaloriesConsumed: 0,
-      totalCaloriesBurned: 0,
-      macros: { carbs: 0, protein: 0, fat: 0 },
-      micronutrients: {},
-    },
-    weight: undefined,
-    calculatedBMR: undefined,
-    baselineExpenditure: undefined,
-  }))
-
-  // 守卫:dailyLog 是否已从 IndexedDB 加载完毕。
-  // 用于阻止依赖 saveDailyLog 的派生 effect 在数据加载完成前
-  // 用空骨架 state 覆盖 IndexedDB 中的真实数据。
-  const [isLogLoaded, setIsLogLoaded] = useState(false)
-
-  // 当选择的日期变化时，加载对应日期的数据
-  useEffect(() => {
-    if (dbInitializing) return
-    const dateKey = format(selectedDate, "yyyy-MM-dd")
-    setIsLogLoaded(false)
-    getDailyLog(dateKey).then((data) => {
-      if (data) {
-        setDailyLog(data)
-      } else {
-        setDailyLog({
-          date: dateKey,
-          foodEntries: [],
-          exerciseEntries: [],
-          summary: {
-            totalCaloriesConsumed: 0,
-            totalCaloriesBurned: 0,
-            macros: { carbs: 0, protein: 0, fat: 0 },
-            micronutrients: {},
-          },
-          weight: undefined,
-          calculatedBMR: undefined,
-          baselineExpenditure: undefined,
-        })
-      }
-      setIsLogLoaded(true)
-    })
-  }, [selectedDate, getDailyLog, dbInitializing])
+  // DailyLog 写入深模块:持当天状态、加载守卫,暴露 commit(意图)与 TEF 倒计时。
+  // 写入顺序、摘要重算、基础消耗盖章、TEF 调度、日历刷新都收进 hook,页面只表达意图。
+  const {
+    log: dailyLog,
+    isLogLoaded,
+    commit,
+    tefAnalysisCountdown,
+  } = useDailyLogWriter({
+    date: dateParam,
+    userProfile,
+    isUserProfileHydrated,
+    aiConfig,
+    isAIConfigHydrated,
+    getDailyLog,
+    saveDailyLog,
+    dbInitializing,
+    refreshRecords,
+  })
 
   // 检查AI配置是否完整(仅在自动 TEF / 智能建议流程中使用,均不涉及视觉模型)
   const checkAIConfig = () => {
@@ -193,19 +161,6 @@ function DashboardContent() {
       return false
     }
     return true
-  }
-
-  const prepareLogWithMetabolicRates = (log: DailyLog): DailyLog => {
-    const rates = calculateMetabolicRates(userProfile, {
-      weight: log.weight,
-    })
-
-    if (!rates) return log
-    return {
-      ...log,
-      calculatedBMR: rates.bmr,
-      baselineExpenditure: rates.baselineExpenditure,
-    }
   }
 
   // 智能建议localStorage存储
@@ -287,74 +242,10 @@ function DashboardContent() {
     }
   }
 
-  // 当食物条目变化时，调度共享后台 TEF 分析。
-  useEffect(() => {
-    if (!isLogLoaded || !isUserProfileHydrated || !isAIConfigHydrated) return
-
-    const scheduleResult = scheduleTEFAnalysisForLog({
-      log: dailyLog,
-      aiConfig,
-      saveDailyLog,
-      getDailyLog,
-      prepareLogForSave: prepareLogWithMetabolicRates,
-      onCountdownChange: setTEFAnalysisCountdown,
-      onLogUpdated: (updatedLog) => {
-        setDailyLog((currentLog) => (
-          currentLog.date === updatedLog.date ? updatedLog : currentLog
-        ))
-      },
-    })
-
-    return scheduleResult.unsubscribe
-  }, [isLogLoaded, isUserProfileHydrated, isAIConfigHydrated, dailyLog.date, dailyLog.foodEntries, dailyLog.tefAnalysis, aiConfig, saveDailyLog, getDailyLog])
-
-  // 当用户配置或每日日志（特别是体重、日期和活动水平）变化时，重新计算BMR和TDEE
-  useEffect(() => {
-    // 必须等真实数据和本地 profile 加载完才能算/写,否则会用默认 profile 覆盖派生值。
-    if (!isLogLoaded || !isUserProfileHydrated) return
-    if (userProfile && dailyLog.date) {
-      const rates = calculateMetabolicRates(userProfile, {
-        weight: dailyLog.weight,
-      })
-
-      const newBmr = rates?.bmr
-      const newBaseline = rates?.baselineExpenditure
-
-      if (
-        dailyLog.calculatedBMR !== newBmr ||
-        dailyLog.baselineExpenditure !== newBaseline ||
-        (rates && !dailyLog.calculatedBMR && !dailyLog.baselineExpenditure)
-      ) {
-        setDailyLog(currentLogState => {
-          const updatedLogWithNewRates = {
-            ...currentLogState,
-            calculatedBMR: newBmr,
-            baselineExpenditure: newBaseline,
-          }
-          if (currentLogState.calculatedBMR !== newBmr || currentLogState.baselineExpenditure !== newBaseline || (rates && (!currentLogState.calculatedBMR || !currentLogState.baselineExpenditure))) {
-            saveDailyLog(updatedLogWithNewRates.date, updatedLogWithNewRates)
-          }
-          return updatedLogWithNewRates
-        })
-      }
-    }
-  }, [isLogLoaded, isUserProfileHydrated, userProfile, dailyLog.date, dailyLog.weight, saveDailyLog, dailyLog.calculatedBMR, dailyLog.baselineExpenditure])
-
   // 删除条目
   const handleDeleteEntry = (id: string, type: "food" | "exercise") => {
-    const updatedLog = { ...dailyLog }
-
-    if (type === "food") {
-      updatedLog.foodEntries = updatedLog.foodEntries.filter((entry) => entry.log_id !== id)
-    } else {
-      updatedLog.exerciseEntries = updatedLog.exerciseEntries.filter((entry) => entry.log_id !== id)
-    }
-
-    recalculateSummary(updatedLog)
-    setDailyLog(updatedLog)
-    saveDailyLog(updatedLog.date, updatedLog)
+    commit({ kind: "removeEntry", id, type })
     setChartRefreshTrigger(prev => prev + 1)
-    refreshRecords()
 
     toast({
       title: (
@@ -369,23 +260,8 @@ function DashboardContent() {
 
   // 更新条目
   const handleUpdateEntry = (updatedEntry: FoodEntry | ExerciseEntry, type: "food" | "exercise") => {
-    const updatedLog = { ...dailyLog }
-
-    if (type === "food") {
-      updatedLog.foodEntries = updatedLog.foodEntries.map((entry) =>
-        entry.log_id === (updatedEntry as FoodEntry).log_id ? (updatedEntry as FoodEntry) : entry,
-      )
-    } else {
-      updatedLog.exerciseEntries = updatedLog.exerciseEntries.map((entry) =>
-        entry.log_id === (updatedEntry as ExerciseEntry).log_id ? (updatedEntry as ExerciseEntry) : entry,
-      )
-    }
-
-    recalculateSummary(updatedLog)
-    setDailyLog(updatedLog)
-    saveDailyLog(updatedLog.date, updatedLog)
+    commit({ kind: "updateEntry", entry: updatedEntry, type })
     setChartRefreshTrigger(prev => prev + 1)
-    refreshRecords()
 
     toast({
       title: (
@@ -398,47 +274,9 @@ function DashboardContent() {
     })
   }
 
-  const recalculateSummary = (log: DailyLog) => {
-    let totalCaloriesConsumed = 0
-    let totalCarbs = 0
-    let totalProtein = 0
-    let totalFat = 0
-    let totalCaloriesBurned = 0
-    const micronutrients: Record<string, number> = {}
-
-    log.foodEntries.forEach((entry) => {
-      if (entry.total_nutritional_info_consumed) {
-        totalCaloriesConsumed += entry.total_nutritional_info_consumed.calories || 0
-        totalCarbs += entry.total_nutritional_info_consumed.carbohydrates || 0
-        totalProtein += entry.total_nutritional_info_consumed.protein || 0
-        totalFat += entry.total_nutritional_info_consumed.fat || 0
-        Object.entries(entry.total_nutritional_info_consumed).forEach(([key, value]) => {
-          if (!["calories", "carbohydrates", "protein", "fat"].includes(key) && typeof value === "number") {
-            micronutrients[key] = (micronutrients[key] || 0) + value
-          }
-        })
-      }
-    })
-
-    log.exerciseEntries.forEach((entry) => {
-      totalCaloriesBurned += entry.calories_burned_estimated || 0
-    })
-
-    log.summary = {
-      totalCaloriesConsumed,
-      totalCaloriesBurned,
-      macros: { carbs: totalCarbs, protein: totalProtein, fat: totalFat },
-      micronutrients,
-    }
-  }
-
   // 处理每日状态保存
   const handleSaveDailyStatus = (status: DailyStatus) => {
-    const dateKey = format(selectedDate, "yyyy-MM-dd")
-    const updatedLog = { ...dailyLog, dailyStatus: status }
-    setDailyLog(updatedLog)
-    saveDailyLog(dateKey, updatedLog)
-    refreshRecords()
+    commit({ kind: "setDailyStatus", status })
     toast({
       title: (
         <span className="flex items-center">
@@ -446,7 +284,7 @@ function DashboardContent() {
           每日状态已保存
         </span>
       ),
-      description: `已保存 ${dateKey} 的状态记录`,
+      description: `已保存 ${dailyLog.date} 的状态记录`,
     })
   }
 
@@ -582,10 +420,7 @@ function DashboardContent() {
       return
     }
 
-    const updatedLog = { ...dailyLog, mealPlanSuggestion: suggestion }
-    setDailyLog(updatedLog)
-    saveDailyLog(updatedLog.date, updatedLog)
-    refreshRecords()
+    commit({ kind: "setMealPlanSuggestion", suggestion })
   }
 
   return (
@@ -667,15 +502,12 @@ function DashboardContent() {
                   targetWeight={userProfile.targetWeight}
                   disabled={!isUserProfileHydrated}
                   onSave={(weight) => {
-                    const updated = { ...dailyLog, weight }
-                    setDailyLog(updated)
-                    saveDailyLog(updated.date, updated)
+                    commit({ kind: "setWeight", weight })
                     const updatedProfile = syncProfileWeightFromDailyLog(userProfile, weight)
                     if (updatedProfile !== userProfile) {
                       setUserProfile(updatedProfile)
                     }
                     setChartRefreshTrigger(prev => prev + 1)
-                    refreshRecords()
                   }}
                 />
 

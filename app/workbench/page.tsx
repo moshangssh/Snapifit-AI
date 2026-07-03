@@ -46,11 +46,10 @@ import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useDateRecords } from "@/hooks/use-date-records"
 import { compressImage } from "@/lib/image-utils"
-import { scheduleTEFAnalysisForLog } from "@/lib/tef-background-analysis"
-import { calculateMetabolicRates } from "@/lib/health-utils"
 import { PageHeader } from "@/components/ui/page-header"
 import { Tile } from "@/components/ui/tile"
 import { formatDateParam, parseDateParam } from "@/lib/date-params"
+import { useDailyLogWriter } from "@/hooks/use-daily-log-writer"
 
 // 图片预览类型
 interface ImagePreview {
@@ -96,7 +95,7 @@ function WorkbenchContent() {
   const [isCompressing, setIsCompressing] = useState(false)
 
   // 使用本地存储钩子获取用户配置
-  const [userProfile] = useLocalStorage("userProfile", {
+  const [userProfile, , isUserProfileHydrated] = useLocalStorage("userProfile", {
     weight: 70,
     height: 170,
     age: 30,
@@ -107,7 +106,7 @@ function WorkbenchContent() {
   })
 
   // 获取AI配置
-  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", {
+  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
     agentModel: {
       name: "gpt-4o",
       baseUrl: "https://api.openai.com",
@@ -126,50 +125,23 @@ function WorkbenchContent() {
   })
 
   // 使用 IndexedDB 钩子获取日志数据
-  const { getData: getDailyLog, saveData: saveDailyLog } = useIndexedDB("healthLogs")
+  const { getData: getDailyLog, saveData: saveDailyLog, isInitializing: dbInitializing } = useIndexedDB("healthLogs")
 
   // 使用日期记录检查Hook
   const { hasRecord, refreshRecords } = useDateRecords()
 
-  const [dailyLog, setDailyLog] = useState<DailyLog>(() => ({
-    date: format(selectedDate, "yyyy-MM-dd"),
-    foodEntries: [],
-    exerciseEntries: [],
-    summary: {
-      totalCaloriesConsumed: 0,
-      totalCaloriesBurned: 0,
-      macros: { carbs: 0, protein: 0, fat: 0 },
-      micronutrients: {},
-    },
-    weight: undefined,
-    calculatedBMR: undefined,
-    baselineExpenditure: undefined,
-  }))
-
-  // 当选择的日期变化时，加载对应日期的数据
-  useEffect(() => {
-    const dateKey = format(selectedDate, "yyyy-MM-dd")
-    getDailyLog(dateKey).then((data) => {
-      if (data) {
-        setDailyLog(data)
-      } else {
-        setDailyLog({
-          date: dateKey,
-          foodEntries: [],
-          exerciseEntries: [],
-          summary: {
-            totalCaloriesConsumed: 0,
-            totalCaloriesBurned: 0,
-            macros: { carbs: 0, protein: 0, fat: 0 },
-            micronutrients: {},
-          },
-          weight: undefined,
-          calculatedBMR: undefined,
-          baselineExpenditure: undefined,
-        })
-      }
-    })
-  }, [selectedDate, getDailyLog])
+  // 使用 DailyLog 写入 hook
+  const { log: dailyLog, isLogLoaded, commit, tefAnalysisCountdown } = useDailyLogWriter({
+    date: dateParam,
+    userProfile,
+    isUserProfileHydrated,
+    aiConfig,
+    isAIConfigHydrated,
+    getDailyLog,
+    saveDailyLog,
+    dbInitializing,
+    refreshRecords,
+  })
 
   // 检查AI配置是否完整
   const checkAIConfig = () => {
@@ -191,48 +163,6 @@ function WorkbenchContent() {
     }
     return true
   }
-
-  const prepareLogWithMetabolicRates = (log: DailyLog): DailyLog => {
-    const rates = calculateMetabolicRates(userProfile, {
-      weight: log.weight,
-    })
-
-    if (!rates) return log
-    return {
-      ...log,
-      calculatedBMR: rates.bmr,
-      baselineExpenditure: rates.baselineExpenditure,
-    }
-  }
-
-  const tefUnsubscribeRef = useRef<(() => void) | null>(null)
-
-  const scheduleTEFForLog = (log: DailyLog) => {
-    // 在挂载新 listener 前先释放上一次的,否则同 hash 的 job
-    // 会在 listeners Set 里累积,导致 onLogUpdated/refreshRecords 被重复调用。
-    tefUnsubscribeRef.current?.()
-    const { unsubscribe } = scheduleTEFAnalysisForLog({
-      log,
-      aiConfig,
-      saveDailyLog,
-      getDailyLog,
-      prepareLogForSave: prepareLogWithMetabolicRates,
-      onLogUpdated: (updatedLog) => {
-        setDailyLog((currentLog) => (
-          currentLog.date === updatedLog.date ? updatedLog : currentLog
-        ))
-        refreshRecords()
-      },
-    })
-    tefUnsubscribeRef.current = unsubscribe
-  }
-
-  useEffect(() => {
-    return () => {
-      tefUnsubscribeRef.current?.()
-      tefUnsubscribeRef.current = null
-    }
-  }, [])
 
   // 处理图片上传
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -380,24 +310,11 @@ function WorkbenchContent() {
         result = await response.json()
       }
 
-      const updatedLog = { ...dailyLog }
-      const shouldScheduleTEF = activeTab === "food" && Array.isArray(result.food) && result.food.length > 0
-
-      if (shouldScheduleTEF) {
-        updatedLog.foodEntries = [...updatedLog.foodEntries, ...result.food]
-        recalculateSummary(updatedLog)
+      if (activeTab === "food" && result.food) {
+        commit({ kind: "addEntries", food: result.food })
       } else if (activeTab === "exercise" && result.exercise) {
-        updatedLog.exerciseEntries = [...updatedLog.exerciseEntries, ...result.exercise]
-        recalculateSummary(updatedLog)
+        commit({ kind: "addEntries", exercise: result.exercise })
       }
-
-      setDailyLog(updatedLog)
-      saveDailyLog(updatedLog.date, updatedLog)
-      if (shouldScheduleTEF) {
-        scheduleTEFForLog(updatedLog)
-      }
-      // 刷新日期记录状态
-      refreshRecords()
 
       setInputText("")
       setUploadedImages([])
@@ -430,21 +347,7 @@ function WorkbenchContent() {
 
   // 删除条目
   const handleDeleteEntry = (id: string, type: "food" | "exercise") => {
-    const updatedLog = { ...dailyLog }
-
-    if (type === "food") {
-      updatedLog.foodEntries = updatedLog.foodEntries.filter((entry) => entry.log_id !== id)
-    } else {
-      updatedLog.exerciseEntries = updatedLog.exerciseEntries.filter((entry) => entry.log_id !== id)
-    }
-
-    recalculateSummary(updatedLog)
-    setDailyLog(updatedLog)
-    saveDailyLog(updatedLog.date, updatedLog)
-    if (type === "food") {
-      scheduleTEFForLog(updatedLog)
-    }
-    refreshRecords()
+    commit({ kind: "removeEntry", id, type })
 
     toast({
       title: (
@@ -459,25 +362,7 @@ function WorkbenchContent() {
 
   // 更新条目
   const handleUpdateEntry = (updatedEntry: FoodEntry | ExerciseEntry, type: "food" | "exercise") => {
-    const updatedLog = { ...dailyLog }
-
-    if (type === "food") {
-      updatedLog.foodEntries = updatedLog.foodEntries.map((entry) =>
-        entry.log_id === (updatedEntry as FoodEntry).log_id ? (updatedEntry as FoodEntry) : entry,
-      )
-    } else {
-      updatedLog.exerciseEntries = updatedLog.exerciseEntries.map((entry) =>
-        entry.log_id === (updatedEntry as ExerciseEntry).log_id ? (updatedEntry as ExerciseEntry) : entry,
-      )
-    }
-
-    recalculateSummary(updatedLog)
-    setDailyLog(updatedLog)
-    saveDailyLog(updatedLog.date, updatedLog)
-    if (type === "food") {
-      scheduleTEFForLog(updatedLog)
-    }
-    refreshRecords()
+    commit({ kind: "updateEntry", entry: updatedEntry, type })
 
     toast({
       title: (
@@ -490,47 +375,10 @@ function WorkbenchContent() {
     })
   }
 
-  const recalculateSummary = (log: DailyLog) => {
-    let totalCaloriesConsumed = 0
-    let totalCarbs = 0
-    let totalProtein = 0
-    let totalFat = 0
-    let totalCaloriesBurned = 0
-    const micronutrients: Record<string, number> = {}
-
-    log.foodEntries.forEach((entry) => {
-      if (entry.total_nutritional_info_consumed) {
-        totalCaloriesConsumed += entry.total_nutritional_info_consumed.calories || 0
-        totalCarbs += entry.total_nutritional_info_consumed.carbohydrates || 0
-        totalProtein += entry.total_nutritional_info_consumed.protein || 0
-        totalFat += entry.total_nutritional_info_consumed.fat || 0
-        Object.entries(entry.total_nutritional_info_consumed).forEach(([key, value]) => {
-          if (!["calories", "carbohydrates", "protein", "fat"].includes(key) && typeof value === "number") {
-            micronutrients[key] = (micronutrients[key] || 0) + value
-          }
-        })
-      }
-    })
-
-    log.exerciseEntries.forEach((entry) => {
-      totalCaloriesBurned += entry.calories_burned_estimated || 0
-    })
-
-    log.summary = {
-      totalCaloriesConsumed,
-      totalCaloriesBurned,
-      macros: { carbs: totalCarbs, protein: totalProtein, fat: totalFat },
-      micronutrients,
-    }
-  }
-
   // 处理每日状态保存
   const handleSaveDailyStatus = (status: DailyStatus) => {
-    const dateKey = format(selectedDate, "yyyy-MM-dd")
-    const updatedLog = { ...dailyLog, dailyStatus: status }
-    setDailyLog(updatedLog)
-    saveDailyLog(dateKey, updatedLog)
-    refreshRecords()
+    commit({ kind: "setDailyStatus", status })
+
     toast({
       title: (
         <span className="flex items-center">
@@ -538,7 +386,7 @@ function WorkbenchContent() {
           每日状态已保存
         </span>
       ),
-      description: `已保存 ${dateKey} 的状态记录`,
+      description: `已保存 ${dateParam} 的状态记录`,
     })
   }
 
