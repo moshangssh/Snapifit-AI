@@ -1,5 +1,4 @@
 import { format, parseISO, subDays } from "date-fns"
-import { hasUserRecordedData } from "@/lib/daily-log-record"
 import type { DailyLog } from "@/lib/types"
 
 export type PeriodAnalysisRange = "7d" | "30d"
@@ -117,7 +116,13 @@ export function getPeriodAnalysisDateKeys(
 }
 
 export function hasPeriodAnalysisData(log: DailyLog | null | undefined): log is DailyLog {
-  return hasUserRecordedData(log)
+  if (!log) return false
+  return Boolean(
+    log.foodEntries?.length ||
+      log.exerciseEntries?.length ||
+      log.weight !== undefined ||
+      log.dailyStatus,
+  )
 }
 
 export function buildPeriodAnalysisSummary(input: {
