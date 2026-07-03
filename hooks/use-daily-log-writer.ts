@@ -74,14 +74,20 @@ export function useDailyLogWriter(params: UseDailyLogWriterParams): UseDailyLogW
   const [isLogLoaded, setIsLogLoaded] = useState(false)
   const [tefAnalysisCountdown, setTEFAnalysisCountdown] = useState(0)
 
-  // 日期变化或数据库就绪时,加载当天 DailyLog。加载完成前不被空骨架覆盖。
+  // 日期变化或数据库就绪时,加载当天 DailyLog。加载完成前不被空骨架覆盖;
+  // cleanup 置 ignore,防止切日期后旧请求乱序 resolve 时污染新日期状态并误开 commit 守卫。
   useEffect(() => {
     if (dbInitializing) return
     setIsLogLoaded(false)
+    let ignore = false
     Promise.resolve(getDailyLog(date)).then((data) => {
+      if (ignore) return
       setLog(data ?? emptyDailyLog(date))
       setIsLogLoaded(true)
     })
+    return () => {
+      ignore = true
+    }
   }, [date, getDailyLog, dbInitializing])
 
   // 一次用户写入:核心 → setState → 无条件存库 → 刷新日历日期。

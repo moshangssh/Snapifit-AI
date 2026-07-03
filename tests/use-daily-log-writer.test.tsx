@@ -153,6 +153,43 @@ describe("useDailyLogWriter commit load guard", () => {
     unmount()
   })
 
+  it("ignores a stale load that resolves after switching date, keeping the guard closed", async () => {
+    let resolveDayA!: (log: DailyLog) => void
+    let resolveDayB!: (log: DailyLog) => void
+    const getDailyLog = vi.fn((key: string) => {
+      if (key === "2026-05-22") return new Promise<DailyLog>((resolve) => { resolveDayA = resolve })
+      return new Promise<DailyLog>((resolve) => { resolveDayB = resolve })
+    })
+    const saveDailyLog = vi.fn()
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const params = baseParams({ getDailyLog, saveDailyLog })
+
+    const { result, commit, rerender, unmount } = renderWriter(params)
+    rerender({ ...params, date: "2026-05-23" })
+
+    // 旧日期的加载在切换之后才完成:必须被忽略,否则守卫会带着旧日期数据误开,
+    // 此时 commit 会把对新日期的写入落到旧日期上。
+    await act(async () => {
+      resolveDayA(persistedLog())
+    })
+    expect(result.current.isLogLoaded).toBe(false)
+
+    const committed = commit({ kind: "setWeight", weight: 71 })
+
+    expect(committed).toBeNull()
+    expect(saveDailyLog).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveDayB(persistedLog({ date: "2026-05-23" }))
+    })
+    expect(result.current.isLogLoaded).toBe(true)
+    expect(result.current.log.date).toBe("2026-05-23")
+    expect(result.current.log.foodEntries).toHaveLength(1)
+
+    warn.mockRestore()
+    unmount()
+  })
+
   it("rejects commit during the reload window after switching date", async () => {
     let resolveNextDay!: (log: DailyLog) => void
     const getDailyLog = vi.fn((key: string) => {
