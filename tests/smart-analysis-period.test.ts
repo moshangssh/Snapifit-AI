@@ -56,7 +56,7 @@ describe("smart analysis period helpers", () => {
     })
   })
 
-  it("treats food, exercise, weight, status, and metabolic data as real records", () => {
+  it("treats user-recorded food, exercise, weight, and status as real records", () => {
     const logs = [
       makeLog("2026-05-17"),
       makeLog("2026-05-18", {
@@ -110,7 +110,8 @@ describe("smart analysis period helpers", () => {
     ]
 
     expect(hasPeriodAnalysisData(logs[0])).toBe(false)
-    expect(logs.filter(hasPeriodAnalysisData)).toHaveLength(5)
+    expect(hasPeriodAnalysisData(logs[5])).toBe(false)
+    expect(logs.filter(hasPeriodAnalysisData)).toHaveLength(4)
   })
 
   it("summarizes only real records and rounds period metrics", () => {
