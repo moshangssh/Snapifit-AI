@@ -106,7 +106,7 @@ function WorkbenchContent() {
   })
 
   // 获取AI配置
-  const [aiConfig, isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
+  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
     agentModel: {
       name: "gpt-4o",
       baseUrl: "https://api.openai.com",
@@ -125,7 +125,7 @@ function WorkbenchContent() {
   })
 
   // 使用 IndexedDB 钩子获取日志数据
-  const { getData: getDailyLog, saveData: saveDailyLog, dbInitializing } = useIndexedDB("healthLogs")
+  const { getData: getDailyLog, saveData: saveDailyLog, isInitializing: dbInitializing } = useIndexedDB("healthLogs")
 
   // 使用日期记录检查Hook
   const { hasRecord, refreshRecords } = useDateRecords()
