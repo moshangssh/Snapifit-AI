@@ -11,7 +11,7 @@ import type {
 
 /**
  * DailyLog 写入意图。判别式落在**输入**(意图),输出只有一种结局——写好的 DailyLog
- * (区别于 planWorkout 的判别式**输出**)。
+ * (区别于 planWorkout 的判别式**输出**)。覆盖首页、工作台与训练页当前用到的分支。
  */
 export type DailyLogWrite =
   | { kind: "addEntries"; food?: FoodEntry[]; exercise?: ExerciseEntry[] }
