@@ -162,3 +162,34 @@ export function selectASCore(input: SelectASCoreInput): Exercise[] {
 
   return [...selected, ...fallback]
 }
+
+/**
+ * 按模板的 main 肌群槽位从给定候选池中轮换选动作:每个槽位优先取
+ * primaryMuscle 匹配的候选,池内无匹配时回退到整池,再按 offset + 槽位序号
+ * 轮换取模。intermediate(基准/变式)与 advanced(DUP)共用这一份槽位填充,
+ * 池子的构成(基准池、变式池、终身基准池、全力量池)由调用方决定。
+ */
+export function fillTemplateSlots(input: {
+  pool: readonly Exercise[]
+  muscles: readonly MuscleGroup[]
+  offset: number
+}): Exercise[] {
+  const selected: Exercise[] = []
+
+  for (const [slotIndex, muscle] of input.muscles.entries()) {
+    const candidates = input.pool.filter(
+      (exercise) =>
+        exercise.primaryMuscle === muscle &&
+        !selected.some((item) => item.id === exercise.id),
+    )
+    const fallback = input.pool.filter(
+      (exercise) => !selected.some((item) => item.id === exercise.id),
+    )
+    const source = candidates.length > 0 ? candidates : fallback
+    const exercise = source[(input.offset + slotIndex) % source.length]
+
+    if (exercise) selected.push(exercise)
+  }
+
+  return selected
+}

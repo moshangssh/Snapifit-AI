@@ -8,14 +8,13 @@ import {
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
+import { fillTemplateSlots } from "@/lib/workout/engine/selection"
 import { buildSupportPhaseExercises } from "@/lib/workout/engine/support-phases"
-import {
-  auditMicrocycleVolume,
-  auditSessionVolume,
-  type MicrocycleVolumeAudit,
-  type SessionVolumeAudit,
+import type {
+  MicrocycleVolumeAudit,
+  SessionVolumeAudit,
 } from "@/lib/workout/engine/volume-audit"
-import { toAuditSnapshots } from "@/lib/workout/engine/audit"
+import { createEngineSessionScaffold } from "@/lib/workout/engine/session-scaffold"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   GeneratedWorkoutPlan,
@@ -291,24 +290,8 @@ function selectBenchmarksForTemplate(
   const pool = benchmarkPool(state).filter(
     (exercise) => !state.blacklistedExerciseIds.includes(exercise.id),
   )
-  const selected: Exercise[] = []
 
-  for (const [slotIndex, muscle] of template.mainMuscles.entries()) {
-    const candidates = pool.filter(
-      (exercise) =>
-        exercise.primaryMuscle === muscle &&
-        !selected.some((item) => item.id === exercise.id),
-    )
-    const fallback = pool.filter(
-      (exercise) => !selected.some((item) => item.id === exercise.id),
-    )
-    const source = candidates.length > 0 ? candidates : fallback
-    const exercise = source[(offset + slotIndex) % source.length]
-
-    if (exercise) selected.push(exercise)
-  }
-
-  return selected
+  return fillTemplateSlots({ pool, muscles: template.mainMuscles, offset })
 }
 
 function intermediateVariantPool(state: TrainingState): Exercise[] {
@@ -338,25 +321,11 @@ function selectVariantsForTemplate(
   state: TrainingState,
   offset: number,
 ): Exercise[] {
-  const pool = intermediateVariantPool(state)
-  const selected: Exercise[] = []
-
-  for (const [slotIndex, muscle] of template.mainMuscles.entries()) {
-    const candidates = pool.filter(
-      (exercise) =>
-        exercise.primaryMuscle === muscle &&
-        !selected.some((item) => item.id === exercise.id),
-    )
-    const fallback = pool.filter(
-      (exercise) => !selected.some((item) => item.id === exercise.id),
-    )
-    const source = candidates.length > 0 ? candidates : fallback
-    const exercise = source[(offset + slotIndex) % source.length]
-
-    if (exercise) selected.push(exercise)
-  }
-
-  return selected
+  return fillTemplateSlots({
+    pool: intermediateVariantPool(state),
+    muscles: template.mainMuscles,
+    offset,
+  })
 }
 
 /**
@@ -446,60 +415,19 @@ function generateSessionRaw(
   }
 }
 
-function buildVolumeAudits(
-  state: TrainingState,
-  options: {
+const scaffold = createEngineSessionScaffold<
+  {
     effectiveUserWeightKg?: number
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
-  } = {},
-): {
-  plan: RawGeneratedIntermediateWorkoutPlan
-  microcyclePlans: RawGeneratedIntermediateWorkoutPlan[]
-  sessionVolumeAudit: SessionVolumeAudit
-  microcycleVolumeAudit: MicrocycleVolumeAudit
-} {
-  const plan = generateSessionRaw(state, options)
-  // 把微周期重建锚定到轮换边界，使审计始终描述同一个规范 microcycle，与从周期内
-  // 哪一次 session 生成无关（对齐 advanced-engine，见 #80）。前向窗口
-  // （count + index）会跨过轮换边界、并把「基准动作→变式」切换点（第 6 节课）
-  // 后的 session 拖进来，令同一微周期的逐肌群组数随入口剧烈漂移。
-  const sessionsSinceIntermediateStart = Math.max(
-    0,
-    state.completedSessionCount - NOVICE_SESSION_COUNT,
-  )
-  const microcycleStart =
-    state.completedSessionCount -
-    (sessionsSinceIntermediateStart % TEMPLATES.length)
-  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
-    generateSessionRaw(
-      {
-        ...state,
-        completedSessionCount: microcycleStart + index,
-      },
-      options,
-    ),
-  )
-
-  return {
-    plan,
-    microcyclePlans,
-    sessionVolumeAudit: auditSessionVolume({
-      phase: plan.phase,
-      isDeload: plan.isDeload,
-      exercises: plan.exercises,
-    }),
-    microcycleVolumeAudit: auditMicrocycleVolume({
-      phase: plan.phase,
-      completedSessionCount: state.completedSessionCount,
-      currentBlock: plan.trainingState.currentBlock,
-      isDeload: microcyclePlans.some((item) => item.isDeload),
-      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
-      constrainedReasons:
-        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
-      sessions: microcyclePlans,
-    }),
-  }
-}
+  },
+  RawGeneratedIntermediateWorkoutPlan
+>({
+  phaseStartSession: NOVICE_SESSION_COUNT,
+  templateCount: TEMPLATES.length,
+  expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
+  generateSessionRaw,
+  includeCurrentBlock: true,
+})
 
 export function generateSession(
   state: TrainingState,
@@ -508,18 +436,7 @@ export function generateSession(
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
   } = {},
 ): GeneratedWorkoutPlan {
-  const { plan, microcyclePlans, sessionVolumeAudit, microcycleVolumeAudit } =
-    buildVolumeAudits(state, options)
-
-  return {
-    ...plan,
-    ...toAuditSnapshots({
-      sessionExercises: plan.exercises,
-      microcyclePlans,
-      sessionVolumeAudit,
-      microcycleVolumeAudit,
-    }),
-  }
+  return scaffold.generateSession(state, options)
 }
 
 /**
@@ -533,10 +450,5 @@ export function describeVolume(
     recentWorkoutSessionSummaries?: RecentWorkoutSessionSummary[]
   } = {},
 ): { session: SessionVolumeAudit; microcycle: MicrocycleVolumeAudit } {
-  const { sessionVolumeAudit, microcycleVolumeAudit } = buildVolumeAudits(
-    state,
-    options,
-  )
-
-  return { session: sessionVolumeAudit, microcycle: microcycleVolumeAudit }
+  return scaffold.describeVolume(state, options)
 }

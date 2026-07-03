@@ -7,19 +7,18 @@ import {
   type MuscleGroup,
 } from "@/lib/workout/engine/catalog"
 import { AS_UNLOCKED_LABEL, filterASSafe, unlockedRiskCategoryOf } from "@/lib/workout/engine/as-safety"
+import { fillTemplateSlots } from "@/lib/workout/engine/selection"
 import { buildSupportPhaseExercises } from "@/lib/workout/engine/support-phases"
 import {
   ADVANCED_SESSION_START,
   calculateDeloadParams,
   shouldAdvancedDeload,
 } from "@/lib/workout/engine/deload"
-import {
-  auditMicrocycleVolume,
-  auditSessionVolume,
-  type MicrocycleVolumeAudit,
-  type SessionVolumeAudit,
+import type {
+  MicrocycleVolumeAudit,
+  SessionVolumeAudit,
 } from "@/lib/workout/engine/volume-audit"
-import { toAuditSnapshots } from "@/lib/workout/engine/audit"
+import { createEngineSessionScaffold } from "@/lib/workout/engine/session-scaffold"
 import type { TrainingState } from "@/lib/workout/engine/training-state"
 import type {
   GeneratedWorkoutPlan,
@@ -355,28 +354,14 @@ function selectExercisesForTemplate(
   state: TrainingState,
   offset: number,
 ): Exercise[] {
-  const selected: Exercise[] = []
-  const pool = sortForTrainingType(
-    candidatePoolForTemplate(template, state),
-    template.trainingType,
-  )
-
-  for (const [slotIndex, muscle] of template.mainMuscles.entries()) {
-    const candidates = pool.filter(
-      (exercise) =>
-        exercise.primaryMuscle === muscle &&
-        !selected.some((item) => item.id === exercise.id),
-    )
-    const fallback = pool.filter(
-      (exercise) => !selected.some((item) => item.id === exercise.id),
-    )
-    const source = candidates.length > 0 ? candidates : fallback
-    const exercise = source[(offset + slotIndex) % source.length]
-
-    if (exercise) selected.push(exercise)
-  }
-
-  return selected
+  return fillTemplateSlots({
+    pool: sortForTrainingType(
+      candidatePoolForTemplate(template, state),
+      template.trainingType,
+    ),
+    muscles: template.mainMuscles,
+    offset,
+  })
 }
 
 function generateSessionRaw(
@@ -458,75 +443,24 @@ type GenerateAdvancedOptions = {
   fatigueSnapshot?: WorkoutPlanContextSnapshot["fatigueSnapshot"]
 }
 
-function buildVolumeAudits(
-  state: TrainingState,
-  options: GenerateAdvancedOptions = {},
-): {
-  plan: RawGeneratedAdvancedWorkoutPlan
-  microcyclePlans: RawGeneratedAdvancedWorkoutPlan[]
-  sessionVolumeAudit: SessionVolumeAudit
-  microcycleVolumeAudit: MicrocycleVolumeAudit
-} {
-  const plan = generateSessionRaw(state, options)
-  // 把重建锚定到轮换边界，使审计描述的是同一个规范 microcycle，与从周期内
-  // 哪一次 session 生成无关。若用前向窗口（count + index），窗口会跨过
-  // rotationOffset 边界，导致次要肌群容量随入口漂移。
-  const sessionsSinceAdvancedStart = Math.max(
-    0,
-    state.completedSessionCount - ADVANCED_SESSION_START,
-  )
-  const microcycleStart =
-    state.completedSessionCount - (sessionsSinceAdvancedStart % TEMPLATES.length)
-  const microcyclePlans = Array.from({ length: TEMPLATES.length }, (_, index) =>
-    generateSessionRaw(
-      {
-        ...state,
-        completedSessionCount: microcycleStart + index,
-      },
-      options,
-    ),
-  )
-
-  return {
-    plan,
-    microcyclePlans,
-    sessionVolumeAudit: auditSessionVolume({
-      phase: plan.phase,
-      isDeload: plan.isDeload,
-      exercises: plan.exercises,
-    }),
-    microcycleVolumeAudit: auditMicrocycleVolume({
-      phase: plan.phase,
-      completedSessionCount: state.completedSessionCount,
-      currentBlock: plan.trainingState.currentBlock,
-      isDeload: microcyclePlans.some((item) => item.isDeload),
-      expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
-      constrainedReasons:
-        state.blacklistedExerciseIds.length > 0 ? ["blacklist"] : [],
-      sessions: microcyclePlans.map((item) => ({
-        exercises: item.exercises,
-        trainingType: TEMPLATES[item.templateIndex].trainingType,
-      })),
-    }),
-  }
-}
+const scaffold = createEngineSessionScaffold<
+  GenerateAdvancedOptions,
+  RawGeneratedAdvancedWorkoutPlan
+>({
+  phaseStartSession: ADVANCED_SESSION_START,
+  templateCount: TEMPLATES.length,
+  expectedMuscleGroups: TEMPLATE_MAIN_MUSCLE_KEYS,
+  generateSessionRaw,
+  includeCurrentBlock: true,
+  auditSessionTrainingType: (plan) =>
+    TEMPLATES[plan.templateIndex].trainingType,
+})
 
 export function generateSession(
   state: TrainingState,
   options: GenerateAdvancedOptions = {},
 ): GeneratedWorkoutPlan {
-  const { plan, microcyclePlans, sessionVolumeAudit, microcycleVolumeAudit } =
-    buildVolumeAudits(state, options)
-
-  return {
-    ...plan,
-    ...toAuditSnapshots({
-      sessionExercises: plan.exercises,
-      microcyclePlans,
-      sessionVolumeAudit,
-      microcycleVolumeAudit,
-    }),
-  }
+  return scaffold.generateSession(state, options)
 }
 
 /**
@@ -537,10 +471,5 @@ export function describeVolume(
   state: TrainingState,
   options: GenerateAdvancedOptions = {},
 ): { session: SessionVolumeAudit; microcycle: MicrocycleVolumeAudit } {
-  const { sessionVolumeAudit, microcycleVolumeAudit } = buildVolumeAudits(
-    state,
-    options,
-  )
-
-  return { session: sessionVolumeAudit, microcycle: microcycleVolumeAudit }
+  return scaffold.describeVolume(state, options)
 }
