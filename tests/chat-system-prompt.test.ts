@@ -116,6 +116,23 @@ describe("buildChatSystemPrompt", () => {
     expect(prompt).not.toContain("【健身教练的记忆】")
   })
 
+  it("names memories for every real chat expert id (regression: exercise 曾渲染成裸 id)", () => {
+    const prompt = buildChatSystemPrompt({
+      userProfile,
+      now,
+      aiMemory: {
+        exercise: { content: "深蹲膝盖不适,改箱式深蹲" },
+        metabolism: { content: "咖啡因敏感" },
+        timing: { content: "夜班倒班作息" },
+      },
+    })
+
+    expect(prompt).toContain("【运动专家的记忆】")
+    expect(prompt).toContain("【代谢专家的记忆】")
+    expect(prompt).toContain("【时机专家的记忆】")
+    expect(prompt).not.toContain("【exercise的记忆】")
+  })
+
   it("renders single-expert memory for backward compatibility", () => {
     const prompt = buildChatSystemPrompt({
       userProfile,

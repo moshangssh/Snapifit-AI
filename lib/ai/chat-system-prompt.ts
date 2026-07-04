@@ -1,5 +1,6 @@
 import type { DailyLog, UserProfile } from "@/lib/types"
 import { buildDailyEnergySnapshotPrompt } from "@/lib/ai/daily-energy-prompt"
+import { expertDisplayName } from "@/lib/ai/experts"
 import { buildProfilePromptSection } from "@/lib/ai/health-profile-prompt"
 import { formatDailyStatusForAI } from "@/lib/utils"
 
@@ -17,15 +18,6 @@ export interface ChatExpertMemory {
 }
 
 export type ChatAIMemory = ChatExpertMemory | Record<string, ChatExpertMemory>
-
-const EXPERT_NAMES: Record<string, string> = {
-  general: "通用助手",
-  nutrition: "营养师",
-  fitness: "健身教练",
-  psychology: "心理咨询师",
-  medical: "医疗顾问",
-  sleep: "睡眠专家",
-}
 
 const DEFAULT_SYSTEM_PROMPT =
   "你是SnapFit AI健康助手，一个专业的健康管理AI。你可以基于用户的健康数据提供个性化的建议，包括营养、运动、生活方式等各个方面。请用专业但易懂的语言回答用户问题。"
@@ -45,7 +37,7 @@ function buildMemorySection(aiMemory: ChatAIMemory): string {
         团队记忆 (各专家关于用户的重要信息):
         ${memories
           .map(([expertId, memory]) => {
-            const expertName = EXPERT_NAMES[expertId] || expertId
+            const expertName = expertDisplayName(expertId)
             const updateTime = memory.lastUpdated
               ? new Date(memory.lastUpdated).toLocaleString("zh-CN")
               : "未知"
