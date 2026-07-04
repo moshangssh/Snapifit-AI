@@ -3,7 +3,6 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { Brain, Loader2, RefreshCw, Sparkles } from "lucide-react"
 import type {
-  AIConfig,
   SmartSuggestionsResponse,
   UserProfile,
 } from "@/lib/types"
@@ -33,7 +32,6 @@ interface SmartSuggestionsProps {
   onRefresh?: () => void
   currentDate?: string
   userProfile: UserProfile
-  aiConfig: AIConfig
 }
 
 const RANGE_OPTIONS: Array<{ value: SmartSuggestionsRange; label: string }> = [
@@ -138,7 +136,6 @@ export function SmartSuggestions({
   onRefresh,
   currentDate,
   userProfile,
-  aiConfig,
 }: SmartSuggestionsProps) {
   const [isClient, setIsClient] = useState(false)
   const [selectedRange, setSelectedRange] =
@@ -183,7 +180,6 @@ export function SmartSuggestions({
       range={selectedRange}
       endDate={effectiveDate}
       userProfile={userProfile}
-      aiConfig={aiConfig}
       dayLabel={dayLabel}
       selectedRange={selectedRange}
       onRangeChange={setSelectedRange}
@@ -313,7 +309,6 @@ function PeriodPanel({
   range,
   endDate,
   userProfile,
-  aiConfig,
   dayLabel,
   selectedRange,
   onRangeChange,
@@ -321,13 +316,12 @@ function PeriodPanel({
   range: PeriodAnalysisRange
   endDate: string
   userProfile: UserProfile
-  aiConfig: AIConfig
   dayLabel: string
   selectedRange: SmartSuggestionsRange
   onRangeChange: (value: SmartSuggestionsRange) => void
 }) {
   const { summary, analysis, analysisDaysAgo, isReady, isGenerating, generate } =
-    usePeriodAnalysisData({ range, endDate, userProfile, aiConfig })
+    usePeriodAnalysisData({ range, endDate, userProfile })
   const requirement = getPeriodAnalysisRequirement(range)
 
   const refreshAction = analysis && summary && summary.dataDays >= summary.minDataDays && (

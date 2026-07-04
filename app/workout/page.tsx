@@ -13,6 +13,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useWorkoutSessions } from "@/hooks/use-workout-sessions"
 import { applyDailyLogWrite } from "@/lib/apply-daily-log-write"
 import type { AIConfig, DailyLog, UserProfile } from "@/lib/types"
+import { postAI } from "@/lib/ai/client-fetch"
 import {
   completeWorkoutSet,
   createWorkoutSessionFromPlan,
@@ -297,23 +298,18 @@ export default function WorkoutPage() {
                     .map((set) => set.actualReps)
                     .filter((value): value is number => typeof value === "number"),
                 )
-                const response = await fetch("/api/ai/workout-exercise-enrich", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "x-ai-config": JSON.stringify(aiConfig),
-                  },
-                  body: JSON.stringify({
+                const analysis = await postAI<WorkoutExerciseAnalysis>(
+                  "/api/ai/workout-exercise-enrich",
+                  {
                     exerciseName: exercise.actualExerciseName ?? exercise.plannedExerciseName,
                     completedSets: completedSets.length,
                     avgWeightKg,
                     avgReps,
                     effectiveUserWeightKg: baseFinishingSession.effectiveUserWeightKg,
                     userGoal: userProfile.goal,
-                  }),
-                })
-                if (!response.ok) throw new Error(`enrich failed: ${response.status}`)
-                const analysis = (await response.json()) as WorkoutExerciseAnalysis
+                  },
+                  { aiConfig },
+                )
                 return {
                   ...exercise,
                   analysisStatus: "enriched" as const,

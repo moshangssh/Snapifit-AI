@@ -1,4 +1,5 @@
 import type { AIConfig, DailyLog, FoodEntry, TEFAnalysis } from "./types"
+import { postAI } from "./ai/client-fetch"
 import { tefCacheManager } from "./tef-cache"
 import { generateTEFAnalysis, identifyTEFEnhancers } from "./tef-utils"
 
@@ -185,21 +186,16 @@ async function runScheduledTEFAnalysis(job: PendingJob): Promise<void> {
 }
 
 async function performTEFAnalysis(job: PendingJob, foodEntries: FoodEntry[]): Promise<TEFAIResult | null> {
-  const response = await job.fetchImpl("/api/ai/tef-analysis", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-ai-config": JSON.stringify(job.aiConfig),
-    },
-    body: JSON.stringify({ foodEntries }),
-  })
-
-  if (!response.ok) {
-    console.warn("TEF analysis failed:", response.statusText)
+  try {
+    return await postAI<TEFAIResult>(
+      "/api/ai/tef-analysis",
+      { foodEntries },
+      { aiConfig: job.aiConfig, fetchImpl: job.fetchImpl },
+    )
+  } catch (error) {
+    console.warn("TEF analysis failed:", error)
     return null
   }
-
-  return response.json() as Promise<TEFAIResult>
 }
 
 async function persistAnalysisIfCurrent(job: PendingJob, analysis: TEFAnalysis): Promise<void> {

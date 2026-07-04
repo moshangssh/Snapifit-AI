@@ -16,8 +16,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tile } from "@/components/ui/tile"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { postAI } from "@/lib/ai/client-fetch"
 import type {
-  AIConfig,
   DailyLog,
   MealPlanBudgetSnapshot,
   MealPlanSuggestion,
@@ -27,7 +27,6 @@ import type {
 interface Props {
   dailyLog: DailyLog
   userProfile: UserProfile
-  aiConfig: AIConfig
   budgetSnapshot: MealPlanBudgetSnapshot
   suggestion?: MealPlanSuggestion
   workbenchHref: string
@@ -37,7 +36,6 @@ interface Props {
 export function WhatCanIEatCard({
   dailyLog,
   userProfile,
-  aiConfig,
   budgetSnapshot,
   suggestion,
   workbenchHref,
@@ -57,25 +55,14 @@ export function WhatCanIEatCard({
   const handlePlan = async () => {
     setIsPlanning(true)
     try {
-      const response = await fetch("/api/ai/meal-plan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-ai-config": JSON.stringify(aiConfig),
-        },
-        body: JSON.stringify({
+      onSuggestionSave(
+        await postAI<MealPlanSuggestion>("/api/ai/meal-plan", {
           dailyLog,
           userProfile,
           budgetSnapshot,
           inputPreference: preference.trim(),
         }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`meal-plan failed: ${response.status}`)
-      }
-
-      onSuggestionSave((await response.json()) as MealPlanSuggestion)
+      )
     } catch (error) {
       toast({
         title: "AI 规划失败",

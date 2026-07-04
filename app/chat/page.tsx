@@ -25,6 +25,7 @@ import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useAIMemory } from "@/hooks/use-ai-memory"
 import { EnhancedMessageRenderer } from "@/components/enhanced-message-renderer"
 import type { AIConfig, DailyLog, AIMemoryUpdateRequest } from "@/lib/types"
+import { aiConfigHeader } from "@/lib/ai/client-fetch"
 import { hasUserRecordedData } from "@/lib/daily-log-record"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
@@ -573,7 +574,7 @@ export default function ChatPage() {
     api: "/api/ai/chat",
     initialMessages: [],
     headers: {
-      "x-ai-config": JSON.stringify(aiConfig),
+      ...aiConfigHeader(aiConfig),
       "x-expert-role": selectedExpert,
     },
     onResponse: (response) => {
