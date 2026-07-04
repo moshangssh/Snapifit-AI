@@ -5,39 +5,33 @@ import { RefreshCw } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
+import { useLocalStorage } from "@/hooks/use-local-storage"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { cn } from "@/lib/utils"
+import { DEFAULT_AI_CONFIG, postAIStream } from "@/lib/ai/client-fetch"
 import type { DailyLog, AIConfig } from "@/lib/types"
 
 interface AgentAdviceProps {
   dailyLog: DailyLog
   userProfile: any
-  aiConfig: AIConfig
 }
 
-const defaultAIConfigFromParent: AIConfig = {
-  agentModel: { name: "gpt-4o", baseUrl: "https://api.openai.com", apiKey: "" },
-  chatModel: { name: "gpt-4o", baseUrl: "https://api.openai.com", apiKey: "" },
-  visionModel: { name: "gpt-4o", baseUrl: "https://api.openai.com", apiKey: "" },
-};
-
-export function AgentAdvice({ dailyLog, userProfile, aiConfig }: AgentAdviceProps) {
+export function AgentAdvice({ dailyLog, userProfile }: AgentAdviceProps) {
   const [advice, setAdvice] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const { toast } = useToast()
   const abortControllerRef = useRef<AbortController | null>(null)
-  const [isClient, setIsClient] = useState(false)
-
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
+  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>(
+    "aiConfig",
+    DEFAULT_AI_CONFIG,
+  )
 
   const isAiReady = useMemo(() => {
-    const configToUse = isClient ? aiConfig : defaultAIConfigFromParent
-    const model = configToUse.agentModel
+    if (!isAIConfigHydrated) return false
+    const model = aiConfig.agentModel
     return !!(model && model.name && model.baseUrl && model.apiKey)
-  }, [isClient, aiConfig])
+  }, [isAIConfigHydrated, aiConfig])
 
   const fetchAdvice = useCallback(async () => {
     if (!isAiReady) {
@@ -55,22 +49,11 @@ export function AgentAdvice({ dailyLog, userProfile, aiConfig }: AgentAdviceProp
     setAdvice("")
 
     try {
-      const response = await fetch("/api/ai/advice-stream", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-ai-config": JSON.stringify(aiConfig),
-        },
-        body: JSON.stringify({
-          dailyLog,
-          userProfile,
-        }),
-        signal: abortControllerRef.current.signal,
-      })
-      
-      if (!response.ok) {
-        throw new Error(`获取建议失败: ${response.statusText || response.status}`)
-      }
+      const response = await postAIStream(
+        "/api/ai/advice-stream",
+        { dailyLog, userProfile },
+        { signal: abortControllerRef.current.signal },
+      )
       if (!response.body) {
         throw new Error("响应体为空")
       }
@@ -105,7 +88,7 @@ export function AgentAdvice({ dailyLog, userProfile, aiConfig }: AgentAdviceProp
       setIsLoading(false)
       setIsStreaming(false)
     }
-  }, [isAiReady, aiConfig, dailyLog, userProfile, toast])
+  }, [isAiReady, dailyLog, userProfile, toast])
 
   useEffect(() => {
     return () => {

@@ -55,6 +55,7 @@ import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useDateRecords } from "@/hooks/use-date-records"
 import { useDailyLogWriter } from "@/hooks/use-daily-log-writer"
 import { buildDailyEnergySnapshot } from "@/lib/daily-energy-snapshot"
+import { postAI } from "@/lib/ai/client-fetch"
 import { buildMealPlanBudgetSnapshot } from "@/lib/meal-planning"
 import { syncProfileWeightFromDailyLog } from "@/lib/profile-weight"
 import { formatDateParam, parseDateParam } from "@/lib/date-params"
@@ -210,29 +211,19 @@ function DashboardContent() {
         }
       }
 
-      const response = await fetch("/api/ai/smart-suggestions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-ai-config": JSON.stringify(aiConfig),
-        },
-        body: JSON.stringify({
+      const suggestions = await postAI<SmartSuggestionsResponse>(
+        "/api/ai/smart-suggestions",
+        {
           dailyLog: targetLog,
           userProfile,
-          recentLogs
-        }),
-      })
-
-      if (!response.ok) {
-        console.warn("Smart suggestions failed:", response.statusText)
-        return
-      }
-
-      const suggestions = await response.json()
+          recentLogs,
+        },
+        { aiConfig },
+      )
 
       // 保存到localStorage
       const newSuggestions = { ...smartSuggestions }
-      newSuggestions[analysisDate] = suggestions as SmartSuggestionsResponse
+      newSuggestions[analysisDate] = suggestions
       setSmartSuggestions(newSuggestions)
 
     } catch (error) {
@@ -661,7 +652,6 @@ function DashboardContent() {
             <WhatCanIEatCard
               dailyLog={dailyLog}
               userProfile={userProfile}
-              aiConfig={aiConfig}
               budgetSnapshot={mealPlanBudgetSnapshot}
               suggestion={dailyLog.mealPlanSuggestion}
               workbenchHref={`/workbench?date=${dateParam}`}
@@ -774,7 +764,6 @@ function DashboardContent() {
             onRefresh={() => generateSmartSuggestions(dailyLog.date)}
             currentDate={dailyLog.date}
             userProfile={userProfile}
-            aiConfig={aiConfig}
           />
 
           {/* Card 9 — 管理图表 */}
