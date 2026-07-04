@@ -56,6 +56,12 @@ _Avoid_: 高蛋白方案, 蛋白保底项
 The day's carbohydrate, protein, and fat targets the user eats toward. They hang off the 今日热量预算 (not the neutral 今日维持热量), so a weight-loss day tightens them. Protein is anchored to the user's body weight and health 目标, not taken as a share of calories; fat carries a body-weight floor; carbohydrate fills whatever budget remains. There is one set of 宏量目标 per day, shared by the 今日热量平衡 view and the 吃法 picks.
 _Avoid_: 营养素配比, 宏量比例, 固定五五二分
 
+### AI 咨询
+
+**专家角色 (Expert Role)**:
+chat 里可切换的 AI 对话人格(通用助手、营养师、运动专家、代谢专家、行为专家、时机专家六位)。每位专家有独立的 systemPrompt 人格文案、欢迎语,以及按 expertId 分仓的 AI 记忆(只读其他专家的记忆,只写自己领域的)。领域数据定义在 `lib/ai/experts.ts`;icon 与配色属 UI,由 chat 页面按 id 映射。smart-suggestions 的 6 路分类分析 prompt 输出结构化 JSON、无人格对话、无记忆权限,是分析维度而非专家角色,勿混用。
+_Avoid_: 分析维度 (那是 smart-suggestions 的分类), AI 人设 (太泛)
+
 ### Workout Training
 
 **训练模板 (Training Template)**:
