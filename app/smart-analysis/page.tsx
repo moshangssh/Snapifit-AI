@@ -48,7 +48,8 @@ const DEFAULT_USER_PROFILE: UserProfile = {
   bmrFormula: "mifflin-st-jeor",
 }
 
-function parseRange(value: string | null): AnalysisRange {  return value === "7d" || value === "30d" ? value : "day"
+function parseRange(value: string | null): AnalysisRange {
+  return value === "7d" || value === "30d" ? value : "day"
 }
 
 function readLocalRecord<T>(key: string): Record<string, T> {
