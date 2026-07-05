@@ -97,6 +97,23 @@ describe("daily energy snapshot", () => {
     expect(snapshot.state).toBe("no-record")
   })
 
+  it("treats malformed logs without summary as an empty summary", () => {
+    const logWithoutSummary: Partial<DailyLog> = { ...makeLog() }
+    delete logWithoutSummary.summary
+    const snapshot = buildDailyEnergySnapshot({
+      log: logWithoutSummary as DailyLog,
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T08:00:00+08:00"),
+    })
+
+    expect(snapshot.recordedExerciseCalories).toBe(0)
+    expect(snapshot.consumedCalories).toBe(0)
+    expect(snapshot.maintenanceCalories).toBe(2000)
+    expect(snapshot.remainingBudgetCalories).toBe(2000)
+    expect(snapshot.remainingMacros).toEqual(snapshot.macroTargets)
+    expect(snapshot.state).toBe("no-record")
+  })
+
   it("reports missing config instead of treating absent baseline as zero expenditure", () => {
     const snapshot = buildDailyEnergySnapshot({
       log: makeLog({ baselineExpenditure: undefined, calculatedTDEE: undefined }),
