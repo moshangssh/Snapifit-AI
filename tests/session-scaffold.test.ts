@@ -103,6 +103,8 @@ describe("createEngineSessionScaffold", () => {
   })
 
   it("passes the plan's current block through when configured", () => {
+    // intensification 的容量目标 [4,8] 区别于无 currentBlock 时的默认 [6,10],
+    // 转发被弄坏时目标会漂回默认值,断言即变红(#116)。
     const scaffold = createEngineSessionScaffold<Record<string, never>, RawPlan>({
       phaseStartSession: 0,
       templateCount: 4,
@@ -110,36 +112,66 @@ describe("createEngineSessionScaffold", () => {
       includeCurrentBlock: true,
       generateSessionRaw: (state) => ({
         ...rawPlanFor(state),
-        isDeload: true,
-        trainingState: { ...state, currentBlock: "deload" },
+        phase: "intermediate",
+        trainingState: { ...state, currentBlock: "intensification" },
       }),
     })
 
-    const { session, microcycle } = scaffold.describeVolume(baseState)
+    const { microcycle } = scaffold.describeVolume({
+      ...baseState,
+      phase: "intermediate",
+    })
 
-    expect(session.constrainedReasons).toContain("deload")
-    expect(microcycle.status).toBe("constrained")
+    expect(microcycle.muscleGroupAudits.chest.targetMinSets).toBe(4)
+    expect(microcycle.muscleGroupAudits.chest.targetMaxSets).toBe(8)
   })
 
   it("labels audit sessions with the engine's training type when configured", () => {
-    const seenTypes: string[] = []
+    // advanced 审计按 session 训练类型合并容量目标:endurance [10,16] 与
+    // hypertrophy [8,12] 合并为 [8,16]。min=8 只能来自 hypertrophy、max=16
+    // 只能来自 endurance,任一映射被丢弃断言即变红(#116)。
     const scaffold = createEngineSessionScaffold<Record<string, never>, RawPlan>({
       phaseStartSession: 0,
       templateCount: 2,
       expectedMuscleGroups: ["chest"],
-      auditSessionTrainingType: (plan) => {
-        const type = plan.templateIndex % 2 === 0 ? "strength" : "endurance"
-        seenTypes.push(type)
-        return type
-      },
+      auditSessionTrainingType: (plan) =>
+        plan.templateIndex % 2 === 0 ? "endurance" : "hypertrophy",
       generateSessionRaw: (state) => ({
         ...rawPlanFor(state),
+        phase: "advanced",
         templateIndex: state.completedSessionCount % 2,
       }),
     })
 
-    scaffold.generateSession(baseState)
+    const { microcycle } = scaffold.describeVolume({
+      ...baseState,
+      phase: "advanced",
+    })
 
-    expect(seenTypes).toEqual(["strength", "endurance"])
+    expect(microcycle.muscleGroupAudits.chest.targetMinSets).toBe(8)
+    expect(microcycle.muscleGroupAudits.chest.targetMaxSets).toBe(16)
+  })
+
+  it("feeds the injected adjustment capacity into the microcycle audit", () => {
+    // quadriceps 零组数、缺口 6 恰好被注入的 headroomExisting 补齐;注入
+    // 被丢弃时无约束理由的缺口会退化为 fail,断言即变红(#116)。
+    const scaffold = createEngineSessionScaffold<Record<string, never>, RawPlan>({
+      phaseStartSession: 0,
+      templateCount: 4,
+      expectedMuscleGroups: ["chest", "quadriceps"],
+      adjustmentCapacity: () => ({
+        quadriceps: { headroomExisting: 6, headroomNewExercise: 0 },
+      }),
+      generateSessionRaw: (state) => rawPlanFor(state),
+    })
+
+    const { microcycle } = scaffold.describeVolume(baseState)
+
+    expect(microcycle.muscleGroupAudits.quadriceps.status).toBe("adjusted")
+    expect(microcycle.muscleGroupAudits.quadriceps.adjustment).toEqual({
+      addedSets: 6,
+      addedExercise: false,
+      adjustedSets: 6,
+    })
   })
 })
