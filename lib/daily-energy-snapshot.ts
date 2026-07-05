@@ -165,21 +165,21 @@ export function buildDailyEnergySnapshot(input: {
   const inferredRates = calculateMetabolicRates(input.userProfile, {
     weight: input.log.weight,
   })
-  const recordedExerciseCalories =
-    input.log.summary.totalCaloriesBurned ?? 0
+  const summary = input.log.summary
+  const recordedExerciseCalories = summary?.totalCaloriesBurned ?? 0
   const baselineExpenditure =
     input.log.baselineExpenditure ??
     inferredRates?.baselineExpenditure ??
     buildLegacyBaselineExpenditure(input.log, recordedExerciseCalories) ??
     0
-  const consumedCalories = input.log.summary.totalCaloriesConsumed ?? 0
+  const consumedCalories = summary?.totalCaloriesConsumed ?? 0
   const maintenanceCalories = baselineExpenditure + recordedExerciseCalories
   const budgetCalories = buildBudgetCalories({
     maintenanceCalories,
     userProfile: input.userProfile,
   })
   const macroTargets = buildMacroTargets(budgetCalories, input.userProfile)
-  const consumedMacros = input.log.summary.macros ?? {
+  const consumedMacros = summary?.macros ?? {
     carbs: 0,
     protein: 0,
     fat: 0,
