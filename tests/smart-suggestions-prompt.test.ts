@@ -43,7 +43,32 @@ describe("buildSmartSuggestionsDataSummary", () => {
     expect(summary.today.exercise).toBe(300)
   })
 
-  it("follows the snapshot fallback chain instead of raw calculatedTDEE", () => {
+  it("uses profile inference before legacy calculatedTDEE fallback", () => {
+    const legacyLog: DailyLog = {
+      ...dailyLog,
+      baselineExpenditure: undefined,
+      calculatedTDEE: 2200,
+      tefAnalysis: {
+        baseTEF: 180,
+        baseTEFPercentage: 10,
+        enhancementMultiplier: 1.25,
+        enhancedTEF: 230,
+        enhancementFactors: ["咖啡因"],
+        analysisTimestamp: "2026-06-24T04:00:00.000Z",
+      },
+    }
+
+    const summary = buildSmartSuggestionsDataSummary({
+      dailyLog: legacyLog,
+      userProfile,
+      now,
+    })
+
+    expect(summary.today.baselineExpenditure).toBe(2596)
+    expect(summary.today.dailyTotalExpenditure).toBe(2896)
+  })
+
+  it("uses legacy calculatedTDEE minus TEF only when profile inference is unavailable", () => {
     // ADR-0010 口径:遗留 calculatedTDEE 需先扣除 TEF 增强,而不是直接采用
     const legacyLog: DailyLog = {
       ...dailyLog,
@@ -61,7 +86,7 @@ describe("buildSmartSuggestionsDataSummary", () => {
 
     const summary = buildSmartSuggestionsDataSummary({
       dailyLog: legacyLog,
-      userProfile: { ...userProfile, weight: undefined as unknown as number },
+      userProfile: { ...userProfile, weight: 0 },
       now,
     })
 

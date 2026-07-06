@@ -28,6 +28,10 @@ afterEach(() => {
 })
 
 describe("readStoredAIConfig", () => {
+  it("falls back to the default config during SSR", () => {
+    expect(readStoredAIConfig()).toEqual(DEFAULT_AI_CONFIG)
+  })
+
   it("returns the stored config when present", () => {
     stubLocalStorage(JSON.stringify(storedConfig))
 
@@ -78,6 +82,36 @@ describe("postAI", () => {
     expect(init.headers["Content-Type"]).toBe("application/json")
     expect(init.headers["x-ai-config"]).toBe(JSON.stringify(storedConfig))
     expect(init.body).toBe(JSON.stringify({ hello: 1 }))
+  })
+
+  it("passes AbortSignal through to fetch", async () => {
+    const controller = new AbortController()
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ advice: "ok" }), { status: 200 }),
+    ) as unknown as typeof fetch
+
+    await postAI("/api/ai/advice", {}, {
+      aiConfig: storedConfig,
+      fetchImpl,
+      signal: controller.signal,
+    })
+
+    const [, init] = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(init.signal).toBe(controller.signal)
+  })
+
+  it("propagates fetch rejections without wrapping them", async () => {
+    const networkError = new TypeError("fetch failed")
+    const fetchImpl = vi.fn(async () => {
+      throw networkError
+    }) as unknown as typeof fetch
+
+    const error = await postAI("/api/ai/advice", {}, {
+      aiConfig: storedConfig,
+      fetchImpl,
+    }).catch((caught) => caught)
+
+    expect(error).toBe(networkError)
   })
 
   it("throws AIRequestError with the server message on non-2xx", async () => {
