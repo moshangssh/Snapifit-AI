@@ -25,7 +25,7 @@ import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useAIMemory } from "@/hooks/use-ai-memory"
 import { EnhancedMessageRenderer } from "@/components/enhanced-message-renderer"
 import type { AIConfig, DailyLog, AIMemoryUpdateRequest } from "@/lib/types"
-import { aiConfigHeader } from "@/lib/ai/client-fetch"
+import { DEFAULT_AI_CONFIG, aiConfigHeader } from "@/lib/ai/client-fetch"
 import { EXPERT_ROLES, getExpertRole } from "@/lib/ai/experts"
 import { hasUserRecordedData } from "@/lib/daily-log-record"
 import { cn } from "@/lib/utils"
@@ -78,23 +78,7 @@ export default function ChatPage() {
   const [isMobile, setIsMobile] = useState(false)
 
   const [userProfile] = useLocalStorage("userProfile", {})
-  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", {
-    agentModel: {
-      name: "gpt-4o",
-      baseUrl: "https://api.openai.com",
-      apiKey: "",
-    },
-    chatModel: {
-      name: "gpt-4o",
-      baseUrl: "https://api.openai.com",
-      apiKey: "",
-    },
-    visionModel: {
-      name: "gpt-4o",
-      baseUrl: "https://api.openai.com",
-      apiKey: "",
-    },
-  })
+  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", DEFAULT_AI_CONFIG)
   const { getData } = useIndexedDB("healthLogs")
   const [todayLog, setTodayLog] = useState<DailyLog | null>(null)
 
