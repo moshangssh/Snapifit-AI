@@ -38,11 +38,46 @@ describe("readStoredAIConfig", () => {
     expect(readStoredAIConfig()).toEqual(storedConfig)
   })
 
+  it("fills missing models from the default config", () => {
+    const legacyConfig = {
+      chatModel: storedConfig.chatModel,
+      visionModel: storedConfig.visionModel,
+    }
+    stubLocalStorage(JSON.stringify(legacyConfig))
+
+    expect(readStoredAIConfig()).toEqual({
+      ...DEFAULT_AI_CONFIG,
+      chatModel: storedConfig.chatModel,
+      visionModel: storedConfig.visionModel,
+    })
+  })
+
+  it("fills invalid or missing model fields from the default config", () => {
+    stubLocalStorage(JSON.stringify({
+      ...storedConfig,
+      chatModel: {
+        name: "m-chat",
+        baseUrl: 123,
+      },
+    }))
+
+    expect(readStoredAIConfig()).toEqual({
+      ...storedConfig,
+      chatModel: {
+        ...DEFAULT_AI_CONFIG.chatModel,
+        name: "m-chat",
+      },
+    })
+  })
+
   it("falls back to the default config when missing or corrupted", () => {
     stubLocalStorage(null)
     expect(readStoredAIConfig()).toEqual(DEFAULT_AI_CONFIG)
 
     stubLocalStorage("{not json")
+    expect(readStoredAIConfig()).toEqual(DEFAULT_AI_CONFIG)
+
+    stubLocalStorage(JSON.stringify([]))
     expect(readStoredAIConfig()).toEqual(DEFAULT_AI_CONFIG)
   })
 })

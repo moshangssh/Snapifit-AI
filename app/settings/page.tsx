@@ -34,6 +34,7 @@ import {
 } from "@/lib/workout/engine/training-state"
 import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
 import type { AIConfig, AIMemory, AIMemoryUpdateRequest, ModelConfig } from "@/lib/types"
+import { DEFAULT_AI_CONFIG } from "@/lib/ai/client-fetch"
 import type { OpenAIModel } from "@/lib/ai/types"
 import { validateOptionalAIConfig } from "@/lib/ai/config"
 import {
@@ -77,29 +78,11 @@ const defaultUserProfile = {
   healthAwareness: undefined as string | undefined,
 }
 
-const defaultAIConfig: AIConfig = {
-  agentModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-  chatModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-  visionModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-}
-
 function SettingsContent() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const [userProfile, setUserProfile] = useLocalStorage("userProfile", defaultUserProfile)
-  const [aiConfig, setAIConfig] = useLocalStorage<AIConfig>("aiConfig", defaultAIConfig)
+  const [aiConfig, setAIConfig] = useLocalStorage<AIConfig>("aiConfig", DEFAULT_AI_CONFIG)
   const [trainingState, setTrainingState] = useState(DEFAULT_TRAINING_STATE)
 
   // 获取URL参数中的tab值，默认为profile
@@ -115,7 +98,7 @@ function SettingsContent() {
 
   // 使用独立的表单状态，避免与 localStorage 状态冲突
   const [formData, setFormData] = useState(defaultUserProfile)
-  const [aiFormData, setAIFormData] = useState(defaultAIConfig)
+  const [aiFormData, setAIFormData] = useState(DEFAULT_AI_CONFIG)
 
   // 模型列表状态
   const [agentModels, setAgentModels] = useState<OpenAIModel[]>([])

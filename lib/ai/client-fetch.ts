@@ -1,4 +1,4 @@
-import type { AIConfig } from "@/lib/types"
+import type { AIConfig, ModelConfig } from "@/lib/types"
 
 /** localStorage 中 AI 配置的存储键,与 settings 页面的 useLocalStorage 一致。 */
 const AI_CONFIG_STORAGE_KEY = "aiConfig"
@@ -7,6 +7,30 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
   agentModel: { name: "gpt-4o", baseUrl: "https://api.openai.com", apiKey: "" },
   chatModel: { name: "gpt-4o", baseUrl: "https://api.openai.com", apiKey: "" },
   visionModel: { name: "gpt-4o", baseUrl: "https://api.openai.com", apiKey: "" },
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function mergeModelConfig(value: unknown, fallback: ModelConfig): ModelConfig {
+  if (!isRecord(value)) return fallback
+
+  return {
+    name: typeof value.name === "string" ? value.name : fallback.name,
+    baseUrl: typeof value.baseUrl === "string" ? value.baseUrl : fallback.baseUrl,
+    apiKey: typeof value.apiKey === "string" ? value.apiKey : fallback.apiKey,
+  }
+}
+
+function mergeAIConfig(value: unknown): AIConfig {
+  if (!isRecord(value)) return DEFAULT_AI_CONFIG
+
+  return {
+    agentModel: mergeModelConfig(value.agentModel, DEFAULT_AI_CONFIG.agentModel),
+    chatModel: mergeModelConfig(value.chatModel, DEFAULT_AI_CONFIG.chatModel),
+    visionModel: mergeModelConfig(value.visionModel, DEFAULT_AI_CONFIG.visionModel),
+  }
 }
 
 /**
@@ -18,7 +42,7 @@ export function readStoredAIConfig(): AIConfig {
 
   try {
     const raw = window.localStorage.getItem(AI_CONFIG_STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as AIConfig) : DEFAULT_AI_CONFIG
+    return raw ? mergeAIConfig(JSON.parse(raw)) : DEFAULT_AI_CONFIG
   } catch {
     return DEFAULT_AI_CONFIG
   }
