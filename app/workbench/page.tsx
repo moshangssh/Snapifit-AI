@@ -132,12 +132,10 @@ function WorkbenchContent() {
   const { hasRecord, refreshRecords } = useDateRecords()
 
   // 使用 DailyLog 写入 hook
-  const { log: dailyLog, isLogLoaded, commit, tefAnalysisCountdown } = useDailyLogWriter({
+  const { log: dailyLog, isLogLoaded, commit } = useDailyLogWriter({
     date: dateParam,
     userProfile,
     isUserProfileHydrated,
-    aiConfig,
-    isAIConfigHydrated,
     getDailyLog,
     saveDailyLog,
     dbInitializing,

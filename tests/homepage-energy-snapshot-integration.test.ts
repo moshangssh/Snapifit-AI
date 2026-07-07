@@ -28,10 +28,21 @@ describe("homepage daily energy snapshot integration", () => {
     expect(source).toContain("单日估算")
   })
 
-  it("shows AI metabolic analysis as a low-confidence hint, not extra budget", () => {
+  it("shows the metabolic hint as a low-confidence explanation, not extra budget", () => {
     expect(source).toContain("dailyEnergySnapshot.metabolicHint")
     expect(source).toContain("低置信度提示")
     expect(source).toContain("不增加预算")
     expect(source).not.toContain("const tefExtra")
+  })
+
+  it("renders the metabolic hint card with two states and no analysis countdown", () => {
+    // 卡片更名为「代谢提示」,不再带 AI 前缀
+    expect(source).toContain('"twin-label">代谢提示')
+    expect(source).not.toContain("AI 代谢提示")
+    // 两态:有食物即时显示(含"未检测到提示"),无食物空态引导;没有"分析中"倒计时态
+    expect(source).toContain("未检测到提示")
+    expect(source).toContain("记录食物后即时显示")
+    expect(source).not.toContain("分析中…")
+    expect(source).not.toContain("tefAnalysisCountdown")
   })
 })

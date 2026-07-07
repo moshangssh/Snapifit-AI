@@ -59,16 +59,6 @@ export interface DailySummaryType {
   micronutrients: Record<string, number>
 }
 
-// TEF 分析结果类型
-export interface TEFAnalysis {
-  baseTEF: number // 基础TEF (kcal)
-  baseTEFPercentage: number // 基础TEF百分比
-  enhancementMultiplier: number // AI分析的增强乘数
-  enhancedTEF: number // 增强后的TEF (kcal)
-  enhancementFactors: string[] // 影响因素列表
-  analysisTimestamp: string // 分析时间戳
-}
-
 // 智能建议类型
 export interface SmartSuggestion {
   title: string
@@ -189,7 +179,6 @@ export interface DailyLog {
   calculatedTDEE?: number
   baselineExpenditure?: number // 基础消耗（BMR × PAL，只含 NEAT+TEF，不含刻意运动）
   dailyTotalExpenditure?: number // 今日总消耗 = baselineExpenditure + summary.totalCaloriesBurned
-  tefAnalysis?: TEFAnalysis // TEF 分析结果
   dailyStatus?: DailyStatus // 每日状态记录
   /** @deprecated 旧版「今天还能吃什么」训练强度字段。新流程不再写入或用于预算。 */
   plannedTrainingType?: PlannedTrainingType

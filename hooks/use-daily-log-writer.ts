@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { applyDailyLogWrite, type DailyLogWrite } from "@/lib/apply-daily-log-write"
-import { scheduleTEFAnalysisForLog } from "@/lib/tef-background-analysis"
-import type { AIConfig, DailyLog, UserProfile } from "@/lib/types"
+import type { DailyLog, UserProfile } from "@/lib/types"
+
+// 旧版独立 TEF AI 分析的 localStorage 缓存键,随 ADR 0015 移除,读到即一次性清理。
+const LEGACY_TEF_CACHE_KEY = "tef-analysis-cache"
 
 function emptyDailyLog(date: string): DailyLog {
   return {
@@ -27,8 +29,6 @@ export interface UseDailyLogWriterParams {
   date: string
   userProfile: UserProfile
   isUserProfileHydrated: boolean
-  aiConfig: AIConfig
-  isAIConfigHydrated: boolean
   getDailyLog: (key: string) => Promise<DailyLog | null | undefined>
   saveDailyLog: (key: string, log: DailyLog) => Promise<void> | void
   dbInitializing: boolean
@@ -45,13 +45,11 @@ export interface UseDailyLogWriterResult {
    * 日志尚未加载完毕时拒绝写入并返回 null,防止空骨架覆盖当天已持久化数据(issue #98)。
    */
   commit: (write: DailyLogWrite) => DailyLog | null
-  /** TEF 分析倒计时(秒),供 UI 展示。 */
-  tefAnalysisCountdown: number
 }
 
 /**
- * DailyLog 写入的薄 hook:把纯核心 `applyDailyLogWrite` 接到 React 状态、存库、
- * 日历刷新与 TEF 调度上。页面只表达用户意图(`commit(write)`)或读 `log`,
+ * DailyLog 写入的薄 hook:把纯核心 `applyDailyLogWrite` 接到 React 状态、存库与
+ * 日历刷新上。页面只表达用户意图(`commit(write)`)或读 `log`,
  * 写入顺序与副作用不再泄漏进 UI 组件。承接 ADR-0014。
  *
  * 边界:模块只写 DailyLog 这一个聚合。跨聚合(个人档案默认体重同步)与纯 UI
@@ -62,8 +60,6 @@ export function useDailyLogWriter(params: UseDailyLogWriterParams): UseDailyLogW
     date,
     userProfile,
     isUserProfileHydrated,
-    aiConfig,
-    isAIConfigHydrated,
     getDailyLog,
     saveDailyLog,
     dbInitializing,
@@ -72,7 +68,15 @@ export function useDailyLogWriter(params: UseDailyLogWriterParams): UseDailyLogW
 
   const [log, setLog] = useState<DailyLog>(() => emptyDailyLog(date))
   const [isLogLoaded, setIsLogLoaded] = useState(false)
-  const [tefAnalysisCountdown, setTEFAnalysisCountdown] = useState(0)
+
+  // 代谢提示改为展示时本地派生(ADR 0015),旧的 TEF 分析缓存一次性清理、不再写入。
+  useEffect(() => {
+    try {
+      localStorage.removeItem(LEGACY_TEF_CACHE_KEY)
+    } catch {
+      // localStorage 不可用(SSR/隐私模式)时静默跳过
+    }
+  }, [])
 
   // 日期变化或数据库就绪时,加载当天 DailyLog。加载完成前不被空骨架覆盖;
   // cleanup 置 ignore,防止切日期后旧请求乱序 resolve 时污染新日期状态并误开 commit 守卫。
@@ -117,38 +121,5 @@ export function useDailyLogWriter(params: UseDailyLogWriterParams): UseDailyLogW
     void Promise.resolve(saveDailyLog(reconciled.date, reconciled))
   }, [isLogLoaded, isUserProfileHydrated, userProfile, log, saveDailyLog])
 
-  // 食物条目变化时,调度共享后台 TEF 分析。以 effect 返回的 unsubscribe 交 React 清理,
-  // 不再手维护 ref;prepareLogForSave 走核心 reconcile,使异步回写的日志同样盖章基础消耗。
-  useEffect(() => {
-    if (!isLogLoaded || !isUserProfileHydrated || !isAIConfigHydrated) return
-
-    const scheduleResult = scheduleTEFAnalysisForLog({
-      log,
-      aiConfig,
-      saveDailyLog,
-      getDailyLog,
-      prepareLogForSave: (candidate) =>
-        applyDailyLogWrite(candidate, { kind: "reconcile" }, { userProfile }),
-      onCountdownChange: setTEFAnalysisCountdown,
-      onLogUpdated: (updatedLog) => {
-        // 异步回写按日期守卫:切日期后旧回写不污染当前查看那天。
-        setLog((currentLog) => (currentLog.date === updatedLog.date ? updatedLog : currentLog))
-      },
-    })
-
-    return scheduleResult.unsubscribe
-  }, [
-    isLogLoaded,
-    isUserProfileHydrated,
-    isAIConfigHydrated,
-    log.date,
-    log.foodEntries,
-    log.tefAnalysis,
-    aiConfig,
-    saveDailyLog,
-    getDailyLog,
-    userProfile,
-  ])
-
-  return { log, isLogLoaded, commit, tefAnalysisCountdown }
+  return { log, isLogLoaded, commit }
 }
