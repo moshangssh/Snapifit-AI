@@ -110,7 +110,7 @@ function DashboardContent() {
     })
 
   // 获取AI配置
-  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
+  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", {
     agentModel: {
       name: "gpt-4o",
       baseUrl: "https://api.openai.com",
@@ -493,11 +493,11 @@ function DashboardContent() {
                     <div className="twin-icon"><Zap /></div>
                     <div className="twin-body">
                       <div className="twin-label">代谢提示</div>
-                      {tefFactorText || metabolicHint.estimatedEffectCalories > 0 ? (
+                      {tefFactorText ? (
                         <>
                           <div className="twin-main">低置信度提示</div>
                           <div className="twin-sub">
-                            {tefFactorText || `估算约 ${metabolicHint.estimatedEffectCalories} kcal`}
+                            {tefFactorText}
                             {" · 不增加预算"}
                           </div>
                         </>

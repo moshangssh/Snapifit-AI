@@ -37,7 +37,7 @@ The user's usual non-exercise activity level used to estimate 基础消耗. It d
 _Avoid_: 训练频率, 运动消耗档位
 
 **代谢提示**:
-A locally computed explanation of possible short-term metabolic factors such as caffeine, spicy food, green tea, or cold drinks. Factors come from metabolic flags tagged by the food-parse AI when the entry is recorded (a food fact, like protein), with local keyword matching as fallback; no dedicated AI call is made. It helps explain confidence and behavior choices, but it does not directly increase 今日维持热量 or 今日热量预算 unless a future multi-day calibration model explicitly promotes it.
+A locally computed explanation of possible short-term metabolic factors such as caffeine, spicy food, green tea, or cold drinks. Factors currently come from local keyword matching over the day's food entries; a planned later slice will have the food-parse AI tag metabolic flags at record time (a food fact, like protein), with keyword matching kept as fallback. No dedicated AI call is made either way. It helps explain confidence and behavior choices, but it does not directly increase 今日维持热量 or 今日热量预算 unless a future multi-day calibration model explicitly promotes it.
 _Avoid_: AI 代谢提示 (no dedicated AI analysis anymore), 可吃额度, 精确额外消耗, TEF 奖励
 
 **热量平衡**:

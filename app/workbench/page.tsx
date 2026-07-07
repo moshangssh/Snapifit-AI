@@ -107,7 +107,7 @@ function WorkbenchContent() {
   })
 
   // 获取AI配置
-  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
+  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", {
     agentModel: {
       name: "gpt-4o",
       baseUrl: "https://api.openai.com",
