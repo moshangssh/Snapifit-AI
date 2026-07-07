@@ -1,5 +1,6 @@
 import type { DailyLog, UserProfile } from "@/lib/types"
 import { calculateMetabolicRates } from "@/lib/health-utils"
+import { calculateBaseTEF, identifyTEFEnhancers } from "@/lib/tef-utils"
 
 export type DailyEnergySnapshotState =
   | "deficit"
@@ -114,44 +115,35 @@ function clampRemaining(value: number): number {
   return Math.max(0, Math.round(value))
 }
 
+// 代谢提示在展示时从当日食物条目现场派生(纯函数),不再读取任何持久化分析结果。
 function buildMetabolicHint(log: DailyLog): DailyEnergySnapshot["metabolicHint"] {
-  if (!log.tefAnalysis) return undefined
+  const foodEntries = log.foodEntries ?? []
+  if (foodEntries.length === 0) return undefined
+
+  const baseTEF = calculateBaseTEF(foodEntries).totalTEF
+  const enhancers = identifyTEFEnhancers(foodEntries)
 
   return {
-    factors: log.tefAnalysis.enhancementFactors,
+    factors: enhancers.factors,
     estimatedEffectCalories: Math.max(
       0,
-      Math.round(log.tefAnalysis.enhancedTEF - log.tefAnalysis.baseTEF),
+      Math.round(baseTEF * (enhancers.suggestedMultiplier - 1)),
     ),
     confidence: "low",
-    warning: "AI 代谢提示仅作解释,不改变今日维持热量或今日热量预算",
+    warning: "代谢提示仅作解释,不改变今日维持热量或今日热量预算",
   }
-}
-
-function getLegacyTEFEnhancement(log: DailyLog): number {
-  if (!log.tefAnalysis) return 0
-
-  return Math.max(
-    0,
-    Math.round(log.tefAnalysis.enhancedTEF - log.tefAnalysis.baseTEF),
-  )
 }
 
 function buildLegacyBaselineExpenditure(
   log: DailyLog,
   recordedExerciseCalories: number,
 ): number | undefined {
-  const legacyTEFEnhancement = getLegacyTEFEnhancement(log)
-
   if (log.calculatedTDEE && log.calculatedTDEE > 0) {
-    return Math.max(0, log.calculatedTDEE - legacyTEFEnhancement)
+    return log.calculatedTDEE
   }
 
   if (log.dailyTotalExpenditure && log.dailyTotalExpenditure > 0) {
-    return Math.max(
-      0,
-      log.dailyTotalExpenditure - recordedExerciseCalories - legacyTEFEnhancement,
-    )
+    return Math.max(0, log.dailyTotalExpenditure - recordedExerciseCalories)
   }
 
   return undefined

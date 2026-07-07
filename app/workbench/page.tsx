@@ -107,7 +107,7 @@ function WorkbenchContent() {
   })
 
   // 获取AI配置
-  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
+  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", {
     agentModel: {
       name: "gpt-4o",
       baseUrl: "https://api.openai.com",
@@ -132,12 +132,10 @@ function WorkbenchContent() {
   const { hasRecord, refreshRecords } = useDateRecords()
 
   // 使用 DailyLog 写入 hook
-  const { log: dailyLog, isLogLoaded, commit, tefAnalysisCountdown } = useDailyLogWriter({
+  const { log: dailyLog, isLogLoaded, commit } = useDailyLogWriter({
     date: dateParam,
     userProfile,
     isUserProfileHydrated,
-    aiConfig,
-    isAIConfigHydrated,
     getDailyLog,
     saveDailyLog,
     dbInitializing,

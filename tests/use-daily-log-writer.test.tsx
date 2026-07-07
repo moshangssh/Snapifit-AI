@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client"
 import { describe, expect, it, vi } from "vitest"
 import { useDailyLogWriter, type UseDailyLogWriterParams, type UseDailyLogWriterResult } from "@/hooks/use-daily-log-writer"
 import type { DailyLogWrite } from "@/lib/apply-daily-log-write"
-import type { AIConfig, DailyLog, FoodEntry, UserProfile } from "@/lib/types"
+import type { DailyLog, FoodEntry, UserProfile } from "@/lib/types"
 
 // Behavior tests at the hook's public interface (issue #98): commit must not
 // persist anything while the day's log is still loading, otherwise the empty
@@ -22,8 +22,6 @@ const userProfile: UserProfile = {
   goal: "maintain",
   bmrFormula: "mifflin-st-jeor",
 }
-
-const aiConfig = {} as AIConfig
 
 function foodEntry(overrides: Partial<FoodEntry> = {}): FoodEntry {
   return {
@@ -68,8 +66,6 @@ function baseParams(overrides: Partial<UseDailyLogWriterParams> = {}): UseDailyL
     date: "2026-05-22",
     userProfile,
     isUserProfileHydrated: false,
-    aiConfig,
-    isAIConfigHydrated: false,
     getDailyLog: vi.fn(async () => null),
     saveDailyLog: vi.fn(),
     dbInitializing: false,
@@ -220,6 +216,34 @@ describe("useDailyLogWriter commit load guard", () => {
     expect(result.current.log.foodEntries).toHaveLength(1)
 
     warn.mockRestore()
+    unmount()
+  })
+})
+
+describe("useDailyLogWriter metabolic hint local derivation (issue #128)", () => {
+  it("cleans up the legacy tef-analysis-cache key and never issues a TEF analysis request", async () => {
+    localStorage.setItem("tef-analysis-cache", "{}")
+    const fetchSpy = vi.fn(async () => new Response("{}"))
+    vi.stubGlobal("fetch", fetchSpy)
+
+    const getDailyLog = vi.fn(async () => persistedLog())
+    const saveDailyLog = vi.fn()
+
+    const { result, unmount } = renderWriter(
+      baseParams({
+        getDailyLog,
+        saveDailyLog,
+        isUserProfileHydrated: true,
+      }),
+    )
+    await act(async () => {})
+    expect(result.current.isLogLoaded).toBe(true)
+
+    expect(localStorage.getItem("tef-analysis-cache")).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(result.current).not.toHaveProperty("tefAnalysisCountdown")
+
+    vi.unstubAllGlobals()
     unmount()
   })
 })

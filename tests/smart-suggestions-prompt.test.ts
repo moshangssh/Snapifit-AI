@@ -89,9 +89,9 @@ describe("buildSmartSuggestionsDataSummary", () => {
     expect(summary.today.dailyTotalExpenditure).toBe(2896)
   })
 
-  it("uses legacy calculatedTDEE minus TEF only when profile inference is unavailable", () => {
-    // ADR-0010 口径:遗留 calculatedTDEE 需先扣除 TEF 增强,而不是直接采用
-    const legacyLog: DailyLog = {
+  it("uses legacy calculatedTDEE as-is and ignores leftover TEF analysis fields", () => {
+    // ADR 0015:legacy TEF 减除已移除,遗留字段被安全忽略
+    const legacyLog = {
       ...dailyLog,
       baselineExpenditure: undefined,
       calculatedTDEE: 2200,
@@ -103,7 +103,7 @@ describe("buildSmartSuggestionsDataSummary", () => {
         enhancementFactors: ["咖啡因"],
         analysisTimestamp: "2026-06-24T04:00:00.000Z",
       },
-    }
+    } as DailyLog
 
     const summary = buildSmartSuggestionsDataSummary({
       dailyLog: legacyLog,
@@ -111,8 +111,8 @@ describe("buildSmartSuggestionsDataSummary", () => {
       now,
     })
 
-    expect(summary.today.baselineExpenditure).toBe(2150)
-    expect(summary.today.dailyTotalExpenditure).toBe(2450)
+    expect(summary.today.baselineExpenditure).toBe(2200)
+    expect(summary.today.dailyTotalExpenditure).toBe(2500)
   })
 
   it("builds the profile from the shared profile summary", () => {

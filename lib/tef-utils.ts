@@ -1,12 +1,4 @@
-import type { FoodEntry, TEFAnalysis } from './types';
-
-const MIN_TEF_MULTIPLIER = 1.0;
-const MAX_TEF_MULTIPLIER = 1.3;
-
-export function clampTEFMultiplier(multiplier: number): number {
-  if (!Number.isFinite(multiplier)) return MIN_TEF_MULTIPLIER;
-  return Math.max(MIN_TEF_MULTIPLIER, Math.min(MAX_TEF_MULTIPLIER, multiplier));
-}
+import type { FoodEntry } from './types';
 
 /**
  * 计算基础食物热效应 (TEF)
@@ -58,70 +50,6 @@ export function calculateBaseTEF(foodEntries: FoodEntry[]): {
     },
     totalCalories,
   };
-}
-
-/**
- * 计算时间衰减因子
- * TEF在进食后达到峰值，然后逐渐衰减
- * 一般在进食后1-3小时内达到峰值，6小时后基本消失
- */
-export function calculateTimeDecayFactor(
-  foodTimestamp: string,
-  currentTime: Date = new Date()
-): number {
-  try {
-    const foodTime = new Date(foodTimestamp);
-    const hoursElapsed = (currentTime.getTime() - foodTime.getTime()) / (1000 * 60 * 60);
-    
-    if (hoursElapsed < 0) return 0; // 未来时间
-    if (hoursElapsed > 6) return 0; // 6小时后TEF基本消失
-    
-    // 使用指数衰减模型：peak at 1.5 hours, decay with half-life of 2 hours
-    const peakTime = 1.5;
-    const halfLife = 2;
-    
-    if (hoursElapsed <= peakTime) {
-      // 上升阶段：从0到1
-      return hoursElapsed / peakTime;
-    } else {
-      // 衰减阶段：指数衰减
-      const decayTime = hoursElapsed - peakTime;
-      return Math.exp(-decayTime * Math.LN2 / halfLife);
-    }
-  } catch (error) {
-    console.warn('Error calculating time decay factor:', error);
-    return 0;
-  }
-}
-
-/**
- * 计算当前时刻的有效TEF
- * 考虑所有食物的时间衰减
- */
-export function calculateCurrentTEF(
-  foodEntries: FoodEntry[],
-  currentTime: Date = new Date()
-): number {
-  let currentTEF = 0;
-
-  foodEntries.forEach(entry => {
-    if (entry.timestamp && entry.total_nutritional_info_consumed) {
-      const nutrition = entry.total_nutritional_info_consumed;
-      
-      // 计算该食物的基础TEF
-      const proteinCalories = (nutrition.protein || 0) * 4;
-      const carbsCalories = (nutrition.carbohydrates || 0) * 4;
-      const fatCalories = (nutrition.fat || 0) * 9;
-      
-      const foodTEF = proteinCalories * 0.25 + carbsCalories * 0.08 + fatCalories * 0.02;
-      
-      // 应用时间衰减因子
-      const decayFactor = calculateTimeDecayFactor(entry.timestamp, currentTime);
-      currentTEF += foodTEF * decayFactor;
-    }
-  });
-
-  return currentTEF;
 }
 
 /**
@@ -198,38 +126,5 @@ export function identifyTEFEnhancers(foodEntries: FoodEntry[]): {
   return {
     factors,
     suggestedMultiplier: Math.round(multiplier * 100) / 100 // 保留2位小数
-  };
-}
-
-/**
- * 生成完整的TEF分析
- */
-export function generateTEFAnalysis(
-  foodEntries: FoodEntry[],
-  enhancementMultiplier?: number
-): TEFAnalysis {
-  const baseTEFData = calculateBaseTEF(foodEntries);
-  const enhancers = identifyTEFEnhancers(foodEntries);
-  
-  // 使用提供的乘数或自动识别的乘数(取 max,避免 AI 保守返回 1.0 时本地关键词检测被吞掉)
-  const finalMultiplier = clampTEFMultiplier(
-    Math.max(
-      clampTEFMultiplier(enhancementMultiplier ?? MIN_TEF_MULTIPLIER),
-      enhancers.suggestedMultiplier
-    )
-  );
-  
-  const enhancedTEF = baseTEFData.totalTEF * finalMultiplier;
-  const baseTEFPercentage = baseTEFData.totalCalories > 0 
-    ? (baseTEFData.totalTEF / baseTEFData.totalCalories) * 100 
-    : 0;
-
-  return {
-    baseTEF: Math.round(baseTEFData.totalTEF * 10) / 10,
-    baseTEFPercentage: Math.round(baseTEFPercentage * 10) / 10,
-    enhancementMultiplier: finalMultiplier,
-    enhancedTEF: Math.round(enhancedTEF * 10) / 10,
-    enhancementFactors: enhancers.factors,
-    analysisTimestamp: new Date().toISOString(),
   };
 }

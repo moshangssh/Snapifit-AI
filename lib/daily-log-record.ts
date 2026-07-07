@@ -13,8 +13,6 @@ import type { DailyLog } from "@/lib/types"
  *     *viewed* as recorded.
  *   - `summary` — recomputed from the entries, so it carries no independent
  *     signal.
- *   - `tefAnalysis` — only ever exists alongside `foodEntries` (scheduled on
- *     food, cleared when food is emptied), so `foodEntries` already covers it.
  */
 export function hasUserRecordedData(
   log: DailyLog | null | undefined,
