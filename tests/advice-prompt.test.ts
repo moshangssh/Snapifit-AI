@@ -125,7 +125,7 @@ describe("buildAdvicePrompt", () => {
     expect(prompt).toContain("今日热量预算: 1900 kcal")
     expect(prompt).toContain("热量平衡: -500 kcal")
     expect(prompt).toContain("宏量目标: 蛋白质 130g, 碳水 242g, 脂肪 46g")
-    expect(prompt).toContain("AI 代谢提示: 咖啡因")
+    expect(prompt).not.toContain("代谢提示")
     expect(prompt).toContain("单日热量平衡只是当天决策估算")
     expect(prompt).not.toContain("净卡路里")
   })

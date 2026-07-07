@@ -42,7 +42,6 @@ export function buildSmartSuggestionsDataSummary(input: {
       bmr: dailyLog.calculatedBMR,
       baselineExpenditure: baselineKnown ? snapshot.baselineExpenditure : null,
       dailyTotalExpenditure: baselineKnown ? snapshot.maintenanceCalories : null,
-      tefAnalysis: dailyLog.tefAnalysis,
       foodEntries: dailyLog.foodEntries.map((entry) => ({
         name: entry.food_name,
         mealType: entry.meal_type,
@@ -156,7 +155,7 @@ export function buildCategorySuggestionPrompts(
 
         专业分析要点：
         1. 基础代谢率与实际消耗的匹配度
-        2. TEF优化策略（基于食物热效应数据）
+        2. TEF优化策略（基于食物记录推断）
         3. 代谢适应性评估（基于体重变化趋势）
         4. 胰岛素敏感性和代谢灵活性指标
 

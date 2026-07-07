@@ -62,7 +62,7 @@ describe("buildChatSystemPrompt", () => {
     expect(prompt).toContain("今日维持热量: 2300 kcal")
     expect(prompt).toContain("今日热量预算: 1900 kcal")
     expect(prompt).toContain("热量平衡: -500 kcal")
-    expect(prompt).toContain("AI 代谢提示: 咖啡因")
+    expect(prompt).not.toContain("代谢提示")
     expect(prompt).not.toContain("净卡路里")
   })
 
