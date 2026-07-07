@@ -43,6 +43,27 @@ describe("buildSmartSuggestionsDataSummary", () => {
     expect(summary.today.exercise).toBe(300)
   })
 
+  it("does not carry TEF analysis data in the summary", () => {
+    const summary = buildSmartSuggestionsDataSummary({
+      dailyLog: {
+        ...dailyLog,
+        tefAnalysis: {
+          baseTEF: 180,
+          baseTEFPercentage: 10,
+          enhancementMultiplier: 1.25,
+          enhancedTEF: 230,
+          enhancementFactors: ["咖啡因"],
+          analysisTimestamp: "2026-06-24T04:00:00.000Z",
+        },
+      },
+      userProfile,
+      now,
+    })
+
+    expect(summary.today).not.toHaveProperty("tefAnalysis")
+    expect(JSON.stringify(summary)).not.toContain("tefAnalysis")
+  })
+
   it("uses profile inference before legacy calculatedTDEE fallback", () => {
     const legacyLog: DailyLog = {
       ...dailyLog,
@@ -150,6 +171,14 @@ describe("suggestion prompts", () => {
     }
     expect(prompts.nutrition).toContain("注册营养师")
     expect(prompts.exercise).toContain("运动生理学家")
+  })
+
+  it("keeps the metabolism dimension without claiming TEF analysis data", () => {
+    const prompts = buildCategorySuggestionPrompts(dataSummary)
+
+    expect(prompts.metabolism).toContain("代谢调节优化")
+    expect(prompts.metabolism).not.toContain("基于食物热效应数据")
+    expect(prompts.metabolism).toContain("基于食物记录推断")
   })
 
   it("builds a today-focused overview prompt", () => {
