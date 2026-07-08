@@ -36,6 +36,11 @@ export async function POST(req: Request) {
         - nutritional_info_per_100g: 每100克的营养成分，包括 calories, carbohydrates, protein, fat 等
         - total_nutritional_info_consumed: 基于消耗克数计算的总营养成分
         - is_estimated: 是否为估算值
+        - metabolic_flags: 代谢因素标签(可选),仅当食物明确含有对应因素时输出,必须从以下固定英文枚举中选择(不要用中文):
+            caffeine(咖啡、红茶、乌龙茶、可乐、能量饮料等含咖啡因),
+            green-tea(绿茶、抹茶类;含绿茶时只标 green-tea,不要再标 caffeine),
+            spicy(辛辣食物), cold(冰饮、冷食), metabolic-enhancer(生姜、肉桂、姜黄等代谢增强物质)
+          无相关因素时省略该字段。例如 iced americano → ["caffeine", "cold"]
 
         示例输出格式:
         {

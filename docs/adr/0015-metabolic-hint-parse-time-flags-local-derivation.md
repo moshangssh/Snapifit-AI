@@ -12,7 +12,7 @@ ADR 0010 把 AI 代谢提示定位为"识别、解释和置信度表达",但实�
 ## Consequences
 
 - 删除 AI 端点 `/api/ai/tef-analysis`、schema、`tef-cache`、`tef-background-analysis` 后台调度与倒计时。
-- (后续切片)`FoodParseSchema` 与三个解析端点(parse / parse-image / parse-with-images)增加可选 `metabolic_flags` 枚举输出;`FoodEntry` 增加对应可选字段。落地前代谢提示仅由关键词匹配驱动。
+- `FoodParseSchema` 与三个解析端点(parse / parse-image / parse-with-images)增加可选 `metabolic_flags` 枚举输出;`FoodEntry` 增加对应可选字段。
 - 代谢提示改为展示时从 `foodEntries` 现场派生(纯函数,优先读 flags,关键词兜底),`DailyLog.tefAnalysis` 字段停止写入并从类型中删除——派生值不持久化。
 - 一并移除 legacy TEF 剔除(`getLegacyTEFEnhancement`):极老的历史记录在 fallback 路径下基础消耗可能虚高几十 kcal,接受该误差。
 - AI prompt(chat/advice/智能建议)不再包含代谢提示行,AI 从食物列表自行推断代谢因素。
