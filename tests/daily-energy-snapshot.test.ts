@@ -252,6 +252,136 @@ describe("daily energy snapshot", () => {
     expect(snapshot.baselineExpenditure).toBe(2596)
   })
 
+  it("derives factors from parse-time metabolic flags when keywords cannot recognize the food", () => {
+    const snapshot = buildDailyEnergySnapshot({
+      log: makeLog({
+        foodEntries: [
+          {
+            ...makeFoodEntry("iced americano", {
+              calories: 4,
+              carbohydrates: 1,
+              protein: 0,
+              fat: 0,
+            }),
+            metabolic_flags: ["caffeine", "cold"],
+          },
+        ],
+      }),
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    expect(snapshot.metabolicHint?.factors).toEqual(["咖啡因", "冷饮热效应"])
+  })
+
+  it("merges flagged entries with keyword-matched entries that have no flags", () => {
+    const snapshot = buildDailyEnergySnapshot({
+      log: makeLog({
+        foodEntries: [
+          {
+            ...makeFoodEntry("iced americano", {
+              calories: 4,
+              carbohydrates: 1,
+              protein: 0,
+              fat: 0,
+            }),
+            metabolic_flags: ["caffeine"],
+          },
+          makeFoodEntry(
+            "麻辣香锅",
+            { calories: 500, carbohydrates: 40, protein: 30, fat: 20 },
+            "food-2",
+          ),
+        ],
+      }),
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    expect(snapshot.metabolicHint?.factors).toEqual(["咖啡因", "辛辣食物"])
+  })
+
+  it("falls back to keyword matching when the parser left metabolic_flags empty", () => {
+    const snapshot = buildDailyEnergySnapshot({
+      log: makeLog({
+        foodEntries: [
+          {
+            ...makeFoodEntry("麻辣香锅", {
+              calories: 500,
+              carbohydrates: 40,
+              protein: 30,
+              fat: 20,
+            }),
+            metabolic_flags: [],
+          },
+        ],
+      }),
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    expect(snapshot.metabolicHint?.factors).toEqual(["辛辣食物"])
+  })
+
+  it("counts a green-tea flagged entry once even when the parser also flagged caffeine", () => {
+    const snapshot = buildDailyEnergySnapshot({
+      log: makeLog({
+        foodEntries: [
+          {
+            ...makeFoodEntry("matcha latte", {
+              calories: 180,
+              carbohydrates: 15,
+              protein: 6,
+              fat: 9,
+            }),
+            metabolic_flags: ["green-tea", "caffeine"],
+          },
+        ],
+      }),
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    expect(snapshot.metabolicHint?.factors).toEqual(["绿茶儿茶素"])
+    // 仅绿茶 1.12:基础 TEF 6+4.8+1.62=12.42 kcal → 约 1 kcal,而非叠加 1.1×1.12
+    expect(snapshot.metabolicHint?.estimatedEffectCalories).toBe(1)
+  })
+
+  it("caps the combined multiplier at 1.3 on the flags path", () => {
+    const snapshot = buildDailyEnergySnapshot({
+      log: makeLog({
+        foodEntries: [
+          {
+            ...makeFoodEntry("espresso", { calories: 2, carbohydrates: 0, protein: 0, fat: 0 }, "f1"),
+            metabolic_flags: ["caffeine"],
+          },
+          {
+            ...makeFoodEntry("matcha latte", { calories: 2, carbohydrates: 0, protein: 0, fat: 0 }, "f2"),
+            metabolic_flags: ["green-tea"],
+          },
+          {
+            ...makeFoodEntry("spicy hotpot", { calories: 500, carbohydrates: 40, protein: 30, fat: 20 }, "f3"),
+            metabolic_flags: ["spicy"],
+          },
+          {
+            ...makeFoodEntry("iced smoothie", { calories: 100, carbohydrates: 25, protein: 0, fat: 0 }, "f4"),
+            metabolic_flags: ["cold"],
+          },
+          {
+            ...makeFoodEntry("turmeric chicken", { calories: 200, carbohydrates: 0, protein: 40, fat: 4 }, "f5"),
+            metabolic_flags: ["metabolic-enhancer"],
+          },
+        ],
+      }),
+      userProfile: baseProfile,
+      now: new Date("2026-06-24T12:00:00+08:00"),
+    })
+
+    // 1.1×1.12×1.08×1.03×1.05 > 1.3 → 夹紧到 1.3,与关键词路径同一上限
+    // 基础 TEF = 70×4×0.25 + 65×4×0.08 + 24×9×0.02 = 95.12 → 上限效果约 29 kcal
+    expect(snapshot.metabolicHint?.estimatedEffectCalories).toBe(29)
+  })
+
   it("counts green tea once as catechin instead of stacking it with caffeine", () => {
     const snapshot = buildDailyEnergySnapshot({
       log: makeLog({

@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { v4 as uuidv4 } from "uuid"
 import { MUSCLE_KEYS, MUSCLE_KEY_SET } from "@/lib/muscle-groups"
+import { METABOLIC_FLAGS, METABOLIC_FLAG_SET } from "@/lib/metabolic-flags"
 
 /**
  * 营养成分 schema。
@@ -30,6 +31,14 @@ export const FoodParseSchema = z.object({
       nutritional_info_per_100g: NutritionalInfoSchema,
       total_nutritional_info_consumed: NutritionalInfoSchema,
       is_estimated: z.boolean(),
+      metabolic_flags: z
+        .array(z.string())
+        .optional()
+        .transform(arr =>
+          arr?.filter((s): s is typeof METABOLIC_FLAGS[number] =>
+            METABOLIC_FLAG_SET.has(s),
+          ),
+        ),
     }),
   ),
 })

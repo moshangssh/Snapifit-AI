@@ -1,3 +1,5 @@
+import type { MetabolicFlag } from "./metabolic-flags"
+
 // 食物记录类型
 export interface FoodEntry {
   log_id: string
@@ -27,6 +29,8 @@ export interface FoodEntry {
   }
   is_estimated: boolean
   timestamp?: string
+  // 解析时 AI 打标的代谢因素,记录时确定的食物事实(同 protein);缺省表示未打过标
+  metabolic_flags?: MetabolicFlag[]
 }
 
 // 运动记录类型
