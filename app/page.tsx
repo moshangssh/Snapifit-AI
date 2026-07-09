@@ -20,7 +20,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Settings as SettingsIcon,
-  Loader2,
   Zap,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -55,6 +54,7 @@ import { useIndexedDB } from "@/hooks/use-indexed-db"
 import { useDateRecords } from "@/hooks/use-date-records"
 import { useDailyLogWriter } from "@/hooks/use-daily-log-writer"
 import { buildDailyEnergySnapshot } from "@/lib/daily-energy-snapshot"
+import { postAI } from "@/lib/ai/client-fetch"
 import { buildMealPlanBudgetSnapshot } from "@/lib/meal-planning"
 import { syncProfileWeightFromDailyLog } from "@/lib/profile-weight"
 import { formatDateParam, parseDateParam } from "@/lib/date-params"
@@ -110,7 +110,7 @@ function DashboardContent() {
     })
 
   // 获取AI配置
-  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
+  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", {
     agentModel: {
       name: "gpt-4o",
       baseUrl: "https://api.openai.com",
@@ -134,26 +134,23 @@ function DashboardContent() {
   // 使用日期记录检查Hook
   const { hasRecord, refreshRecords } = useDateRecords()
 
-  // DailyLog 写入深模块:持当天状态、加载守卫,暴露 commit(意图)与 TEF 倒计时。
-  // 写入顺序、摘要重算、基础消耗盖章、TEF 调度、日历刷新都收进 hook,页面只表达意图。
+  // DailyLog 写入深模块:持当天状态、加载守卫,暴露 commit(意图)。
+  // 写入顺序、摘要重算、基础消耗盖章、日历刷新都收进 hook,页面只表达意图。
   const {
     log: dailyLog,
     isLogLoaded,
     commit,
-    tefAnalysisCountdown,
   } = useDailyLogWriter({
     date: dateParam,
     userProfile,
     isUserProfileHydrated,
-    aiConfig,
-    isAIConfigHydrated,
     getDailyLog,
     saveDailyLog,
     dbInitializing,
     refreshRecords,
   })
 
-  // 检查AI配置是否完整(仅在自动 TEF / 智能建议流程中使用,均不涉及视觉模型)
+  // 检查AI配置是否完整(仅在智能建议流程中使用,不涉及视觉模型)
   const checkAIConfig = () => {
     const modelConfig = aiConfig.agentModel
 
@@ -210,29 +207,19 @@ function DashboardContent() {
         }
       }
 
-      const response = await fetch("/api/ai/smart-suggestions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-ai-config": JSON.stringify(aiConfig),
-        },
-        body: JSON.stringify({
+      const suggestions = await postAI<SmartSuggestionsResponse>(
+        "/api/ai/smart-suggestions",
+        {
           dailyLog: targetLog,
           userProfile,
-          recentLogs
-        }),
-      })
-
-      if (!response.ok) {
-        console.warn("Smart suggestions failed:", response.statusText)
-        return
-      }
-
-      const suggestions = await response.json()
+          recentLogs,
+        },
+        { aiConfig },
+      )
 
       // 保存到localStorage
       const newSuggestions = { ...smartSuggestions }
-      newSuggestions[analysisDate] = suggestions as SmartSuggestionsResponse
+      newSuggestions[analysisDate] = suggestions
       setSmartSuggestions(newSuggestions)
 
     } catch (error) {
@@ -307,10 +294,8 @@ function DashboardContent() {
     now: new Date(),
   })
 
-  // TEF 状态展示
+  // 代谢提示展示:从快照现场派生,记录食物后即时可用
   const metabolicHint = dailyEnergySnapshot.metabolicHint
-  const tefDone = !!metabolicHint
-  const tefRunning = (tefAnalysisCountdown ?? 0) > 0
   const tefFactorText = metabolicHint?.factors.join("、") ?? ""
 
   // ── Hero v3 派生 ───────────────────────────────────
@@ -392,14 +377,6 @@ function DashboardContent() {
     }
   })()
 
-  // 优先级:running > done > empty
-  // 食物清单变化触发新分析时,即使旧 tefAnalysis 还在(可能 multiplier=1.0 显示成 +0 kcal),
-  // 也应展示"分析中…"提示用户旧数值已作废、新分析在跑。
-  const tefCardState: "done" | "running" | "empty" = tefRunning
-    ? "running"
-    : tefDone
-      ? "done"
-      : "empty"
 
   const macroTargets = dailyEnergySnapshot.macroTargets
   const hasMacroTarget = (target: number) =>
@@ -511,16 +488,16 @@ function DashboardContent() {
                   }}
                 />
 
-                {tefCardState === "done" ? (
+                {metabolicHint ? (
                   <div className={cn("twin tef", !tefFactorText && "empty")}>
                     <div className="twin-icon"><Zap /></div>
                     <div className="twin-body">
-                      <div className="twin-label">AI 代谢提示</div>
-                      {metabolicHint && (tefFactorText || metabolicHint.estimatedEffectCalories > 0) ? (
+                      <div className="twin-label">代谢提示</div>
+                      {tefFactorText ? (
                         <>
                           <div className="twin-main">低置信度提示</div>
                           <div className="twin-sub">
-                            {tefFactorText || `估算约 ${metabolicHint.estimatedEffectCalories} kcal`}
+                            {tefFactorText}
                             {" · 不增加预算"}
                           </div>
                         </>
@@ -532,22 +509,13 @@ function DashboardContent() {
                       )}
                     </div>
                   </div>
-                ) : tefCardState === "running" ? (
-                  <div className="twin tef">
-                    <div className="twin-icon"><Loader2 className="animate-spin" /></div>
-                    <div className="twin-body">
-                      <div className="twin-label">AI 代谢提示</div>
-                      <div className="twin-main">分析中…</div>
-                      <div className="twin-sub">约 {tefAnalysisCountdown}s</div>
-                    </div>
-                  </div>
                 ) : (
                   <div className="twin tef empty">
                     <div className="twin-icon"><Zap /></div>
                     <div className="twin-body">
-                      <div className="twin-label">AI 代谢提示</div>
-                      <div className="twin-main">未分析</div>
-                      <div className="twin-sub">添加食物记录后自动分析</div>
+                      <div className="twin-label">代谢提示</div>
+                      <div className="twin-main">暂无记录</div>
+                      <div className="twin-sub">记录食物后即时显示</div>
                     </div>
                   </div>
                 )}
@@ -661,7 +629,6 @@ function DashboardContent() {
             <WhatCanIEatCard
               dailyLog={dailyLog}
               userProfile={userProfile}
-              aiConfig={aiConfig}
               budgetSnapshot={mealPlanBudgetSnapshot}
               suggestion={dailyLog.mealPlanSuggestion}
               workbenchHref={`/workbench?date=${dateParam}`}
@@ -774,7 +741,6 @@ function DashboardContent() {
             onRefresh={() => generateSmartSuggestions(dailyLog.date)}
             currentDate={dailyLog.date}
             userProfile={userProfile}
-            aiConfig={aiConfig}
           />
 
           {/* Card 9 — 管理图表 */}

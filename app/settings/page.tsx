@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useAIMemory } from "@/hooks/use-ai-memory"
+import { useAIMemoryEditor } from "@/hooks/use-ai-memory-editor"
+import { expertDisplayName } from "@/lib/ai/experts"
 import {
   createExportedHealthData,
   normalizeImportedHealthData,
@@ -31,7 +33,8 @@ import {
   writeTrainingState,
 } from "@/lib/workout/engine/training-state"
 import { STRENGTH_EXERCISES } from "@/lib/workout/engine/catalog"
-import type { AIConfig, ModelConfig } from "@/lib/types"
+import type { AIConfig, AIMemory, AIMemoryUpdateRequest, ModelConfig } from "@/lib/types"
+import { DEFAULT_AI_CONFIG } from "@/lib/ai/client-fetch"
 import type { OpenAIModel } from "@/lib/ai/types"
 import { validateOptionalAIConfig } from "@/lib/ai/config"
 import {
@@ -75,29 +78,11 @@ const defaultUserProfile = {
   healthAwareness: undefined as string | undefined,
 }
 
-const defaultAIConfig: AIConfig = {
-  agentModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-  chatModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-  visionModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-}
-
 function SettingsContent() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const [userProfile, setUserProfile] = useLocalStorage("userProfile", defaultUserProfile)
-  const [aiConfig, setAIConfig] = useLocalStorage<AIConfig>("aiConfig", defaultAIConfig)
+  const [aiConfig, setAIConfig] = useLocalStorage<AIConfig>("aiConfig", DEFAULT_AI_CONFIG)
   const [trainingState, setTrainingState] = useState(DEFAULT_TRAINING_STATE)
 
   // 获取URL参数中的tab值，默认为profile
@@ -111,132 +96,9 @@ function SettingsContent() {
   const { memories, updateMemory, clearMemory, clearAllMemories } = useAIMemory()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 记忆编辑状态管理
-  const [editingMemories, setEditingMemories] = useState<Record<string, string>>({})
-  const [memoryUpdateTimeouts, setMemoryUpdateTimeouts] = useState<Record<string, NodeJS.Timeout>>({})
-  const [savingMemories, setSavingMemories] = useState<Record<string, boolean>>({})
-
-  // 初始化编辑状态
-  useEffect(() => {
-    const initialEditingState: Record<string, string> = {}
-    Object.entries(memories).forEach(([expertId, memory]) => {
-      initialEditingState[expertId] = memory.content
-    })
-    setEditingMemories(initialEditingState)
-  }, [memories])
-
-  // 处理记忆内容变化
-  const handleMemoryContentChange = useCallback((expertId: string, content: string) => {
-    // 更新本地编辑状态
-    setEditingMemories(prev => ({
-      ...prev,
-      [expertId]: content
-    }))
-
-    // 清除之前的定时器
-    if (memoryUpdateTimeouts[expertId]) {
-      clearTimeout(memoryUpdateTimeouts[expertId])
-    }
-
-    // 设置新的定时器 - 3秒防抖，给用户足够时间输入
-    const timeoutId = setTimeout(async () => {
-      try {
-        setSavingMemories(prev => ({ ...prev, [expertId]: true }))
-
-        await updateMemory({
-          expertId,
-          newContent: content,
-          reason: "用户手动编辑"
-        })
-
-        toast({
-          title: "记忆已保存",
-          description: "AI助手记忆已自动保存",
-        })
-      } catch (error) {
-        console.error("保存记忆失败:", error)
-        toast({
-          title: "保存失败",
-          description: "记忆保存失败，请重试",
-          variant: "destructive",
-        })
-      } finally {
-        setSavingMemories(prev => ({ ...prev, [expertId]: false }))
-
-        // 清除已完成的定时器
-        setMemoryUpdateTimeouts(prev => {
-          const newTimeouts = { ...prev }
-          delete newTimeouts[expertId]
-          return newTimeouts
-        })
-      }
-    }, 3000) // 3秒防抖
-
-    // 更新定时器记录
-    setMemoryUpdateTimeouts(prev => ({
-      ...prev,
-      [expertId]: timeoutId
-    }))
-  }, [updateMemory, memoryUpdateTimeouts, toast])
-
-  // 清理定时器
-  useEffect(() => {
-    return () => {
-      Object.values(memoryUpdateTimeouts).forEach(timeoutId => {
-        clearTimeout(timeoutId)
-      })
-    }
-  }, [memoryUpdateTimeouts])
-
-  // 检查是否有未保存的更改
-  const hasUnsavedChanges = useCallback((expertId: string) => {
-    const originalContent = memories[expertId]?.content || ""
-    const editingContent = editingMemories[expertId] || ""
-    return originalContent !== editingContent
-  }, [memories, editingMemories])
-
-  // 手动保存记忆
-  const handleManualSave = useCallback(async (expertId: string) => {
-    const content = editingMemories[expertId] || ""
-
-    // 清除自动保存定时器
-    if (memoryUpdateTimeouts[expertId]) {
-      clearTimeout(memoryUpdateTimeouts[expertId])
-      setMemoryUpdateTimeouts(prev => {
-        const newTimeouts = { ...prev }
-        delete newTimeouts[expertId]
-        return newTimeouts
-      })
-    }
-
-    try {
-      setSavingMemories(prev => ({ ...prev, [expertId]: true }))
-
-      await updateMemory({
-        expertId,
-        newContent: content,
-        reason: "用户手动保存"
-      })
-
-      toast({
-        title: "记忆已保存",
-        description: "AI助手记忆已自动保存",
-      })
-    } catch (error) {
-      console.error("保存记忆失败:", error)
-      toast({
-        title: "保存失败",
-        description: "记忆保存失败，请重试",
-        variant: "destructive",
-      })
-    } finally {
-      setSavingMemories(prev => ({ ...prev, [expertId]: false }))
-    }
-  }, [editingMemories, memoryUpdateTimeouts, updateMemory, toast])
-
   // 使用独立的表单状态，避免与 localStorage 状态冲突
   const [formData, setFormData] = useState(defaultUserProfile)
-  const [aiFormData, setAIFormData] = useState(defaultAIConfig)
+  const [aiFormData, setAIFormData] = useState(DEFAULT_AI_CONFIG)
 
   // 模型列表状态
   const [agentModels, setAgentModels] = useState<OpenAIModel[]>([])
@@ -1099,123 +961,15 @@ function SettingsContent() {
                   <p className="text-sm text-muted-foreground">{"暂无AI记忆数据"}</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(memories).map(([expertId, memory]) => {
-                      const getExpertName = (id: string) => {
-                        const expertNames: Record<string, string> = {
-                          general: "通用助手",
-                          nutrition: "营养师",
-                          exercise: "运动专家",
-                          metabolism: "代谢专家",
-                          behavior: "行为专家",
-                          timing: "时机专家",
-                        }
-                        return expertNames[id] || id
-                      }
-
-                      return (
-                        <Card key={expertId} className="rounded-2xl border-border">
-                          <CardHeader className="pb-2 px-4 pt-3">
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <Tile variant="purple" size={18}>
-                                  <Brain />
-                                </Tile>
-                                {getExpertName(expertId)}
-                              </CardTitle>
-                              <div className="text-xs text-muted-foreground">
-                                {memory.content.length}/500
-                              </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(memory.lastUpdated).toLocaleDateString('zh-CN')}
-                            </div>
-                          </CardHeader>
-                          <CardContent className="px-4 pb-3">
-                            <div className="space-y-2">
-                              <div className="relative">
-                                <Textarea
-                                  value={editingMemories[expertId] || ""}
-                                  onChange={(e) => {
-                                    if (e.target.value.length <= 500) {
-                                      handleMemoryContentChange(expertId, e.target.value)
-                                    }
-                                  }}
-                                  placeholder={"AI助手的记忆内容..."}
-                                  className="min-h-[60px] resize-none text-sm"
-                                  maxLength={500}
-                                />
-                                {/* 保存状态指示器 */}
-                                {savingMemories[expertId] && (
-                                  <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-c-ai bg-c-ai/10 px-1.5 py-0.5 rounded">
-                                    <div className="w-2 h-2 border border-c-ai border-t-transparent rounded-full animate-spin"></div>
-                                    <span>{"保存中"}</span>
-                                  </div>
-                                )}
-                                {hasUnsavedChanges(expertId) && !savingMemories[expertId] && (
-                                  <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-c-food bg-c-food/10 px-1.5 py-0.5 rounded">
-                                    <div className="w-1.5 h-1.5 bg-c-food rounded-full"></div>
-                                    <span>{"未保存"}</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <div className="text-xs text-muted-foreground">
-                                  {(editingMemories[expertId] || "").length > 400 && (
-                                    <span className="text-c-food">
-                                      即将达到上限
-                                    </span>
-                                  )}
-                                  {hasUnsavedChanges(expertId) && (
-                                    <span className="text-c-food">
-                                      3秒后自动保存
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex space-x-1">
-                                  {hasUnsavedChanges(expertId) && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleManualSave(expertId)}
-                                      disabled={savingMemories[expertId]}
-                                      className="h-6 px-2 text-xs"
-                                    >
-                                      {savingMemories[expertId] ? "保存中" : "保存"}
-                                    </Button>
-                                  )}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      clearMemory(expertId).then(() => {
-                                        // 同时清空编辑状态
-                                        setEditingMemories(prev => ({
-                                          ...prev,
-                                          [expertId]: ""
-                                        }))
-                                        toast({
-                                          title: "所有记忆已清空",
-                                          description: `${getExpertName(expertId)}的记忆已清空`,
-                                        })
-                                      }).catch((error) => {
-                                        toast({
-                                          title: "清空失败",
-                                          description: error.message,
-                                          variant: "destructive",
-                                        })
-                                      })
-                                    }}
-                                    className="h-6 px-2 text-xs"
-                                  >
-                                    {"清除"}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )
-                    })}
+                    {Object.entries(memories).map(([expertId, memory]) => (
+                      <AIMemoryCard
+                        key={expertId}
+                        expertId={expertId}
+                        memory={memory}
+                        updateMemory={updateMemory}
+                        clearMemory={clearMemory}
+                      />
+                    ))}
                   </div>
                 )}
 
@@ -1421,5 +1175,129 @@ export default function SettingsPage() {
     </div>}>
       <SettingsContent />
     </Suspense>
+  )
+}
+
+interface AIMemoryCardProps {
+  expertId: string
+  memory: AIMemory
+  updateMemory: (request: AIMemoryUpdateRequest) => Promise<void>
+  clearMemory: (expertId: string) => Promise<void>
+}
+
+function AIMemoryCard({ expertId, memory, updateMemory, clearMemory }: AIMemoryCardProps) {
+  const { toast } = useToast()
+  const { draft, setDraft, save, isSaving, hasUnsavedChanges } = useAIMemoryEditor({
+    expertId,
+    persistedContent: memory.content,
+    updateMemory,
+    onSaveSuccess: () =>
+      toast({
+        title: "记忆已保存",
+        description: "AI助手记忆已自动保存",
+      }),
+    onSaveError: (error) => {
+      console.error("保存记忆失败:", error)
+      toast({
+        title: "保存失败",
+        description: "记忆保存失败，请重试",
+        variant: "destructive",
+      })
+    },
+  })
+
+  return (
+    <Card className="rounded-2xl border-border">
+      <CardHeader className="pb-2 px-4 pt-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Tile variant="purple" size={18}>
+              <Brain />
+            </Tile>
+            {expertDisplayName(expertId)}
+          </CardTitle>
+          <div className="text-xs text-muted-foreground">
+            {memory.content.length}/500
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {new Date(memory.lastUpdated).toLocaleDateString('zh-CN')}
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-3">
+        <div className="space-y-2">
+          <div className="relative">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={"AI助手的记忆内容..."}
+              className="min-h-[60px] resize-none text-sm"
+              maxLength={500}
+            />
+            {/* 保存状态指示器 */}
+            {isSaving && (
+              <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-c-ai bg-c-ai/10 px-1.5 py-0.5 rounded">
+                <div className="w-2 h-2 border border-c-ai border-t-transparent rounded-full animate-spin"></div>
+                <span>{"保存中"}</span>
+              </div>
+            )}
+            {hasUnsavedChanges && !isSaving && (
+              <div className="absolute top-1 right-1 flex items-center space-x-1 text-xs text-c-food bg-c-food/10 px-1.5 py-0.5 rounded">
+                <div className="w-1.5 h-1.5 bg-c-food rounded-full"></div>
+                <span>{"未保存"}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-between items-center">
+            <div className="text-xs text-muted-foreground">
+              {draft.length > 400 && (
+                <span className="text-c-food">
+                  即将达到上限
+                </span>
+              )}
+              {hasUnsavedChanges && (
+                <span className="text-c-food">
+                  3秒后自动保存
+                </span>
+              )}
+            </div>
+            <div className="flex space-x-1">
+              {hasUnsavedChanges && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => save()}
+                  disabled={isSaving}
+                  className="h-6 px-2 text-xs"
+                >
+                  {isSaving ? "保存中" : "保存"}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  clearMemory(expertId).then(() => {
+                    toast({
+                      title: "所有记忆已清空",
+                      description: `${expertDisplayName(expertId)}的记忆已清空`,
+                    })
+                  }).catch((error) => {
+                    toast({
+                      title: "清空失败",
+                      description: error.message,
+                      variant: "destructive",
+                    })
+                  })
+                }}
+                className="h-6 px-2 text-xs"
+              >
+                {"清除"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

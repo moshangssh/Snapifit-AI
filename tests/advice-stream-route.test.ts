@@ -4,17 +4,17 @@ import type { DailyLog, UserProfile } from "@/lib/types"
 const {
   createAIClientMock,
   extractAIConfigMock,
-  generateTextMock,
+  streamTextMock,
   validateModelConfigMock,
 } = vi.hoisted(() => ({
   createAIClientMock: vi.fn(),
   extractAIConfigMock: vi.fn(),
-  generateTextMock: vi.fn(),
+  streamTextMock: vi.fn(),
   validateModelConfigMock: vi.fn(),
 }))
 
 vi.mock("ai", () => ({
-  generateText: generateTextMock,
+  streamText: streamTextMock,
 }))
 
 vi.mock("@/lib/ai/client", () => ({
@@ -51,18 +51,10 @@ const dailyLog: DailyLog = {
     micronutrients: {},
   },
   baselineExpenditure: 2000,
-  tefAnalysis: {
-    baseTEF: 180,
-    baseTEFPercentage: 10,
-    enhancementMultiplier: 1.25,
-    enhancedTEF: 230,
-    enhancementFactors: ["咖啡因"],
-    analysisTimestamp: "2026-06-24T04:00:00.000Z",
-  },
 }
 
 function createRequest(body: unknown) {
-  return new Request("http://localhost/api/ai/advice", {
+  return new Request("http://localhost/api/ai/advice-stream", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -72,26 +64,33 @@ function createRequest(body: unknown) {
   })
 }
 
-describe("advice route daily energy snapshot", () => {
+describe("advice-stream route", () => {
   beforeEach(() => {
     createAIClientMock.mockReset().mockReturnValue("mock-model")
     extractAIConfigMock.mockReset().mockReturnValue(validAIConfig)
-    generateTextMock.mockReset().mockResolvedValue({ text: "建议内容" })
+    streamTextMock.mockReset().mockResolvedValue({
+      toTextStreamResponse: () => new Response("建议内容"),
+    })
     validateModelConfigMock.mockReset()
   })
 
-  it("passes daily energy snapshot context to the advice prompt", async () => {
-    const { POST } = await import("@/app/api/ai/advice/route")
+  it("streams with the shared advice prompt", async () => {
+    const { POST } = await import("@/app/api/ai/advice-stream/route")
 
-    await POST(createRequest({ dailyLog, userProfile }))
+    const response = await POST(createRequest({ dailyLog, userProfile }))
 
-    const prompt = generateTextMock.mock.calls[0]?.[0]?.prompt as string
+    expect(response.status).toBe(200)
+    const prompt = streamTextMock.mock.calls[0]?.[0]?.prompt as string
+    expect(prompt).toContain("你是一个专业的健康顾问")
     expect(prompt).toContain("今日维持热量: 2300 kcal")
-    expect(prompt).toContain("今日热量预算: 1900 kcal")
-    expect(prompt).toContain("热量平衡: -500 kcal")
-    expect(prompt).toContain("宏量目标: 蛋白质 130g, 碳水 242g, 脂肪 46g")
-    expect(prompt).not.toContain("代谢提示")
-    expect(prompt).toContain("单日热量平衡只是当天决策估算")
-    expect(prompt).not.toContain("净卡路里")
+  })
+
+  it("rejects a body without dailyLog or userProfile", async () => {
+    const { POST } = await import("@/app/api/ai/advice-stream/route")
+
+    const response = await POST(createRequest({ userProfile }))
+
+    expect(response.status).toBeGreaterThanOrEqual(400)
+    expect(streamTextMock).not.toHaveBeenCalled()
   })
 })

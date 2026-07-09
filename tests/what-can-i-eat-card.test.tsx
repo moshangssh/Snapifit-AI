@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { WhatCanIEatCard } from "@/components/what-can-i-eat-card"
 import type {
-  AIConfig,
   DailyLog,
   MealPlanBudgetSnapshot,
   MealPlanSuggestion,
@@ -42,8 +41,6 @@ const userProfile = {
   activityLevel: "moderate",
   goal: "maintain",
 } as unknown as UserProfile
-
-const aiConfig = {} as AIConfig
 
 function makeSuggestion(
   overrides: Partial<MealPlanSuggestion> = {},
@@ -92,7 +89,6 @@ describe("WhatCanIEatCard", () => {
   const baseProps = {
     dailyLog,
     userProfile,
-    aiConfig,
     budgetSnapshot,
     workbenchHref: "/workbench?date=2026-06-12",
     onSuggestionSave: () => {},

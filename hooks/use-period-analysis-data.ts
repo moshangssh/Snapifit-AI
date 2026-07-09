@@ -10,8 +10,12 @@ import {
   type PeriodAnalysisRange,
   type PeriodAnalysisSummary,
 } from "@/lib/smart-analysis-period"
+import {
+  AIRequestError,
+  postAI,
+  readStoredAIConfig,
+} from "@/lib/ai/client-fetch"
 import type {
-  AIConfig,
   DailyLog,
   PeriodSmartAnalysisResponse,
   UserProfile,
@@ -22,7 +26,6 @@ interface UsePeriodAnalysisDataOptions {
   range: PeriodAnalysisRange
   endDate: string
   userProfile: UserProfile
-  aiConfig: AIConfig
 }
 
 interface UsePeriodAnalysisDataResult {
@@ -41,7 +44,7 @@ function cacheKey(range: PeriodAnalysisRange, endDate: string): string {
 export function usePeriodAnalysisData(
   options: UsePeriodAnalysisDataOptions,
 ): UsePeriodAnalysisDataResult {
-  const { range, endDate, userProfile, aiConfig } = options
+  const { range, endDate, userProfile } = options
   const { toast } = useToast()
   const { getData: getDailyLog, isInitializing: dbInitializing } =
     useIndexedDB("healthLogs")
@@ -88,6 +91,7 @@ export function usePeriodAnalysisData(
   const generate = useCallback(async () => {
     if (!summary) return
     if (summary.dataDays < summary.minDataDays) return
+    const aiConfig = readStoredAIConfig()
     if (
       !aiConfig.agentModel.name ||
       !aiConfig.agentModel.baseUrl ||
@@ -104,28 +108,21 @@ export function usePeriodAnalysisData(
 
     setIsGenerating(true)
     try {
-      const response = await fetch("/api/ai/smart-suggestions/period", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-ai-config": JSON.stringify(aiConfig),
-        },
-        body: JSON.stringify({ summary, userProfile }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => null)
+      const data = await postAI<PeriodSmartAnalysisResponse>(
+        "/api/ai/smart-suggestions/period",
+        { summary, userProfile },
+        { aiConfig },
+      )
+      setCache({ ...cache, [cacheKey(range, endDate)]: data })
+    } catch (error) {
+      if (error instanceof AIRequestError) {
         toast({
           title: "周期分析生成失败",
-          description: error?.error ?? "请稍后重试。",
+          description: error.message,
           variant: "destructive",
         })
         return
       }
-
-      const data = (await response.json()) as PeriodSmartAnalysisResponse
-      setCache({ ...cache, [cacheKey(range, endDate)]: data })
-    } catch (error) {
       console.warn("Period smart analysis error:", error)
       toast({
         title: "周期分析生成失败",
@@ -135,7 +132,7 @@ export function usePeriodAnalysisData(
     } finally {
       setIsGenerating(false)
     }
-  }, [aiConfig, cache, endDate, range, setCache, summary, toast, userProfile])
+  }, [cache, endDate, range, setCache, summary, toast, userProfile])
 
   return { summary, analysis, analysisDaysAgo, isReady, isGenerating, generate }
 }

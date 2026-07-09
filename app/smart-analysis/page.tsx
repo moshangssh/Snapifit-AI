@@ -7,7 +7,6 @@ import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { ArrowLeft, Loader2, RefreshCw, Sparkles } from "lucide-react"
 import type {
-  AIConfig,
   SmartSuggestionsResponse,
   UserProfile,
 } from "@/lib/types"
@@ -49,24 +48,6 @@ const DEFAULT_USER_PROFILE: UserProfile = {
   bmrFormula: "mifflin-st-jeor",
 }
 
-const DEFAULT_AI_CONFIG: AIConfig = {
-  agentModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-  chatModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-  visionModel: {
-    name: "gpt-4o",
-    baseUrl: "https://api.openai.com",
-    apiKey: "",
-  },
-}
-
 function parseRange(value: string | null): AnalysisRange {
   return value === "7d" || value === "30d" ? value : "day"
 }
@@ -90,7 +71,6 @@ function SmartAnalysisContent() {
     "userProfile",
     DEFAULT_USER_PROFILE,
   )
-  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", DEFAULT_AI_CONFIG)
   const [daySuggestions, setDaySuggestions] =
     useState<ResolvedSmartSuggestions | null>(null)
   const [isDayReady, setIsDayReady] = useState(false)
@@ -139,7 +119,6 @@ function SmartAnalysisContent() {
             range={selectedRange}
             endDate={selectedDateKey}
             userProfile={userProfile}
-            aiConfig={aiConfig}
           />
         )}
       </div>
@@ -237,15 +216,13 @@ function PeriodDetail({
   range,
   endDate,
   userProfile,
-  aiConfig,
 }: {
   range: PeriodAnalysisRange
   endDate: string
   userProfile: UserProfile
-  aiConfig: AIConfig
 }) {
   const { summary, analysis, analysisDaysAgo, isReady, isGenerating, generate } =
-    usePeriodAnalysisData({ range, endDate, userProfile, aiConfig })
+    usePeriodAnalysisData({ range, endDate, userProfile })
   const requirement = getPeriodAnalysisRequirement(range)
 
   if (!isReady || !summary) {

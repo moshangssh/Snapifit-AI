@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import type { FoodEntry, ExerciseEntry, DailyLog, AIConfig, DailyStatus } from "@/lib/types"
+import { postAI } from "@/lib/ai/client-fetch"
 import { FoodEntryCard } from "@/components/food-entry-card"
 import { ExerciseEntryCard } from "@/components/exercise-entry-card"
 import { DailyStatusCard } from "@/components/DailyStatusCard"
@@ -106,7 +107,7 @@ function WorkbenchContent() {
   })
 
   // 获取AI配置
-  const [aiConfig, , isAIConfigHydrated] = useLocalStorage<AIConfig>("aiConfig", {
+  const [aiConfig] = useLocalStorage<AIConfig>("aiConfig", {
     agentModel: {
       name: "gpt-4o",
       baseUrl: "https://api.openai.com",
@@ -131,12 +132,10 @@ function WorkbenchContent() {
   const { hasRecord, refreshRecords } = useDateRecords()
 
   // 使用 DailyLog 写入 hook
-  const { log: dailyLog, isLogLoaded, commit, tefAnalysisCountdown } = useDailyLogWriter({
+  const { log: dailyLog, isLogLoaded, commit } = useDailyLogWriter({
     date: dateParam,
     userProfile,
     isUserProfileHydrated,
-    aiConfig,
-    isAIConfigHydrated,
     getDailyLog,
     saveDailyLog,
     dbInitializing,
@@ -290,24 +289,11 @@ function WorkbenchContent() {
         }
         result = await response.json()
       } else {
-        const response = await fetch("/api/ai/parse", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-ai-config": JSON.stringify(aiConfig),
-          },
-          body: JSON.stringify({
-            text: inputText,
-            type: activeTab,
-            userWeight: effectiveWeight,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: "解析失败" }))
-          throw new Error(errorData.message || "解析失败")
-        }
-        result = await response.json()
+        result = await postAI("/api/ai/parse", {
+          text: inputText,
+          type: activeTab,
+          userWeight: effectiveWeight,
+        }, { aiConfig })
       }
 
       if (activeTab === "food" && result.food) {

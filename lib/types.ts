@@ -1,3 +1,5 @@
+import type { MetabolicFlag } from "./metabolic-flags"
+
 // 食物记录类型
 export interface FoodEntry {
   log_id: string
@@ -27,6 +29,8 @@ export interface FoodEntry {
   }
   is_estimated: boolean
   timestamp?: string
+  // 解析时 AI 打标的代谢因素,记录时确定的食物事实(同 protein);缺省表示未打过标
+  metabolic_flags?: MetabolicFlag[]
 }
 
 // 运动记录类型
@@ -57,16 +61,6 @@ export interface DailySummaryType {
     fat: number
   }
   micronutrients: Record<string, number>
-}
-
-// TEF 分析结果类型
-export interface TEFAnalysis {
-  baseTEF: number // 基础TEF (kcal)
-  baseTEFPercentage: number // 基础TEF百分比
-  enhancementMultiplier: number // AI分析的增强乘数
-  enhancedTEF: number // 增强后的TEF (kcal)
-  enhancementFactors: string[] // 影响因素列表
-  analysisTimestamp: string // 分析时间戳
 }
 
 // 智能建议类型
@@ -189,7 +183,6 @@ export interface DailyLog {
   calculatedTDEE?: number
   baselineExpenditure?: number // 基础消耗（BMR × PAL，只含 NEAT+TEF，不含刻意运动）
   dailyTotalExpenditure?: number // 今日总消耗 = baselineExpenditure + summary.totalCaloriesBurned
-  tefAnalysis?: TEFAnalysis // TEF 分析结果
   dailyStatus?: DailyStatus // 每日状态记录
   /** @deprecated 旧版「今天还能吃什么」训练强度字段。新流程不再写入或用于预算。 */
   plannedTrainingType?: PlannedTrainingType
